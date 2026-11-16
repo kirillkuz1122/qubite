@@ -120,7 +120,7 @@ impl OpenRouter {
     ) -> Result<ProviderReply, ProviderError> {
         let mut body = serde_json::json!({
             "model": call.external_id,
-            "messages": call.messages,
+            "messages": messages(call),
             "max_tokens": call.max_output_tokens,
             "stream": delta.is_some(),
             "usage": { "include": true },
@@ -211,6 +211,29 @@ impl Provider for OpenRouter {
     ) -> BoxFuture<'a, Result<ProviderReply, ProviderError>> {
         Box::pin(self.send(call, Some(delta)))
     }
+}
+
+/// Сообщения запроса. С картинками последнее сообщение с данными — из частей:
+/// текст и `image_url` (data URL), как принимают модели «со зрением».
+fn messages(call: &ProviderCall) -> serde_json::Value {
+    if call.images.is_empty() {
+        return serde_json::json!(call.messages);
+    }
+    let last = call.messages.len().saturating_sub(1);
+    call.messages
+        .iter()
+        .enumerate()
+        .map(|(i, m)| {
+            if i != last {
+                return serde_json::json!(m);
+            }
+            let mut parts = vec![serde_json::json!({ "type": "text", "text": m.content })];
+            parts.extend(call.images.iter().map(|image| {
+                serde_json::json!({ "type": "image_url", "image_url": { "url": image.data_url() } })
+            }));
+            serde_json::json!({ "role": m.role, "content": parts })
+        })
+        .collect()
 }
 
 /// Поток OpenRouter (SSE): куски `choices[0].delta.content` — в `delta`

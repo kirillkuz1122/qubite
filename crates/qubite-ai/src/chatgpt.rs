@@ -880,12 +880,21 @@ impl ChatGpt {
             .filter(|m| m.role == Role::System)
             .map(|m| m.content.as_str())
             .collect();
-        let input: Vec<serde_json::Value> = call
+        let mut input: Vec<serde_json::Value> = call
             .messages
             .iter()
             .filter(|m| m.role != Role::System)
             .map(|ChatMessage { content, .. }| serde_json::json!({ "role": "user", "content": content }))
             .collect();
+        // Картинки — частями последнего сообщения с данными (фото доски, скрин).
+        if let (false, Some(last)) = (call.images.is_empty(), input.last_mut()) {
+            let mut parts =
+                vec![serde_json::json!({ "type": "input_text", "text": last["content"] })];
+            parts.extend(call.images.iter().map(
+                |image| serde_json::json!({ "type": "input_image", "image_url": image.data_url() }),
+            ));
+            last["content"] = serde_json::Value::Array(parts);
+        }
         let body = serde_json::json!({
             "model": call.external_id,
             "instructions": instructions.join("\n\n"),

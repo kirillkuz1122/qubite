@@ -349,6 +349,9 @@ impl AppState {
         english_lessons::english_phrase,
         english_verbs::english_verbs,
         english_verbs::english_verb_answer,
+        english_verbs::english_verbs_recognize,
+        english_verbs::english_verb_set_create,
+        english_verbs::english_verb_set_delete,
         routes::task_route,
         calendar::calendar,
         calendar::create_event,
@@ -592,6 +595,9 @@ impl AppState {
         english_lessons::EnglishPhrase,
         english_verbs::EnglishVerbForms,
         english_verbs::EnglishVerbAnswer,
+        english_verbs::EnglishVerbRecognize,
+        english_verbs::EnglishVerbItem,
+        english_verbs::EnglishVerbSet,
         calendar::CalendarKind,
         calendar::CalendarItem,
         calendar::CalendarRecurrence,
@@ -1023,6 +1029,20 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
         .route(
             "/api/v1/english/verbs/answer",
             post(english_verbs::english_verb_answer).layer(DefaultBodyLimit::max(4 * 1024)),
+        )
+        // Фото — в base64: картинка до 4 МБ.
+        .route(
+            "/api/v1/english/verbs/recognize",
+            post(english_verbs::english_verbs_recognize)
+                .layer(DefaultBodyLimit::max(6 * 1024 * 1024)),
+        )
+        .route(
+            "/api/v1/english/verbs/sets",
+            post(english_verbs::english_verb_set_create).layer(DefaultBodyLimit::max(32 * 1024)),
+        )
+        .route(
+            "/api/v1/english/verbs/sets/{id}",
+            delete(english_verbs::english_verb_set_delete),
         )
         .route("/api/calendar", get(calendar::calendar))
         .route("/api/calendar/events", post(calendar::create_event))

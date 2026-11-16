@@ -1489,3 +1489,78 @@ async fn task_models_and_routing_reach_the_provider() {
     );
     env.finish().await;
 }
+
+// ---------------------------------------------------------------- картинки
+
+/// Запрос с картинкой (ENG-008): без бюджета до провайдера не доходит, с
+/// бюджетом — картинка уходит вместе с данными и считается в резерве.
+#[tokio::test]
+async fn look_sends_images_under_the_same_budget_rules() {
+    let env = Env::new().await;
+    let user = env.user("u@qubite.ru").await;
+    let mock = Arc::new(MockProvider::new(succeed(100)));
+    let gateway = env.gateway(&mock, fast());
+    let auth = env.auth(user).await;
+    let photo = qubite_ai::Image {
+        mime: "image/jpeg".into(),
+        data: b"JPEG-FAKE".to_vec(),
+    };
+
+    // Бюджета нет — картинка никуда не уходит.
+    let error = gateway
+        .look(&auth, request("p1"), std::slice::from_ref(&photo))
+        .await
+        .unwrap_err();
+    assert!(matches!(error, AiError::BudgetNotSet), "{error:?}");
+    assert_eq!(mock.calls(), 0);
+
+    env.limit(
+        LimitScope::User(user),
+        Period::Day,
+        Metric::Usd,
+        MICROS_PER_USD,
+    )
+    .await;
+
+    // Не картинка, пусто, слишком много или слишком большая — отказ до провайдера.
+    let pdf = qubite_ai::Image {
+        mime: "application/pdf".into(),
+        data: b"%PDF".to_vec(),
+    };
+    let huge = qubite_ai::Image {
+        mime: "image/png".into(),
+        data: vec![0; qubite_ai::MAX_IMAGE_BYTES + 1],
+    };
+    let many = vec![photo.clone(); qubite_ai::MAX_IMAGES + 1];
+    for (id, images) in [
+        ("p2", &[][..]),
+        ("p3", std::slice::from_ref(&pdf)),
+        ("p4", std::slice::from_ref(&huge)),
+        ("p5", &many[..]),
+    ] {
+        let error = gateway.look(&auth, request(id), images).await.unwrap_err();
+        assert!(matches!(error, AiError::Invalid(_)), "{id}: {error:?}");
+    }
+    assert_eq!(mock.calls(), 0);
+
+    // С бюджетом: провайдер получил картинку, инструкции и данные — как обычно.
+    let reply = gateway
+        .look(&auth, request("p6"), std::slice::from_ref(&photo))
+        .await
+        .unwrap();
+    assert!(reply.cost_usd > 0);
+    let call = mock.last_call().unwrap();
+    assert_eq!(call.images, vec![photo.clone()]);
+    assert_eq!(call.messages[0].role, Role::System);
+    assert!(call.input_tokens_estimate >= qubite_ai::IMAGE_TOKENS);
+    assert!(
+        call.images[0]
+            .data_url()
+            .starts_with("data:image/jpeg;base64,")
+    );
+    // Обычный запрос картинок не несёт.
+    gateway.complete(&auth, request("p7")).await.unwrap();
+    assert!(mock.last_call().unwrap().images.is_empty());
+
+    env.finish().await;
+}

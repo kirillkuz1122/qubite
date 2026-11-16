@@ -3,10 +3,12 @@
  * `qubite_english::verbs` (в схеме — объект), типы — здесь. Сверку вписанных форм, срок
  * повторения, минуты и опыт считает сервер; сайт только показывает.
  */
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback, useEffect, useRef } from 'react';
 import { api } from '../api';
 import { must } from '../auth/client';
-import type { Delta } from './english-lessons';
+import { ENGLISH_HOME, type Delta } from './english-lessons';
+import { toBase64 } from './english-view';
 
 /** Как глагол идёт у человека. */
 export interface VerbProgress {
@@ -52,9 +54,29 @@ export interface VerbCounts {
   hard: number;
 }
 
+/** Свой набор слов: добавлен списком или с фото. */
+export interface VerbSet {
+  id: string;
+  title: string;
+  source: 'photo' | 'text';
+  verb_ids: string[];
+  created_at: string;
+}
+
+/** Глагол, найденный в списке или на фото (ещё не сохранён). */
+export interface VerbCandidate {
+  v1: string;
+  v2: string;
+  v3: string;
+  ru: string;
+  /** Есть во встроенном наборе — его ID. */
+  known: string | null;
+}
+
 export interface VerbsOverview {
   groups: VerbGroup[];
   verbs: Verb[];
+  sets: VerbSet[];
   counts: VerbCounts;
   today: string;
 }
@@ -102,4 +124,89 @@ export async function answerVerb(
       body: { verb_id: verb, mode, ...reply } as never,
     }),
   )) as unknown as VerbAnswered;
+}
+
+/** Найти глаголы в списке текстом (без AI) или на фото (AI-шлюз, бюджет). Ничего не сохраняет. */
+export async function recognizeVerbs(
+  from: { text: string } | { image: Blob },
+): Promise<VerbCandidate[]> {
+  const key = crypto.randomUUID();
+  const body =
+    'text' in from
+      ? { key, text: from.text }
+      : {
+          key,
+          image_base64: toBase64(new Uint8Array(await from.image.arrayBuffer())),
+          mime: from.image.type || 'image/jpeg',
+        };
+  const r = (await must(
+    api.POST('/api/v1/english/verbs/recognize', { body: body as never }),
+  )) as unknown as { verbs: VerbCandidate[] };
+  return r.verbs;
+}
+
+export async function createVerbSet(
+  title: string,
+  source: VerbSet['source'],
+  verbs: readonly VerbCandidate[],
+): Promise<VerbsOverview> {
+  return (await must(
+    api.POST('/api/v1/english/verbs/sets', {
+      body: {
+        title,
+        source,
+        verbs: verbs.map(({ v1, v2, v3, ru }) => ({ v1, v2, v3, ru })),
+      },
+    }),
+  )) as unknown as VerbsOverview;
+}
+
+export async function deleteVerbSet(id: string): Promise<VerbsOverview> {
+  return (await must(
+    api.DELETE('/api/v1/english/verbs/sets/{id}', { params: { path: { id } } }),
+  )) as unknown as VerbsOverview;
+}
+
+/** Длинная сторона фото перед отправкой, px: буквы читаются, а файл — сотни килобайт. */
+const PHOTO_SIDE = 1600;
+export const PHOTO_BYTES = 4 * 1024 * 1024;
+
+/** Уменьшить фото до {@link PHOTO_SIDE} и сжать в JPEG. Не получилось — отдать как есть. */
+export async function shrinkPhoto(file: Blob): Promise<Blob> {
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, PHOTO_SIDE / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    canvas.getContext('2d')?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+    const small = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, 'image/jpeg', 0.85),
+    );
+    return small ?? file;
+  } catch {
+    return file;
+  }
+}
+
+/**
+ * Ответ мог дойти до сервера уже после того, как тренажёр закрыли: вкладка к этому времени
+ * перечитала список со старым прогрессом. Вызови после ответа сервера — если занятие закрыто,
+ * список и главная «Английского» обновятся ещё раз.
+ */
+export function useRefreshIfClosed(): () => void {
+  const qc = useQueryClient();
+  const open = useRef(true);
+  useEffect(() => {
+    open.current = true;
+    return () => {
+      open.current = false;
+    };
+  }, []);
+  return useCallback(() => {
+    if (open.current) return;
+    void qc.invalidateQueries({ queryKey: ENGLISH_VERBS });
+    void qc.invalidateQueries({ queryKey: ENGLISH_HOME });
+  }, [qc]);
 }

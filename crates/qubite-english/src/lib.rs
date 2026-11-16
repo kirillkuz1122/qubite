@@ -24,6 +24,7 @@ pub mod notes;
 pub mod realtime;
 pub mod remind;
 pub mod tutor;
+pub mod verb_sets;
 pub mod verbs;
 
 use qubite_ai::{

@@ -136,7 +136,7 @@ impl Verb {
     }
 
     /// Задание повторения «впиши формы» — обычное задание уроков с пропусками.
-    fn review_task(&self) -> Value {
+    pub(crate) fn review_task(&self) -> Value {
         let with_alt = |main: &str, alt: &[String]| {
             std::iter::once(main)
                 .chain(alt.iter().map(String::as_str))
@@ -233,31 +233,50 @@ fn sound(word: &str) -> &str {
 }
 
 /// Слова формы для сверки на слух: `was/were` — годится любое.
-fn spoken_options(main: &str, alt: &[String]) -> Vec<String> {
+/// Варианты формы, каждый — слова подряд (`zoomed in` — два слова).
+fn spoken_options(main: &str, alt: &[String]) -> Vec<Vec<String>> {
     std::iter::once(main)
         .chain(alt.iter().map(String::as_str))
-        .flat_map(|f| {
+        .map(|f| {
             course::normalize(f)
                 .split(' ')
                 .map(|w| sound(w).to_owned())
+                .filter(|w| !w.is_empty())
                 .collect::<Vec<_>>()
         })
-        .filter(|w| !w.is_empty())
+        .filter(|words| !words.is_empty())
         .collect()
 }
 
-/// «Скажи вслух»: три формы прозвучали по порядку. Лишние слова («and», «um»)
+/// «Скажи вслух»: три формы прозвучали по порядку, каждая целиком (у формы из
+/// нескольких слов — все слова подряд). Лишние слова («and», «um») между формами
 /// не мешают; одинаково звучащие слова распознавания (`red` = `read`) годятся.
 pub fn said_ok(verb: &Verb, said: &str) -> bool {
     let normal = course::normalize(said);
-    let mut words = normal.split(' ').map(sound);
+    let words: Vec<&str> = normal
+        .split(' ')
+        .map(sound)
+        .filter(|w| !w.is_empty())
+        .collect();
+    let mut pos = 0;
     [
         spoken_options(&verb.v1, &[]),
         spoken_options(&verb.v2, &verb.v2_alt),
         spoken_options(&verb.v3, &verb.v3_alt),
     ]
     .iter()
-    .all(|options| words.any(|w| options.iter().any(|o| o == w)))
+    .all(|options| {
+        let found = (pos..words.len()).find_map(|start| {
+            options
+                .iter()
+                .find(|o| {
+                    words.len() - start >= o.len()
+                        && o.iter().zip(&words[start..]).all(|(a, b)| a == b)
+                })
+                .map(|o| start + o.len())
+        });
+        found.map(|end| pos = end).is_some()
+    })
 }
 
 // ---------------------------------------------------------------- повторение
@@ -430,6 +449,61 @@ pub(crate) async fn record(
     Ok((next, true))
 }
 
+/// Группа своих слов человека (ENG-008: набор со списка или с фото).
+pub const MY_GROUP: &str = "my";
+/// С чего начинается ID своего глагола.
+pub const MY_PREFIX: &str = "my:";
+
+/// Свои глаголы человека — в порядке добавления.
+pub(crate) async fn custom(conn: &mut PgConnection, account: Uuid) -> sqlx::Result<Vec<Verb>> {
+    let rows: Vec<(String, String, String, String, String)> = sqlx::query_as(
+        "SELECT verb_id, v1, v2, v3, ru FROM english_verb_custom WHERE account_id = $1 \
+         ORDER BY created_at, verb_id",
+    )
+    .bind(account)
+    .fetch_all(conn)
+    .await?;
+    // `learnt/learned` у своего глагола — обе формы годятся, показываем как записано.
+    let alt = |raw: &str| -> Vec<String> {
+        if raw.contains('/') {
+            raw.split('/').map(|f| f.trim().to_owned()).collect()
+        } else {
+            Vec::new()
+        }
+    };
+    Ok(rows
+        .into_iter()
+        .map(|(id, v1, v2, v3, ru)| Verb {
+            id,
+            v1,
+            v2_alt: alt(&v2),
+            v3_alt: alt(&v3),
+            v2,
+            v3,
+            ru,
+            group: MY_GROUP.into(),
+        })
+        .collect())
+}
+
+/// Глагол по ID: из встроенного набора или свой.
+pub(crate) async fn verb_of(
+    conn: &mut PgConnection,
+    account: Uuid,
+    id: &str,
+) -> sqlx::Result<Option<Verb>> {
+    if let Some(verb) = set().verb(id) {
+        return Ok(Some(verb.clone()));
+    }
+    if !id.starts_with(MY_PREFIX) || id.len() > 64 {
+        return Ok(None);
+    }
+    Ok(custom(conn, account)
+        .await?
+        .into_iter()
+        .find(|v| v.id == id))
+}
+
 /// Трудные глаголы: сначала те, на которых ошибся последним.
 async fn hard(
     conn: &mut PgConnection,
@@ -437,7 +511,7 @@ async fn hard(
     today: Date,
     only_due: bool,
     limit: i64,
-) -> sqlx::Result<Vec<&'static Verb>> {
+) -> sqlx::Result<Vec<Verb>> {
     let ids: Vec<String> = sqlx::query_scalar(
         "SELECT verb_id FROM english_verb_progress WHERE account_id = $1 \
          AND (last_wrong_on >= $2 OR (lapses >= 2 AND ease < 2.0 AND interval_days < $3)) \
@@ -450,9 +524,22 @@ async fn hard(
     .bind(only_due)
     .bind(today)
     .bind(limit)
-    .fetch_all(conn)
+    .fetch_all(&mut *conn)
     .await?;
-    Ok(ids.iter().filter_map(|id| set().verb(id)).collect())
+    let mine = if ids.iter().any(|id| id.starts_with(MY_PREFIX)) {
+        custom(conn, account).await?
+    } else {
+        Vec::new()
+    };
+    Ok(ids
+        .iter()
+        .filter_map(|id| {
+            set()
+                .verb(id)
+                .or_else(|| mine.iter().find(|v| v.id == *id))
+                .cloned()
+        })
+        .collect())
 }
 
 /// Сколько трудных глаголов ждёт в ежедневном повторении (не больше трёх).
@@ -480,10 +567,7 @@ pub(crate) async fn review_tasks(
 }
 
 /// Ответ на задание повторения: список из двух форм, вторая и третья.
-pub(crate) fn review_ok(verb: &str, answer: &Value) -> bool {
-    let Some(verb) = set().verb(verb) else {
-        return false;
-    };
+pub(crate) fn review_ok(verb: &Verb, answer: &Value) -> bool {
     let given: Vec<&str> = answer
         .as_array()
         .into_iter()
@@ -492,11 +576,6 @@ pub(crate) fn review_ok(verb: &str, answer: &Value) -> bool {
         .collect();
     matches!(given[..], [v2, v3]
         if form_ok(v2, &verb.v2, &verb.v2_alt) && form_ok(v3, &verb.v3, &verb.v3_alt))
-}
-
-/// Задание повторения по глаголу (для сверки ответа).
-pub(crate) fn review_task(verb: &str) -> Option<Value> {
-    set().verb(verb).map(Verb::review_task)
 }
 
 /// Слабые глаголы для Нейта — данные для блока `verbs` (или ничего).
@@ -606,6 +685,8 @@ pub struct Counts {
 pub struct Overview {
     pub groups: Vec<Group>,
     pub verbs: Vec<VerbView>,
+    /// Свои наборы (со списка или с фото) — новые первыми.
+    pub sets: Vec<crate::verb_sets::SetView>,
     pub counts: Counts,
     /// Сегодня по часам платформы, `2026-11-16`.
     #[serde(serialize_with = "iso_date")]
@@ -625,14 +706,25 @@ pub async fn overview(pool: &PgPool, account: Uuid) -> Result<Overview> {
         .iter()
         .map(|r| (r.verb_id.as_str(), Card::from(r)))
         .collect();
+    let mine = custom(&mut conn, account).await?;
+    let sets = crate::verb_sets::list(&mut conn, account).await?;
     let set = set();
+    let mut groups = set.groups.clone();
+    if !mine.is_empty() {
+        groups.push(Group {
+            id: MY_GROUP.into(),
+            title_ru: "Мои слова".into(),
+            hint: "добавлены списком или с фото".into(),
+        });
+    }
     let mut counts = Counts {
-        total: set.verbs.len(),
+        total: set.verbs.len() + mine.len(),
         ..Counts::default()
     };
     let verbs = set
         .verbs
         .iter()
+        .chain(&mine)
         .map(|verb| {
             let p = progress(cards.get(verb.id.as_str()), today);
             if !p.new {
@@ -648,8 +740,9 @@ pub async fn overview(pool: &PgPool, account: Uuid) -> Result<Overview> {
         })
         .collect();
     Ok(Overview {
-        groups: set.groups.clone(),
+        groups,
         verbs,
+        sets,
         counts,
         today,
     })
@@ -712,9 +805,12 @@ fn short(text: &str, max: usize, what: &str) -> Result<()> {
 /// повторение, начислить минуты и опыт как за обычную практику.
 pub async fn answer(pool: &PgPool, account: Uuid, a: Answer) -> Result<Answered> {
     may_write(pool, account).await?;
-    let verb = set()
-        .verb(&a.verb_id)
+    let mut conn = pool.acquire().await?;
+    let verb = verb_of(&mut conn, account, &a.verb_id)
+        .await?
         .ok_or_else(|| Error::Invalid("нет такого глагола".into()))?;
+    drop(conn);
+    let verb = &verb;
     if !MODES.contains(&a.mode.as_str()) {
         return Err(Error::Invalid("неизвестная игра".into()));
     }
@@ -884,6 +980,26 @@ mod tests {
         // Одинаковые формы нужно сказать трижды.
         assert!(said_ok(set.verb("cut").unwrap(), "cut cut cut"));
         assert!(!said_ok(set.verb("cut").unwrap(), "cut cut"));
+    }
+
+    #[test]
+    fn spoken_multiword_forms_must_sound_whole() {
+        let zoom = Verb {
+            id: "my:zoom-in".into(),
+            v1: "zoom in".into(),
+            v2: "zoomed in".into(),
+            v3: "zoomed in".into(),
+            v2_alt: vec![],
+            v3_alt: vec![],
+            ru: "приблизить".into(),
+            group: String::new(),
+        };
+        assert!(said_ok(&zoom, "zoom in zoomed in zoomed in"));
+        assert!(said_ok(&zoom, "um zoom in, and zoomed in, zoomed in"));
+        assert!(!said_ok(&zoom, "in in in"));
+        assert!(!said_ok(&zoom, "zoom zoomed zoomed"));
+        assert!(!said_ok(&zoom, "zoom in zoomed in"));
+        assert!(!said_ok(&zoom, "zoom in zoomed zoomed in"));
     }
 
     #[test]
