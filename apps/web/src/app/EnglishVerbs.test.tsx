@@ -253,4 +253,29 @@ describe('вкладка «Глаголы»', () => {
     expect(screen.getByText('Глагол 1 из 1')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Проверить' })).toBeEnabled();
   });
+
+  it('фоновое обновление упало — загруженное остаётся на экране', () => {
+    mocks.useEnglishVerbs.mockReturnValue({
+      data,
+      isError: true,
+      error: new Fail('network', 'Нет связи', 0),
+    });
+    open();
+    expect(screen.getByText('Повторить сегодня: 3')).toBeInTheDocument();
+    expect(screen.queryByText('Нет связи')).not.toBeInTheDocument();
+  });
+
+  it('«Ещё глаголы» и сразу «Закрыть» — тренажёр не открывается сам', async () => {
+    open();
+    fireEvent.click(screen.getByRole('radio', { name: 'Карточки' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Трудные: 1' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Показать формы' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Знал' }));
+    expect(await screen.findByText('Занятие закончено')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Ещё глаголы' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Закрыть' }));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByRole('dialog', { name: 'Тренажёр глаголов' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Занятие закончено')).not.toBeInTheDocument();
+  });
 });

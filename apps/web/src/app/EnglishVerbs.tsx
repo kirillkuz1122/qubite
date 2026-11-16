@@ -87,9 +87,10 @@ interface Session extends Picked {
 
 export function EnglishVerbs() {
   const q = useEnglishVerbs();
+  // Уже загруженное держим на экране: сбой фонового обновления не должен сносить занятие.
+  if (q.data) return <VerbsHome o={q.data} />;
   if (q.isError) return <Denied error={q.error} />;
-  if (!q.data) return <p className="later">Загружаю глаголы…</p>;
-  return <VerbsHome o={q.data} />;
+  return <p className="later">Загружаю глаголы…</p>;
 }
 
 /** Самое тревожное состояние в группе — цветом точки. */
@@ -104,6 +105,8 @@ function VerbsHome({ o }: { o: VerbsOverview }) {
   const qc = useQueryClient();
   const [study, setStudy] = useState<Study>(readStudy);
   const [session, setSession] = useState<Session | null>(null);
+  // Ключ занятия, которое сейчас на экране (для отложенного «Ещё глаголы»).
+  const active = useRef<number | null>(null);
   // Группа остаётся на экране, пока окно закрывается.
   const [group, setGroup] = useState<string | null>(null);
   const [sheet, setSheet] = useState(false);
@@ -113,7 +116,9 @@ function VerbsHome({ o }: { o: VerbsOverview }) {
   const start = (scope: Scope, title: string, verbs = o.verbs) => {
     const picked = pickSession(verbs, scope);
     if (picked.ids.length === 0) return false;
-    setSession({ ...picked, key: Date.now(), title, scope, study });
+    const key = Date.now();
+    active.current = key;
+    setSession({ ...picked, key, title, scope, study });
     return true;
   };
   const refresh = async () => {
@@ -122,13 +127,16 @@ function VerbsHome({ o }: { o: VerbsOverview }) {
     return qc.getQueryData<VerbsOverview>(ENGLISH_VERBS);
   };
   const close = () => {
+    active.current = null;
     setSession(null);
     void refresh();
   };
   const more = async () => {
     if (!session) return;
     const fresh = await refresh();
-    if (!start(session.scope, session.title, fresh?.verbs ?? o.verbs)) setSession(null);
+    // Пока список обновлялся, занятие могли закрыть или начать другое — тогда не открываем.
+    if (active.current !== session.key) return;
+    if (!start(session.scope, session.title, fresh?.verbs ?? o.verbs)) close();
   };
 
   const { counts } = o;
@@ -405,7 +413,7 @@ function VerbSession({
                       lang="en"
                       value={v2}
                       onChange={(e) => setV2(e.target.value)}
-                      disabled={!!answered}
+                      disabled={busy || !!answered}
                       error={
                         answered && !formOk(v2, verb.v2, verb.v2_alt)
                           ? `Правильно: ${verb.v2}`
@@ -424,7 +432,7 @@ function VerbSession({
                       lang="en"
                       value={v3}
                       onChange={(e) => setV3(e.target.value)}
-                      disabled={!!answered}
+                      disabled={busy || !!answered}
                       error={
                         answered && !formOk(v3, verb.v3, verb.v3_alt)
                           ? `Правильно: ${verb.v3}`
