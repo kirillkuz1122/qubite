@@ -51,12 +51,41 @@ pub struct Routing {
     pub max_price_out_per_mtok: i64,
 }
 
+/// Картинка к запросу (фото доски, скрин) — данные человека, как и текст в
+/// `untrusted`: модель видит её, но инструкции — только из кода модуля.
+#[derive(Clone, PartialEq, Eq)]
+pub struct Image {
+    /// `image/jpeg`, `image/png` или `image/webp`.
+    pub mime: String,
+    pub data: Vec<u8>,
+}
+
+impl std::fmt::Debug for Image {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Image({}, {} байт)", self.mime, self.data.len())
+    }
+}
+
+impl Image {
+    /// `data:image/png;base64,…` — так картинку принимают OpenRouter и ChatGPT.
+    pub fn data_url(&self) -> String {
+        use base64::Engine;
+        format!(
+            "data:{};base64,{}",
+            self.mime,
+            base64::engine::general_purpose::STANDARD.encode(&self.data)
+        )
+    }
+}
+
 /// Что отправить провайдеру. Сообщения собирает шлюз ([`crate::guard`]).
 #[derive(Debug, Clone)]
 pub struct ProviderCall {
     /// Имя модели у провайдера.
     pub external_id: String,
     pub messages: Vec<ChatMessage>,
+    /// Картинки к последнему сообщению с данными ([`crate::Gateway::look`]).
+    pub images: Vec<Image>,
     /// Потолок ответа: провайдер не даст модели написать больше.
     pub max_output_tokens: u32,
     /// Оценка входа сверху — на случай, если провайдер не сообщит расход.

@@ -876,10 +876,17 @@ pub async fn answer(
     let ops = ops(&mut conn, account).await?;
     let learner = learner(&mut conn, account).await?;
     // Глагол в повторении (D-889): задание «впиши формы» из набора, не из программы.
-    let verb = kind == "review" && lesson_id == verbs::REVIEW_LESSON;
-    let (lesson, task) = if verb {
-        let task = verbs::review_task(task_id).ok_or(Error::NotFound)?;
-        (json!({ "level": learner.level }), task)
+    let verb = if kind == "review" && lesson_id == verbs::REVIEW_LESSON {
+        Some(
+            verbs::verb_of(&mut conn, account, task_id)
+                .await?
+                .ok_or(Error::NotFound)?,
+        )
+    } else {
+        None
+    };
+    let (lesson, task) = if let Some(verb) = &verb {
+        (json!({ "level": learner.level }), verb.review_task())
     } else {
         let lesson = course::lesson(course, lesson_id, &ops).ok_or(Error::NotFound)?;
         let original = course::task(&lesson, task_id).ok_or(Error::NotFound)?;
@@ -973,8 +980,8 @@ pub async fn answer(
     let mut offline = false;
     // Формы глагола сверяет набор глаголов: у «вставь слово» `was/were` — это два варианта,
     // а здесь — ещё и верный ответ целиком.
-    let checked = if verb {
-        if verbs::review_ok(task_id, &value) {
+    let checked = if let Some(verb) = &verb {
+        if verbs::review_ok(verb, &value) {
             Check::Right
         } else {
             Check::Wrong {
@@ -1040,7 +1047,7 @@ pub async fn answer(
             }
         }
     };
-    if verb {
+    if verb.is_some() {
         // Показать формы как в таблице, а не запись с запасными вариантами.
         right = task["example"].as_str().map(str::to_owned);
     }
@@ -1064,7 +1071,7 @@ pub async fn answer(
     let today = game::today(&mut tx).await?;
     // Глагол пишется в своё повторение, не в `english_review`: ошибка — «не знал». Награда —
     // только если срок сдвинулся (D-897): тот же глагол могли уже ответить в тренажёре.
-    let verb_moved = if verb {
+    let verb_moved = if verb.is_some() {
         let grade = if correct {
             verbs::Grade::Good
         } else {
@@ -1076,7 +1083,7 @@ pub async fn answer(
     } else {
         false
     };
-    let xp = if correct && !was_correct && (!verb || verb_moved) {
+    let xp = if correct && !was_correct && (verb.is_none() || verb_moved) {
         let full = course::task_xp(&task) * replay / 2;
         match attempts {
             1 => full,
@@ -1107,7 +1114,7 @@ pub async fn answer(
     .execute(&mut *tx)
     .await?;
     let mut counters: Vec<(&'static str, i64)> = vec![("tasks", 1)];
-    if verb {
+    if verb.is_some() {
         if correct && !was_correct && verb_moved {
             counters.extend([("fixed", 1), ("verbs", 1)]);
         }

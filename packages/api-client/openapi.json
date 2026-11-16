@@ -7114,6 +7114,152 @@
         }
       }
     },
+    "/api/v1/english/verbs/recognize": {
+      "post": {
+        "tags": ["english"],
+        "operationId": "english_verbs_recognize",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnglishVerbRecognize"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "{\"verbs\": [{v1, v2, v3, ru, known}]} — кандидаты, не сохранены",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Глаголов не нашлось, не картинка, слишком длинный список",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет доступа к агенту или к AI",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Отказ AI-шлюза (бюджет, нет модели)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/english/verbs/sets": {
+      "post": {
+        "tags": ["english"],
+        "operationId": "english_verb_set_create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnglishVerbSet"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Вкладка с новым набором (verbs::Overview)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Пустой набор, неверные формы, слишком много наборов",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет доступа к агенту",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/english/verbs/sets/{id}": {
+      "delete": {
+        "tags": ["english"],
+        "operationId": "english_verb_set_delete",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Набор",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Вкладка без набора (verbs::Overview)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет такого набора",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/home": {
       "get": {
         "tags": ["home"],
@@ -12658,6 +12804,70 @@
           },
           "v3": {
             "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "EnglishVerbItem": {
+        "type": "object",
+        "description": "Глагол набора.",
+        "required": ["v1", "v2", "v3"],
+        "properties": {
+          "ru": {
+            "type": "string"
+          },
+          "v1": {
+            "type": "string"
+          },
+          "v2": {
+            "type": "string"
+          },
+          "v3": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "EnglishVerbRecognize": {
+        "type": "object",
+        "description": "Где искать глаголы. Что-то одно: `text` (список, по строке на глагол) или\n`image_base64` + `mime` (фото доски, учебника, скрин).",
+        "required": ["key"],
+        "properties": {
+          "image_base64": {
+            "type": ["string", "null"]
+          },
+          "key": {
+            "type": "string",
+            "format": "uuid",
+            "description": "ID действия экрана: повтор распознавания фото не списывается дважды."
+          },
+          "mime": {
+            "type": ["string", "null"],
+            "description": "`image/jpeg`, `image/png` или `image/webp`."
+          },
+          "text": {
+            "type": ["string", "null"]
+          }
+        },
+        "additionalProperties": false
+      },
+      "EnglishVerbSet": {
+        "type": "object",
+        "description": "Новый набор своих слов.",
+        "required": ["title", "source", "verbs"],
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "`photo` или `text`."
+          },
+          "title": {
+            "type": "string"
+          },
+          "verbs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EnglishVerbItem"
+            }
           }
         },
         "additionalProperties": false

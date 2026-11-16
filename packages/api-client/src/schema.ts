@@ -2190,6 +2190,54 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/english/verbs/recognize': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['english_verbs_recognize'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/english/verbs/sets': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['english_verb_set_create'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/english/verbs/sets/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete: operations['english_verb_set_delete'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/home': {
     parameters: {
       query?: never;
@@ -4286,6 +4334,35 @@ export interface components {
       v1?: string | null;
       v2: string;
       v3: string;
+    };
+    /** @description Глагол набора. */
+    EnglishVerbItem: {
+      ru?: string;
+      v1: string;
+      v2: string;
+      v3: string;
+    };
+    /**
+     * @description Где искать глаголы. Что-то одно: `text` (список, по строке на глагол) или
+     *     `image_base64` + `mime` (фото доски, учебника, скрин).
+     */
+    EnglishVerbRecognize: {
+      image_base64?: string | null;
+      /**
+       * Format: uuid
+       * @description ID действия экрана: повтор распознавания фото не списывается дважды.
+       */
+      key: string;
+      /** @description `image/jpeg`, `image/png` или `image/webp`. */
+      mime?: string | null;
+      text?: string | null;
+    };
+    /** @description Новый набор своих слов. */
+    EnglishVerbSet: {
+      /** @description `photo` или `text`. */
+      source: string;
+      title: string;
+      verbs: components['schemas']['EnglishVerbItem'][];
     };
     /** @description Готов ли голос на сервере. */
     EnglishVoice: {
@@ -11500,6 +11577,131 @@ export interface operations {
       };
       /** @description Нет доступа к агенту */
       403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  english_verbs_recognize: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['EnglishVerbRecognize'];
+      };
+    };
+    responses: {
+      /** @description {"verbs": [{v1, v2, v3, ru, known}]} — кандидаты, не сохранены */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': Record<string, never>;
+        };
+      };
+      /** @description Глаголов не нашлось, не картинка, слишком длинный список */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет доступа к агенту или к AI */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Отказ AI-шлюза (бюджет, нет модели) */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  english_verb_set_create: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['EnglishVerbSet'];
+      };
+    };
+    responses: {
+      /** @description Вкладка с новым набором (verbs::Overview) */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': Record<string, never>;
+        };
+      };
+      /** @description Пустой набор, неверные формы, слишком много наборов */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет доступа к агенту */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  english_verb_set_delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Набор */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Вкладка без набора (verbs::Overview) */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': Record<string, never>;
+        };
+      };
+      /** @description Нет такого набора */
+      404: {
         headers: {
           [name: string]: unknown;
         };

@@ -52,7 +52,7 @@ pub fn key_purpose(account_id: Option<Uuid>) -> String {
 }
 pub use guard::Untrusted;
 pub use provider::{
-    ChatMessage, Delta, MockProvider, MockStep, Provider, ProviderCall, ProviderError,
+    ChatMessage, Delta, Image, MockProvider, MockStep, Provider, ProviderCall, ProviderError,
     ProviderReply, Role, Routing,
 };
 pub use realtime::{
@@ -241,6 +241,14 @@ impl Default for AiConfig {
     }
 }
 
+/// Сколько картинок можно приложить к одному запросу ([`Gateway::look`]).
+pub const MAX_IMAGES: usize = 4;
+/// Потолок одной картинки.
+pub const MAX_IMAGE_BYTES: usize = 4 * 1024 * 1024;
+/// Оценка входа за картинку сверху (токены): в резерв и защиту бюджета.
+pub const IMAGE_TOKENS: u64 = 2_000;
+const IMAGE_MIMES: &[&str] = &["image/jpeg", "image/png", "image/webp"];
+
 /// Запрос модуля к AI.
 #[derive(Debug, Clone)]
 pub struct AiRequest {
@@ -302,6 +310,8 @@ enum Work<'a> {
         max_output_tokens: u32,
         /// Отдавать текст по кусочкам (поток модели).
         delta: Option<provider::Delta>,
+        /// Картинки к данным ([`Gateway::look`]).
+        images: &'a [provider::Image],
     },
     /// Распознать речь.
     Listen(&'a voice::Listen),
@@ -430,7 +440,7 @@ impl<'g> InTurn<'g> {
         request: AiRequest,
     ) -> Result<AiResponse> {
         self.gateway
-            .answer(auth, request, None, Some(self.id))
+            .answer(auth, request, None, Some(self.id), &[])
             .await
     }
 
@@ -442,7 +452,7 @@ impl<'g> InTurn<'g> {
         delta: provider::Delta,
     ) -> Result<AiResponse> {
         self.gateway
-            .answer(auth, request, Some(delta), Some(self.id))
+            .answer(auth, request, Some(delta), Some(self.id), &[])
             .await
     }
 }
@@ -782,7 +792,39 @@ impl Gateway {
         auth: &Authorized<UseAi>,
         request: AiRequest,
     ) -> Result<AiResponse> {
-        self.answer(auth, request, None, None).await
+        self.answer(auth, request, None, None, &[]).await
+    }
+
+    /// Запрос с картинками (фото доски, скрин задания): модель «со зрением»
+    /// видит их вместе с данными. Права, бюджет, резерв и списание — те же,
+    /// что у [`Self::complete`]; каждая картинка идёт в оценку входа
+    /// ([`IMAGE_TOKENS`]). Картинок — от одной до [`MAX_IMAGES`], каждая до
+    /// [`MAX_IMAGE_BYTES`], только JPEG, PNG или WebP.
+    pub async fn look(
+        &self,
+        auth: &Authorized<UseAi>,
+        request: AiRequest,
+        images: &[provider::Image],
+    ) -> Result<AiResponse> {
+        if images.is_empty() || images.len() > MAX_IMAGES {
+            return Err(AiError::Invalid(format!(
+                "картинок — от одной до {MAX_IMAGES}"
+            )));
+        }
+        for image in images {
+            if !IMAGE_MIMES.contains(&image.mime.as_str()) {
+                return Err(AiError::Invalid(
+                    "картинка — только JPEG, PNG или WebP".into(),
+                ));
+            }
+            if image.data.is_empty() || image.data.len() > MAX_IMAGE_BYTES {
+                return Err(AiError::Invalid(format!(
+                    "картинка — до {} МБ",
+                    MAX_IMAGE_BYTES / (1024 * 1024)
+                )));
+            }
+        }
+        self.answer(auth, request, None, None, images).await
     }
 
     /// То же потоком: текст уходит в `delta` по мере того, как модель пишет
@@ -794,7 +836,7 @@ impl Gateway {
         request: AiRequest,
         delta: provider::Delta,
     ) -> Result<AiResponse> {
-        self.answer(auth, request, Some(delta), None).await
+        self.answer(auth, request, Some(delta), None, &[]).await
     }
 
     /// Начать ход живого разговора: вызовы через [`InTurn`] — один запрос для
@@ -812,6 +854,7 @@ impl Gateway {
         request: AiRequest,
         delta: Option<provider::Delta>,
         turn: Option<Uuid>,
+        images: &[provider::Image],
     ) -> Result<AiResponse> {
         let guarded =
             guard::build(&request.prompt, &request.untrusted).map_err(AiError::Invalid)?;
@@ -824,11 +867,13 @@ impl Gateway {
                         .iter()
                         .flat_map(|u| [u.source.as_str(), u.text.as_str()]),
                 )
-                .map(str::as_bytes),
+                .map(str::as_bytes)
+                .chain(images.iter().map(|image| image.data.as_slice())),
         );
         let input_tokens = guarded
             .input_tokens_upper_bound()
-            .max(u64::from(request.input_tokens));
+            .max(u64::from(request.input_tokens))
+            + IMAGE_TOKENS * images.len() as u64;
         let (call_id, done, actual) = self
             .run(
                 auth,
@@ -845,6 +890,7 @@ impl Gateway {
                         guarded: &guarded,
                         max_output_tokens: request.max_output_tokens,
                         delta,
+                        images,
                     },
                 },
             )
@@ -887,11 +933,13 @@ impl Gateway {
                 guarded,
                 max_output_tokens,
                 delta,
+                images,
             } => {
                 let provider = self.providers[&model.provider_id].clone();
                 let call = ProviderCall {
                     external_id: model.external_id.clone(),
                     messages: guarded.messages.clone(),
+                    images: images.to_vec(),
                     max_output_tokens: *max_output_tokens,
                     input_tokens_estimate: input_units,
                     routing: Routing {
