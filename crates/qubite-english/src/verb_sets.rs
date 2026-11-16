@@ -135,13 +135,16 @@ pub fn parse_list(text: &str) -> Vec<Candidate> {
             .find(|(_, c)| matches!(c, 'а'..='я' | 'А'..='Я' | 'ё' | 'Ё'))
             .map_or(line.len(), |(i, _)| i);
         let (english, ru) = line.split_at(cut);
+        // Есть явные разделители (тире, запятые) — формы могут быть из двух слов
+        // (`zoom in, zoomed in, zoomed in`); нет — формы разделены пробелами.
+        let english = english.replace(" - ", "–");
+        let strong = english.contains(['–', '—', ',', ';', '|', '\t']);
         let words: Vec<&str> = english
             .split(|c: char| {
-                c.is_whitespace()
-                    || matches!(c, '–' | '—' | ',' | ';' | '|' | '.' | ':' | '(' | ')')
+                matches!(c, '–' | '—' | ',' | ';' | '|' | '\t') || (!strong && c.is_whitespace())
             })
-            .map(|w| w.trim_matches('-'))
-            .filter(|w| w.chars().any(|c| c.is_ascii_alphabetic()))
+            .map(|w| w.trim_matches(|c: char| !c.is_ascii_alphabetic()))
+            .filter(|w| !w.is_empty())
             .collect();
         let at = |i: usize| words.get(i).copied().unwrap_or_default();
         candidate(
@@ -419,7 +422,8 @@ mod tests {
              просто строка по-русски\n\
              jump jumped\n\
              go went gone\n\
-             be - was/were - been - быть",
+             be - was/were - been - быть\n\
+             zoom in, zoomed in, zoomed in - приблизить",
         );
         let lines: Vec<String> = found
             .iter()
@@ -435,6 +439,7 @@ mod tests {
                 // Только первая форма — годится, если глагол встроенный.
                 "swim|swam|swum|плавать|true",
                 "be|was/were|been|быть|true",
+                "zoom in|zoomed in|zoomed in|приблизить|false",
             ]
         );
     }

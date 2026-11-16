@@ -111,6 +111,7 @@ const data: VerbsOverview = {
     verb('get', 'got', 'got', 'special', OLD),
     verb('go', 'went', 'gone', 'special'),
   ],
+  sets: [],
   counts: { total: 4, started: 3, learned: 0, due: 3, hard: 1 },
   today: '2026-11-15',
 };

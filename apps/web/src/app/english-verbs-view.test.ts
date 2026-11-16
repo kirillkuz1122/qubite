@@ -64,6 +64,7 @@ const overview = (verbs: Verb[]): VerbsOverview => ({
     { id: 'special', title_ru: 'Особенные', hint: 'go – went – gone' },
   ],
   verbs,
+  sets: [],
   counts: {
     total: verbs.length,
     started: verbs.filter((v) => !v.progress.new).length,

@@ -16,6 +16,8 @@ export const MAX_RETRIES = 2;
 export interface Scope {
   group?: string | null;
   hard?: boolean;
+  /** Только эти глаголы (свой набор). */
+  ids?: readonly string[];
 }
 
 export interface Picked {
@@ -26,6 +28,7 @@ export interface Picked {
 
 function inScope(v: Verb, scope: Scope): boolean {
   if (scope.group && v.group !== scope.group) return false;
+  if (scope.ids && !scope.ids.includes(v.id)) return false;
   return !scope.hard || v.progress.hard;
 }
 
@@ -204,4 +207,10 @@ export function tally(t: Tally, verb: string, correct: boolean, xp: number): Tal
     missed: !correct && !t.missed.includes(verb) ? [...t.missed, verb] : t.missed,
     xp: t.xp + xp,
   };
+}
+
+/** Название набора по умолчанию: «Набор от 16.11». */
+export function defaultTitle(now = new Date()): string {
+  const two = (n: number) => String(n).padStart(2, '0');
+  return `Набор от ${two(now.getDate())}.${two(now.getMonth() + 1)}`;
 }
