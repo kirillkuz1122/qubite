@@ -754,13 +754,18 @@ static VOICE_SLOTS: tokio::sync::Semaphore = tokio::sync::Semaphore::const_new(4
         (status = 401, description = "Нужно войти", body = ApiErrorBody),
         (status = 403, description = "Нет права записи", body = ApiErrorBody),
         (status = 404, description = "ID недоступен", body = ApiErrorBody),
+        (status = 409, description = "В браузере вошёл другой аккаунт (`account_mismatch`)", body = ApiErrorBody),
     ))]
 pub async fn capture_voice(
     State(state): State<AppState>,
     session: Authenticated,
+    headers: axum::http::HeaderMap,
     request: Result<Json<VoiceCaptureRequest>, axum::extract::rejection::JsonRejection>,
 ) -> Result<(StatusCode, Json<VoiceCaptureResponse>), ApiError> {
     use base64::Engine;
+
+    // Запись могла ждать сети в очереди браузера: чья она — говорит заголовок.
+    crate::auth::require_account_header(&session, &headers)?;
 
     let proof = authorize::<Write>(&state, &session, qubite_inbox::MODULE).await?;
     let Json(request) =

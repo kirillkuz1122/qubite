@@ -2831,6 +2831,9 @@ export interface paths {
      * @description Тело и ответ — `PushRequest` / `PushResponse` протокола `qubite-sync`
      *     (типы — в `@qubite/sync-client`). Операция в модуле без права `write`
      *     отклоняется с причиной `forbidden`; остальные применяются.
+     *
+     *     Браузер обязан передать `X-Qubite-Account` — ID аккаунта, чья это
+     *     очередь. Вошёл другой аккаунт — 409, ничего не применяется (D-894).
      */
     post: operations['push'];
     delete?: never;
@@ -11971,6 +11974,15 @@ export interface operations {
           'application/json': components['schemas']['ApiErrorBody'];
         };
       };
+      /** @description В браузере вошёл другой аккаунт (`account_mismatch`) */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
     };
   };
   detail: {
@@ -13311,7 +13323,7 @@ export interface operations {
           'application/json': Record<string, never>;
         };
       };
-      /** @description Пустой пакет, больше 500 операций или повтор op_id */
+      /** @description Пустой пакет, больше 500 операций, повтор op_id или браузер не назвал аккаунт */
       400: {
         headers: {
           [name: string]: unknown;
@@ -13322,6 +13334,15 @@ export interface operations {
       };
       /** @description Нужно войти */
       401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description В браузере вошёл другой аккаунт (`account_mismatch`) */
+      409: {
         headers: {
           [name: string]: unknown;
         };

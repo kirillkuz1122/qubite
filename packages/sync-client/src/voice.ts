@@ -8,7 +8,7 @@
  * запись ждёт и уходит при следующей попытке; сервер отказал насовсем (не тот формат,
  * слишком большая) — запись остаётся на устройстве с причиной, удалить её может только человек.
  */
-import { HttpError } from './http';
+import { ACCOUNT_MISMATCH, HttpError } from './http';
 import { done, promisify } from './store';
 
 export type VoiceSource = 'web' | 'desktop' | 'android';
@@ -84,8 +84,16 @@ export interface VoiceFailure {
 /** Ответы сервера, после которых повтор того же запроса ничего не изменит. */
 const FINAL = new Set([400, 404, 409, 413, 415, 422]);
 
+/**
+ * Отказы «не тот аккаунт» (SYNC-008): в браузере вошёл другой человек или страница
+ * устарела. Запись при этом цела и не отклонена — она уйдёт, когда её хозяин войдёт снова.
+ */
+const WRONG_ACCOUNT = new Set([ACCOUNT_MISMATCH, 'account_required']);
+
 export function voiceFailure(error: unknown): VoiceFailure {
   if (!(error instanceof HttpError)) return { retry: true };
+  if (WRONG_ACCOUNT.has(error.code))
+    return { retry: true, message: 'вошёл другой аккаунт — отправится после входа' };
   if (FINAL.has(error.status)) return { retry: false, message: error.message };
   if (error.status === 401) return { retry: true, message: 'нужно войти — отправится после входа' };
   if (error.status >= 500) return { retry: true, message: 'сервер не ответил — повторим позже' };

@@ -51,6 +51,9 @@ pub async fn setup(settings: AuthSettings) -> (TestDb, Database, SocketAddr) {
 pub struct Browser {
     pub session: Option<String>,
     pub csrf: Option<String>,
+    /// Кто вошёл (из ответа на вход): как настоящий клиент, браузер называет
+    /// аккаунт в `X-Qubite-Account` (SYNC-008).
+    pub account: Option<String>,
 }
 
 pub struct Reply {
@@ -93,6 +96,9 @@ impl Browser {
         if !cookies.is_empty() {
             request = request.header("cookie", cookies.join("; "));
         }
+        if let Some(account) = &self.account {
+            request = request.header("x-qubite-account", account);
+        }
         if let Some(body) = body {
             request = request.json(&body);
         }
@@ -119,14 +125,19 @@ impl Browser {
     }
 
     pub async fn login(&mut self, address: SocketAddr, email: &str, password: &str) -> Reply {
-        self.send(
-            address,
-            Method::POST,
-            "/api/auth/login",
-            Some(json!({ "email": email, "password": password })),
-            false,
-        )
-        .await
+        // Вход — от имени того, кто входит, а не прежнего.
+        self.account = None;
+        let reply = self
+            .send(
+                address,
+                Method::POST,
+                "/api/auth/login",
+                Some(json!({ "email": email, "password": password })),
+                false,
+            )
+            .await;
+        self.account = reply.body["account"]["id"].as_str().map(str::to_owned);
+        reply
     }
 
     pub async fn get(&mut self, address: SocketAddr, path: &str) -> Reply {

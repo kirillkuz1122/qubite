@@ -1,6 +1,7 @@
 /** Qubite Auth: запросы к серверу, «кто вошёл», состояние платформы и тексты ошибок. */
 import type { ApiErrorBody, components, Me, SessionItem } from '@qubite/api-client';
 import { useQuery } from '@tanstack/react-query';
+import { ME } from '../account';
 import { api } from '../api';
 
 export type PlatformStatus = components['schemas']['PlatformStatus'];
@@ -53,7 +54,7 @@ export function say(e: unknown): string {
   return e instanceof Fail ? e.message : OFFLINE;
 }
 
-export const ME = ['me'] as const;
+export { ME };
 
 /** Кто вошёл: `null` — никто (или сервер недоступен — тогда тоже как гость). */
 export function useMe() {

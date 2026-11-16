@@ -10,6 +10,26 @@ import type { ObjectSnapshot, OpResult, Operation } from './protocol';
 export interface LocalObject extends ObjectSnapshot {
   /** Есть ли изменения, ещё не подтверждённые сервером. */
   pending: boolean;
+  /**
+   * Последняя известная версия сервера, пока на объекте есть неотправленные правки
+   * (SYNC-008). Снимки с сервера, пришедшие в это время, не затирают правку, а
+   * откладываются сюда; если правку отклонят, объект возвращается к этой версии.
+   */
+  server?: ObjectSnapshot;
+  /**
+   * На экране осталась правка, которую сервер отклонил, а вернуться было не к чему:
+   * следующий снимок сервера заменяет объект, какой бы ни была его версия.
+   */
+  stale?: true;
+}
+
+/** Снимок без служебных полей устройства. */
+export function snapshotOf(object: LocalObject): ObjectSnapshot {
+  const snapshot: Partial<LocalObject> = { ...object };
+  delete snapshot.pending;
+  delete snapshot.server;
+  delete snapshot.stale;
+  return snapshot as ObjectSnapshot;
 }
 
 export interface QueuedOp {
@@ -63,6 +83,127 @@ export class LocalStore {
     this.db.close();
   }
 
+  /**
+   * Выполнить шаги одной транзакцией. Внутри — только запросы IndexedDB через
+   * обработчики `onsuccess` (без `await`): так транзакция остаётся открытой, а записи
+   * других вкладок и параллельных вызовов встают в очередь, а не вклиниваются.
+   */
+  private run<T>(
+    stores: string[],
+    body: (tx: IDBTransaction, done: (value: T) => void) => void,
+  ): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      const tx = this.db.transaction(stores, 'readwrite');
+      let value: T | undefined;
+      let failure: unknown;
+      tx.oncomplete = () => resolve(value as T);
+      tx.onerror = () => reject(failure ?? tx.error);
+      tx.onabort = () => reject(failure ?? tx.error ?? new Error('транзакция IndexedDB прервана'));
+      try {
+        body(tx, (result) => (value = result));
+      } catch (error) {
+        failure = error;
+        tx.abort();
+      }
+    });
+  }
+
+  /**
+   * Правка объекта: прочитать, посчитать новую версию, записать объект и операцию —
+   * всё одной транзакцией (SYNC-008). Две правки подряд (и из двух вкладок) видят
+   * результат друг друга, а не одну и ту же старую версию.
+   */
+  edit(
+    id: string,
+    apply: (current: LocalObject) => { object: LocalObject; op: Operation },
+  ): Promise<LocalObject> {
+    let failure: unknown;
+    return this.run<LocalObject>(['objects', 'outbox'], (tx, done) => {
+      const objects = tx.objectStore('objects');
+      const read = objects.get(id) as IDBRequest<LocalObject | undefined>;
+      read.onsuccess = () => {
+        try {
+          const current = read.result;
+          if (!current) throw new Error(`объект ${id} не найден на устройстве`);
+          const next = apply(current);
+          objects.put(next.object);
+          tx.objectStore('outbox').add({ op: next.op } satisfies QueuedOp);
+          done(next.object);
+        } catch (error) {
+          failure = error;
+          tx.abort();
+        }
+      };
+    }).catch((error: unknown) => {
+      throw failure ?? error;
+    });
+  }
+
+  /**
+   * Ответ сервера на операцию: одной транзакцией посмотреть, ждут ли отправки более
+   * поздние правки того же объекта, обновить объект, записать «проблему» и убрать
+   * операцию из очереди. `decide` получает объект и решает, каким он станет.
+   */
+  settle(
+    seq: number,
+    op: Operation,
+    problem: Problem | null,
+    decide: (
+      local: LocalObject | undefined,
+      stillPending: boolean,
+    ) => { object?: LocalObject; resync?: boolean },
+  ): Promise<void> {
+    let failure: unknown;
+    return this.run<void>(['objects', 'outbox', 'problems', 'meta'], (tx) => {
+      const objects = tx.objectStore('objects');
+      const outbox = tx.objectStore('outbox');
+      const later = outbox.getAll(IDBKeyRange.lowerBound(seq, true)) as IDBRequest<
+        Required<QueuedOp>[]
+      >;
+      later.onsuccess = () => {
+        const stillPending = later.result.some((entry) => entry.op.object_id === op.object_id);
+        const read = objects.get(op.object_id) as IDBRequest<LocalObject | undefined>;
+        read.onsuccess = () => {
+          try {
+            const next = decide(read.result, stillPending);
+            if (next.object) objects.put(next.object);
+            if (next.resync) tx.objectStore('meta').put(true, 'resync');
+            if (problem) tx.objectStore('problems').put(problem);
+            outbox.delete(seq);
+          } catch (error) {
+            failure = error;
+            tx.abort();
+          }
+        };
+      };
+    }).catch((error: unknown) => {
+      throw failure ?? error;
+    });
+  }
+
+  /** Снимок с сервера: прочитать объект и решить, что записать, — одной транзакцией. */
+  merge(
+    snapshot: ObjectSnapshot,
+    decide: (local: LocalObject | undefined) => LocalObject | null,
+  ): Promise<void> {
+    let failure: unknown;
+    return this.run<void>(['objects'], (tx) => {
+      const objects = tx.objectStore('objects');
+      const read = objects.get(snapshot.id) as IDBRequest<LocalObject | undefined>;
+      read.onsuccess = () => {
+        try {
+          const next = decide(read.result);
+          if (next) objects.put(next);
+        } catch (error) {
+          failure = error;
+          tx.abort();
+        }
+      };
+    }).catch((error: unknown) => {
+      throw failure ?? error;
+    });
+  }
+
   /** Записать объект и операцию одной транзакцией: либо оба, либо ничего. */
   async commitLocal(object: LocalObject, op: Operation): Promise<void> {
     const tx = this.db.transaction(['objects', 'outbox'], 'readwrite');
@@ -81,12 +222,6 @@ export class LocalStore {
     return promisify(tx.objectStore('objects').getAll() as IDBRequest<LocalObject[]>);
   }
 
-  async putObject(object: LocalObject): Promise<void> {
-    const tx = this.db.transaction('objects', 'readwrite');
-    tx.objectStore('objects').put(object);
-    await done(tx);
-  }
-
   async outbox(limit: number): Promise<Required<QueuedOp>[]> {
     const tx = this.db.transaction('outbox');
     return promisify(
@@ -97,18 +232,6 @@ export class LocalStore {
   async outboxSize(): Promise<number> {
     const tx = this.db.transaction('outbox');
     return promisify(tx.objectStore('outbox').count());
-  }
-
-  async removeFromOutbox(seqs: number[]): Promise<void> {
-    const tx = this.db.transaction('outbox', 'readwrite');
-    for (const seq of seqs) tx.objectStore('outbox').delete(seq);
-    await done(tx);
-  }
-
-  async addProblem(problem: Problem): Promise<void> {
-    const tx = this.db.transaction('problems', 'readwrite');
-    tx.objectStore('problems').put(problem);
-    await done(tx);
   }
 
   async problems(): Promise<Problem[]> {
@@ -130,6 +253,12 @@ export class LocalStore {
   async setMeta(key: string, value: unknown): Promise<void> {
     const tx = this.db.transaction('meta', 'readwrite');
     tx.objectStore('meta').put(value, key);
+    await done(tx);
+  }
+
+  async deleteMeta(key: string): Promise<void> {
+    const tx = this.db.transaction('meta', 'readwrite');
+    tx.objectStore('meta').delete(key);
     await done(tx);
   }
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createQubiteClient, csrfFromCookie } from './index';
+import { ACCOUNT_HEADER, createQubiteClient, csrfFromCookie } from './index';
 
 describe('createQubiteClient', () => {
   it('ходит на /api/health и возвращает типизированный ответ', async () => {
@@ -40,6 +40,56 @@ describe('createQubiteClient', () => {
       ['GET', null],
       ['POST', 'csrf-123'],
     ]);
+  });
+
+  it('называет аккаунт в запросах данных, но не в /api/auth; «вошёл другой» — сигнал', async () => {
+    const seen: Array<[string, string | null]> = [];
+    let reply = () => new Response(null, { status: 204 });
+    const fakeFetch: typeof fetch = async (input) => {
+      const request = input as Request;
+      seen.push([new URL(request.url).pathname, request.headers.get('x-qubite-account')]);
+      return reply();
+    };
+    let account: string | undefined = 'account-a';
+    let mismatches = 0;
+    const client = createQubiteClient({
+      baseUrl: 'http://qubite.test',
+      fetch: fakeFetch,
+      account: () => account,
+      onAccountMismatch: () => (mismatches += 1),
+    });
+
+    await client.GET('/api/v1/inbox');
+    // Кто вошёл и вход/выход — без заголовка: ими это и выясняют.
+    await client.GET('/api/auth/me');
+    // Явно названный аккаунт (очередь, выход) не подменяется.
+    await client.POST('/api/auth/logout', { headers: { [ACCOUNT_HEADER]: 'account-b' } });
+    account = undefined;
+    await client.GET('/api/v1/inbox');
+    expect(seen).toEqual([
+      ['/api/v1/inbox', 'account-a'],
+      ['/api/auth/me', null],
+      ['/api/auth/logout', 'account-b'],
+      ['/api/v1/inbox', null],
+    ]);
+    expect(mismatches).toBe(0);
+
+    reply = () =>
+      new Response(JSON.stringify({ error: 'account_mismatch', message: 'другой аккаунт' }), {
+        status: 409,
+        headers: { 'content-type': 'application/json' },
+      });
+    const { error } = await client.GET('/api/v1/inbox');
+    expect(error).toMatchObject({ error: 'account_mismatch' });
+    expect(mismatches).toBe(1);
+    // Обычный 409 (например, занятая почта) — не про аккаунт.
+    reply = () =>
+      new Response(JSON.stringify({ error: 'email_taken', message: 'занято' }), {
+        status: 409,
+        headers: { 'content-type': 'application/json' },
+      });
+    await client.GET('/api/v1/inbox');
+    expect(mismatches).toBe(1);
   });
 
   it('читает CSRF-токен из cookie', () => {

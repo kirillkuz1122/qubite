@@ -31,6 +31,9 @@ use crate::AppState;
 pub const SESSION_COOKIE: &str = "qubite_session";
 pub const CSRF_COOKIE: &str = "qubite_csrf";
 pub const CSRF_HEADER: &str = "x-csrf-token";
+/// «От чьего имени сделан запрос»: ID аккаунта, который клиент считает своим
+/// (SYNC-008, D-894). Не совпал с сессией — запрос отклоняется целиком.
+pub const ACCOUNT_HEADER: &str = "x-qubite-account";
 
 /// Настройки входа на уровне HTTP.
 #[derive(Clone)]
@@ -355,6 +358,48 @@ impl<S: Send + Sync> FromRequestParts<S> for Authenticated {
     }
 }
 
+/// Клиент назвал аккаунт, и это не аккаунт сессии.
+///
+/// В браузере cookie общие на все вкладки: вкладка, открытая под одним
+/// человеком, после входа другого в соседней вкладке шлёт запросы уже с его
+/// cookie. Заголовок привязывает запрос к тому, кто его готовил.
+fn account_mismatch(headers: &HeaderMap, session: &ResolvedSession) -> bool {
+    headers.get(ACCOUNT_HEADER).is_some_and(|value| {
+        value
+            .to_str()
+            .ok()
+            .and_then(|value| Uuid::parse_str(value.trim()).ok())
+            != Some(session.account_id)
+    })
+}
+
+fn account_mismatch_response() -> Response {
+    ApiError::new(
+        StatusCode::CONFLICT,
+        "account_mismatch",
+        "В этом браузере уже вошёл другой аккаунт. Обновите страницу.",
+    )
+    .into_response()
+}
+
+/// Запросы, которые отправляют очередь устройства (она записана раньше, чем
+/// уходит), из браузера обязаны назвать аккаунт: иначе очередь одного
+/// человека ушла бы от имени другого. Приложениям с токеном это не нужно —
+/// токен и так выдан одному аккаунту.
+pub(crate) fn require_account_header(
+    session: &Authenticated,
+    headers: &HeaderMap,
+) -> Result<(), ApiError> {
+    if session.0.kind == "web" && !headers.contains_key(ACCOUNT_HEADER) {
+        return Err(ApiError::new(
+            StatusCode::BAD_REQUEST,
+            "account_required",
+            "Приложение устарело. Обновите страницу, чтобы продолжить синхронизацию.",
+        ));
+    }
+    Ok(())
+}
+
 fn bearer(headers: &HeaderMap) -> Option<&str> {
     headers
         .get(header::AUTHORIZATION)?
@@ -449,6 +494,9 @@ pub async fn session_layer(
     if let Some(access) = bearer(request.headers()).map(str::to_owned) {
         match sessions::resolve_device(state.db.pool(), &settings.config, &access).await {
             Ok(Some(session)) => {
+                if account_mismatch(request.headers(), &session) {
+                    return account_mismatch_response();
+                }
                 request
                     .extensions_mut()
                     .insert(Authenticated(Arc::new(session)));
@@ -493,6 +541,9 @@ pub async fn session_layer(
                     )
                     .into_response();
                 }
+            }
+            if account_mismatch(request.headers(), &session) {
+                return account_mismatch_response();
             }
             if session.extended
                 && let Some(csrf) = csrf_cookie.filter(|csrf| session.csrf_matches(csrf))

@@ -367,7 +367,7 @@ async fn cookie_and_bearer_tokens_are_not_interchangeable_and_logout_everywhere_
     // Токен приложения в cookie и cookie браузера как Bearer — не принимаются.
     let mut fake_browser = Browser {
         session: app.access.clone(),
-        csrf: None,
+        ..Browser::default()
     };
     assert_eq!(fake_browser.get(address, "/api/auth/me").await.status, 401);
     let fake_app = App {

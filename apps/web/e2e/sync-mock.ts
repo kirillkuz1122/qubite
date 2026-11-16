@@ -1,4 +1,4 @@
-import type { Page, WebSocketRoute } from '@playwright/test';
+import type { Page, Route, WebSocketRoute } from '@playwright/test';
 import { USER } from './auth-mock';
 
 /**
@@ -11,6 +11,14 @@ export interface SyncMock {
   ops: Record<string, unknown>[];
   /** сеть «пропала»: push и pull обрываются */
   offline: boolean;
+  /**
+   * Чья cookie сейчас в браузере (как на сервере). Запрос, назвавший в `X-Qubite-Account`
+   * другой аккаунт, получает 409 `account_mismatch`; отправка очереди без заголовка — 400.
+   * Сменить значение — «в соседней вкладке вошёл другой человек» (SYNC-008).
+   */
+  account: Record<string, unknown> & { id: string };
+  /** сколько запросов отклонено как «вошёл другой аккаунт» */
+  mismatches: number;
   /** мысль появилась «на другом устройстве»; `fields` — поверх обычных (разбор и т. п.); вернёт ID */
   addElsewhere(text: string, source?: string, fields?: Record<string, unknown>): string;
   /** голосовая запись, которую сервер создал из `POST /api/v1/inbox/voice` (ID — от устройства) */
@@ -56,6 +64,8 @@ export async function mockSync(page: Page): Promise<SyncMock> {
     objects: new Map(),
     ops: [],
     offline: false,
+    account: USER,
+    mismatches: 0,
     addElsewhere(text, source = 'telegram', fields = {}) {
       return put('inbox.item', text, {
         body: text,
@@ -109,13 +119,34 @@ export async function mockSync(page: Page): Promise<SyncMock> {
   await page
     .context()
     .addCookies([{ name: 'qubite_csrf', value: 'e2e-csrf', domain: '127.0.0.1', path: '/' }]);
-  await page.route('**/api/auth/me', (route) => route.fulfill({ json: USER }));
+  await page.route('**/api/auth/me', (route) => route.fulfill({ json: mock.account }));
+  /** Как сервер: запрос от имени другого аккаунта отклоняется целиком. */
+  const foreign = (route: Route, required: boolean) => {
+    const named = route.request().headers()['x-qubite-account'];
+    if (named && named !== mock.account.id) {
+      mock.mismatches += 1;
+      void route.fulfill({
+        status: 409,
+        json: { error: 'account_mismatch', message: 'В этом браузере уже вошёл другой аккаунт' },
+      });
+      return true;
+    }
+    if (!named && required) {
+      void route.fulfill({
+        status: 400,
+        json: { error: 'account_required', message: 'Приложение устарело. Обновите страницу' },
+      });
+      return true;
+    }
+    return false;
+  };
   // В сценариях без Docs упоминаний нет; запрос новой панели тоже остаётся поддельным.
   await page.route('**/api/v1/objects/*/backlinks', (route) =>
     mock.offline ? route.abort('internetdisconnected') : route.fulfill({ json: { backlinks: [] } }),
   );
   await page.route('**/api/v1/sync/push', async (route) => {
     if (mock.offline) return route.abort('internetdisconnected');
+    if (foreign(route, true)) return;
     const body = route.request().postDataJSON() as { ops: Record<string, unknown>[] };
     const results = body.ops.map((op) => {
       mock.ops.push(op);
@@ -165,6 +196,7 @@ export async function mockSync(page: Page): Promise<SyncMock> {
 
   await page.route('**/api/v1/sync/pull?**', async (route) => {
     if (mock.offline) return route.abort('internetdisconnected');
+    if (foreign(route, false)) return;
     const cursor = Number(new URL(route.request().url()).searchParams.get('cursor') ?? 0);
     const ids = [...new Set(log.slice(cursor))];
     return route.fulfill({
