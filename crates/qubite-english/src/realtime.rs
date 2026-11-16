@@ -26,7 +26,7 @@ use uuid::Uuid;
 
 use crate::{
     Error, Message, Result, Session, begin, dialog, lessons, may_read, may_write, message,
-    messages, notes, tutor,
+    messages, notes, tutor, verbs,
 };
 
 pub const ENGINE_CHATGPT: &str = "chatgpt";
@@ -115,6 +115,7 @@ async fn nate(pool: &PgPool, account: Uuid, session: Uuid) -> Result<(String, Ve
         .await?
         .map(|file| file.body.chars().take(3000).collect::<String>());
     let lesson = lessons::current(&mut conn, account).await?;
+    let weak_verbs = verbs::nate_block(&mut conn, account).await?;
     drop(conn);
     let mut data = Vec::new();
     let prompt = match &lesson {
@@ -131,6 +132,9 @@ async fn nate(pool: &PgPool, account: Uuid, session: Uuid) -> Result<(String, Ve
     };
     if let Some(body) = notes_body.filter(|b| !b.trim().is_empty()) {
         data.push(Untrusted::new("notes", body));
+    }
+    if let Some(verbs) = weak_verbs {
+        data.push(Untrusted::new("verbs", verbs));
     }
     if !history.is_empty() {
         data.push(Untrusted::new("dialog", dialog(&history)));

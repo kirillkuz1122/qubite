@@ -19,6 +19,7 @@ pub mod docs;
 pub mod email;
 pub mod english;
 pub mod english_lessons;
+pub mod english_verbs;
 pub mod harness;
 pub mod home;
 pub mod inbox;
@@ -346,6 +347,8 @@ impl AppState {
         english_lessons::english_settings,
         english_lessons::english_change_settings,
         english_lessons::english_phrase,
+        english_verbs::english_verbs,
+        english_verbs::english_verb_answer,
         routes::task_route,
         calendar::calendar,
         calendar::create_event,
@@ -587,6 +590,8 @@ impl AppState {
         english_lessons::EnglishReplaceVoice,
         english_lessons::EnglishSettingsChange,
         english_lessons::EnglishPhrase,
+        english_verbs::EnglishVerbForms,
+        english_verbs::EnglishVerbAnswer,
         calendar::CalendarKind,
         calendar::CalendarItem,
         calendar::CalendarRecurrence,
@@ -1012,6 +1017,12 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
         .route(
             "/api/v1/english/phrase",
             post(english_lessons::english_phrase),
+        )
+        .route("/api/v1/english/verbs", get(english_verbs::english_verbs))
+        // Ответ на глагол — пара коротких строк: тело до 4 КБ.
+        .route(
+            "/api/v1/english/verbs/answer",
+            post(english_verbs::english_verb_answer).layer(DefaultBodyLimit::max(4 * 1024)),
         )
         .route("/api/calendar", get(calendar::calendar))
         .route("/api/calendar/events", post(calendar::create_event))

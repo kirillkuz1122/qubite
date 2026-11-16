@@ -1,0 +1,921 @@
+{
+  "version": 1,
+  "groups": [
+    {
+      "id": "same",
+      "title_ru": "Все три одинаковые",
+      "hint": "cut – cut – cut: ничего не меняется"
+    },
+    { "id": "i-a-u", "title_ru": "i → a → u", "hint": "sing – sang – sung" },
+    { "id": "i-u-u", "title_ru": "i → u → u", "hint": "win – won – won, stick – stuck – stuck" },
+    {
+      "id": "ought",
+      "title_ru": "-ought / -aught",
+      "hint": "buy – bought – bought, catch – caught – caught"
+    },
+    { "id": "o-en", "title_ru": "o → o + en", "hint": "break – broke – broken" },
+    { "id": "ore-orn", "title_ru": "-ear → -ore → -orn", "hint": "wear – wore – worn" },
+    { "id": "i-o-en", "title_ru": "i → o → i + en", "hint": "drive – drove – driven" },
+    { "id": "ew-own", "title_ru": "-ew → -own", "hint": "know – knew – known" },
+    { "id": "ake-ook", "title_ru": "-ake → -ook → -aken", "hint": "take – took – taken" },
+    {
+      "id": "ee-e-t",
+      "title_ru": "Долгий звук → короткий + t",
+      "hint": "keep – kept – kept, feel – felt – felt"
+    },
+    { "id": "d-t", "title_ru": "-d → -t", "hint": "send – sent – sent" },
+    {
+      "id": "long-short",
+      "title_ru": "Гласная становится короткой",
+      "hint": "feed – fed – fed, lose – lost – lost"
+    },
+    {
+      "id": "d",
+      "title_ru": "Вторая и третья на -d",
+      "hint": "say – said – said, sell – sold – sold"
+    },
+    { "id": "ound", "title_ru": "-ind → -ound", "hint": "find – found – found" },
+    {
+      "id": "v2v3",
+      "title_ru": "Вторая = третья, остальные",
+      "hint": "sit – sat – sat, stand – stood – stood"
+    },
+    { "id": "en", "title_ru": "Третья на -en", "hint": "give – gave – given, eat – ate – eaten" },
+    {
+      "id": "special",
+      "title_ru": "Особенные — просто запомнить",
+      "hint": "be – was/were – been, go – went – gone"
+    },
+    { "id": "come", "title_ru": "Первая = третья", "hint": "come – came – come, run – ran – run" },
+    {
+      "id": "t-ed",
+      "title_ru": "Можно на -t, можно на -ed",
+      "hint": "learn – learnt – learnt (или learned)"
+    },
+    {
+      "id": "prefix",
+      "title_ru": "С приставкой — как основной глагол",
+      "hint": "undo – undid – undone (как do)"
+    }
+  ],
+  "verbs": [
+    { "id": "cut", "v1": "cut", "v2": "cut", "v3": "cut", "ru": "резать", "group": "same" },
+    { "id": "put", "v1": "put", "v2": "put", "v3": "put", "ru": "класть", "group": "same" },
+    { "id": "let", "v1": "let", "v2": "let", "v3": "let", "ru": "позволять", "group": "same" },
+    {
+      "id": "set",
+      "v1": "set",
+      "v2": "set",
+      "v3": "set",
+      "ru": "ставить, устанавливать",
+      "group": "same"
+    },
+    { "id": "shut", "v1": "shut", "v2": "shut", "v3": "shut", "ru": "закрывать", "group": "same" },
+    { "id": "hit", "v1": "hit", "v2": "hit", "v3": "hit", "ru": "ударять", "group": "same" },
+    {
+      "id": "hurt",
+      "v1": "hurt",
+      "v2": "hurt",
+      "v3": "hurt",
+      "ru": "причинять боль",
+      "group": "same"
+    },
+    { "id": "cost", "v1": "cost", "v2": "cost", "v3": "cost", "ru": "стоить", "group": "same" },
+    {
+      "id": "burst",
+      "v1": "burst",
+      "v2": "burst",
+      "v3": "burst",
+      "ru": "лопаться",
+      "group": "same"
+    },
+    { "id": "bet", "v1": "bet", "v2": "bet", "v3": "bet", "ru": "держать пари", "group": "same" },
+    {
+      "id": "quit",
+      "v1": "quit",
+      "v2": "quit",
+      "v3": "quit",
+      "ru": "бросать, уходить",
+      "group": "same"
+    },
+    {
+      "id": "spread",
+      "v1": "spread",
+      "v2": "spread",
+      "v3": "spread",
+      "ru": "распространять",
+      "group": "same"
+    },
+    {
+      "id": "split",
+      "v1": "split",
+      "v2": "split",
+      "v3": "split",
+      "ru": "разделять",
+      "group": "same"
+    },
+    {
+      "id": "shed",
+      "v1": "shed",
+      "v2": "shed",
+      "v3": "shed",
+      "ru": "сбрасывать, проливать",
+      "group": "same"
+    },
+    {
+      "id": "upset",
+      "v1": "upset",
+      "v2": "upset",
+      "v3": "upset",
+      "ru": "расстраивать",
+      "group": "same"
+    },
+    {
+      "id": "broadcast",
+      "v1": "broadcast",
+      "v2": "broadcast",
+      "v3": "broadcast",
+      "ru": "транслировать",
+      "group": "same"
+    },
+    { "id": "read", "v1": "read", "v2": "read", "v3": "read", "ru": "читать", "group": "same" },
+    { "id": "sing", "v1": "sing", "v2": "sang", "v3": "sung", "ru": "петь", "group": "i-a-u" },
+    { "id": "ring", "v1": "ring", "v2": "rang", "v3": "rung", "ru": "звонить", "group": "i-a-u" },
+    { "id": "swim", "v1": "swim", "v2": "swam", "v3": "swum", "ru": "плавать", "group": "i-a-u" },
+    { "id": "drink", "v1": "drink", "v2": "drank", "v3": "drunk", "ru": "пить", "group": "i-a-u" },
+    {
+      "id": "begin",
+      "v1": "begin",
+      "v2": "began",
+      "v3": "begun",
+      "ru": "начинать",
+      "group": "i-a-u"
+    },
+    { "id": "sink", "v1": "sink", "v2": "sank", "v3": "sunk", "ru": "тонуть", "group": "i-a-u" },
+    {
+      "id": "shrink",
+      "v1": "shrink",
+      "v2": "shrank",
+      "v3": "shrunk",
+      "ru": "сжиматься",
+      "group": "i-a-u"
+    },
+    {
+      "id": "spring",
+      "v1": "spring",
+      "v2": "sprang",
+      "v3": "sprung",
+      "ru": "прыгать, возникать",
+      "group": "i-a-u"
+    },
+    {
+      "id": "stink",
+      "v1": "stink",
+      "v2": "stank",
+      "v3": "stunk",
+      "ru": "вонять",
+      "group": "i-a-u"
+    },
+    { "id": "win", "v1": "win", "v2": "won", "v3": "won", "ru": "побеждать", "group": "i-u-u" },
+    { "id": "dig", "v1": "dig", "v2": "dug", "v3": "dug", "ru": "копать", "group": "i-u-u" },
+    {
+      "id": "stick",
+      "v1": "stick",
+      "v2": "stuck",
+      "v3": "stuck",
+      "ru": "приклеивать, застревать",
+      "group": "i-u-u"
+    },
+    {
+      "id": "sting",
+      "v1": "sting",
+      "v2": "stung",
+      "v3": "stung",
+      "ru": "жалить",
+      "group": "i-u-u"
+    },
+    {
+      "id": "swing",
+      "v1": "swing",
+      "v2": "swung",
+      "v3": "swung",
+      "ru": "качаться",
+      "group": "i-u-u"
+    },
+    {
+      "id": "cling",
+      "v1": "cling",
+      "v2": "clung",
+      "v3": "clung",
+      "ru": "цепляться",
+      "group": "i-u-u"
+    },
+    {
+      "id": "fling",
+      "v1": "fling",
+      "v2": "flung",
+      "v3": "flung",
+      "ru": "швырять",
+      "group": "i-u-u"
+    },
+    { "id": "spin", "v1": "spin", "v2": "spun", "v3": "spun", "ru": "крутить", "group": "i-u-u" },
+    {
+      "id": "hang",
+      "v1": "hang",
+      "v2": "hung",
+      "v3": "hung",
+      "ru": "вешать, висеть",
+      "group": "i-u-u"
+    },
+    {
+      "id": "strike",
+      "v1": "strike",
+      "v2": "struck",
+      "v3": "struck",
+      "ru": "ударять, бастовать",
+      "group": "i-u-u"
+    },
+    {
+      "id": "buy",
+      "v1": "buy",
+      "v2": "bought",
+      "v3": "bought",
+      "ru": "покупать",
+      "group": "ought"
+    },
+    {
+      "id": "bring",
+      "v1": "bring",
+      "v2": "brought",
+      "v3": "brought",
+      "ru": "приносить",
+      "group": "ought"
+    },
+    {
+      "id": "think",
+      "v1": "think",
+      "v2": "thought",
+      "v3": "thought",
+      "ru": "думать",
+      "group": "ought"
+    },
+    {
+      "id": "fight",
+      "v1": "fight",
+      "v2": "fought",
+      "v3": "fought",
+      "ru": "драться, бороться",
+      "group": "ought"
+    },
+    {
+      "id": "seek",
+      "v1": "seek",
+      "v2": "sought",
+      "v3": "sought",
+      "ru": "искать",
+      "group": "ought"
+    },
+    {
+      "id": "catch",
+      "v1": "catch",
+      "v2": "caught",
+      "v3": "caught",
+      "ru": "ловить",
+      "group": "ought"
+    },
+    {
+      "id": "teach",
+      "v1": "teach",
+      "v2": "taught",
+      "v3": "taught",
+      "ru": "учить, преподавать",
+      "group": "ought"
+    },
+    {
+      "id": "break",
+      "v1": "break",
+      "v2": "broke",
+      "v3": "broken",
+      "ru": "ломать",
+      "group": "o-en"
+    },
+    {
+      "id": "speak",
+      "v1": "speak",
+      "v2": "spoke",
+      "v3": "spoken",
+      "ru": "говорить",
+      "group": "o-en"
+    },
+    {
+      "id": "steal",
+      "v1": "steal",
+      "v2": "stole",
+      "v3": "stolen",
+      "ru": "красть",
+      "group": "o-en"
+    },
+    {
+      "id": "choose",
+      "v1": "choose",
+      "v2": "chose",
+      "v3": "chosen",
+      "ru": "выбирать",
+      "group": "o-en"
+    },
+    {
+      "id": "freeze",
+      "v1": "freeze",
+      "v2": "froze",
+      "v3": "frozen",
+      "ru": "замерзать",
+      "group": "o-en"
+    },
+    {
+      "id": "wake",
+      "v1": "wake",
+      "v2": "woke",
+      "v3": "woken",
+      "ru": "просыпаться, будить",
+      "group": "o-en"
+    },
+    {
+      "id": "awake",
+      "v1": "awake",
+      "v2": "awoke",
+      "v3": "awoken",
+      "ru": "пробуждаться",
+      "group": "o-en"
+    },
+    {
+      "id": "forget",
+      "v1": "forget",
+      "v2": "forgot",
+      "v3": "forgotten",
+      "ru": "забывать",
+      "group": "o-en"
+    },
+    {
+      "id": "wear",
+      "v1": "wear",
+      "v2": "wore",
+      "v3": "worn",
+      "ru": "носить (одежду)",
+      "group": "ore-orn"
+    },
+    { "id": "tear", "v1": "tear", "v2": "tore", "v3": "torn", "ru": "рвать", "group": "ore-orn" },
+    {
+      "id": "swear",
+      "v1": "swear",
+      "v2": "swore",
+      "v3": "sworn",
+      "ru": "клясться, ругаться",
+      "group": "ore-orn"
+    },
+    {
+      "id": "bear",
+      "v1": "bear",
+      "v2": "bore",
+      "v3": "born|borne",
+      "ru": "рожать, выносить",
+      "group": "ore-orn"
+    },
+    {
+      "id": "drive",
+      "v1": "drive",
+      "v2": "drove",
+      "v3": "driven",
+      "ru": "водить (машину)",
+      "group": "i-o-en"
+    },
+    {
+      "id": "ride",
+      "v1": "ride",
+      "v2": "rode",
+      "v3": "ridden",
+      "ru": "ездить верхом",
+      "group": "i-o-en"
+    },
+    {
+      "id": "write",
+      "v1": "write",
+      "v2": "wrote",
+      "v3": "written",
+      "ru": "писать",
+      "group": "i-o-en"
+    },
+    {
+      "id": "rise",
+      "v1": "rise",
+      "v2": "rose",
+      "v3": "risen",
+      "ru": "подниматься",
+      "group": "i-o-en"
+    },
+    {
+      "id": "arise",
+      "v1": "arise",
+      "v2": "arose",
+      "v3": "arisen",
+      "ru": "возникать",
+      "group": "i-o-en"
+    },
+    { "id": "know", "v1": "know", "v2": "knew", "v3": "known", "ru": "знать", "group": "ew-own" },
+    { "id": "grow", "v1": "grow", "v2": "grew", "v3": "grown", "ru": "расти", "group": "ew-own" },
+    {
+      "id": "throw",
+      "v1": "throw",
+      "v2": "threw",
+      "v3": "thrown",
+      "ru": "бросать",
+      "group": "ew-own"
+    },
+    { "id": "blow", "v1": "blow", "v2": "blew", "v3": "blown", "ru": "дуть", "group": "ew-own" },
+    { "id": "fly", "v1": "fly", "v2": "flew", "v3": "flown", "ru": "летать", "group": "ew-own" },
+    {
+      "id": "draw",
+      "v1": "draw",
+      "v2": "drew",
+      "v3": "drawn",
+      "ru": "рисовать, тянуть",
+      "group": "ew-own"
+    },
+    {
+      "id": "withdraw",
+      "v1": "withdraw",
+      "v2": "withdrew",
+      "v3": "withdrawn",
+      "ru": "снимать (деньги), отходить",
+      "group": "ew-own"
+    },
+    {
+      "id": "show",
+      "v1": "show",
+      "v2": "showed",
+      "v3": "shown|showed",
+      "ru": "показывать",
+      "group": "ew-own"
+    },
+    { "id": "take", "v1": "take", "v2": "took", "v3": "taken", "ru": "брать", "group": "ake-ook" },
+    {
+      "id": "shake",
+      "v1": "shake",
+      "v2": "shook",
+      "v3": "shaken",
+      "ru": "трясти",
+      "group": "ake-ook"
+    },
+    {
+      "id": "mistake",
+      "v1": "mistake",
+      "v2": "mistook",
+      "v3": "mistaken",
+      "ru": "ошибаться",
+      "group": "ake-ook"
+    },
+    {
+      "id": "keep",
+      "v1": "keep",
+      "v2": "kept",
+      "v3": "kept",
+      "ru": "хранить, держать",
+      "group": "ee-e-t"
+    },
+    {
+      "id": "sleep",
+      "v1": "sleep",
+      "v2": "slept",
+      "v3": "slept",
+      "ru": "спать",
+      "group": "ee-e-t"
+    },
+    {
+      "id": "sweep",
+      "v1": "sweep",
+      "v2": "swept",
+      "v3": "swept",
+      "ru": "подметать",
+      "group": "ee-e-t"
+    },
+    { "id": "weep", "v1": "weep", "v2": "wept", "v3": "wept", "ru": "плакать", "group": "ee-e-t" },
+    {
+      "id": "creep",
+      "v1": "creep",
+      "v2": "crept",
+      "v3": "crept",
+      "ru": "ползти, красться",
+      "group": "ee-e-t"
+    },
+    {
+      "id": "feel",
+      "v1": "feel",
+      "v2": "felt",
+      "v3": "felt",
+      "ru": "чувствовать",
+      "group": "ee-e-t"
+    },
+    {
+      "id": "kneel",
+      "v1": "kneel",
+      "v2": "knelt|kneeled",
+      "v3": "knelt|kneeled",
+      "ru": "становиться на колени",
+      "group": "ee-e-t"
+    },
+    { "id": "meet", "v1": "meet", "v2": "met", "v3": "met", "ru": "встречать", "group": "ee-e-t" },
+    {
+      "id": "leave",
+      "v1": "leave",
+      "v2": "left",
+      "v3": "left",
+      "ru": "уходить, оставлять",
+      "group": "ee-e-t"
+    },
+    {
+      "id": "deal",
+      "v1": "deal",
+      "v2": "dealt",
+      "v3": "dealt",
+      "ru": "иметь дело",
+      "group": "ee-e-t"
+    },
+    {
+      "id": "mean",
+      "v1": "mean",
+      "v2": "meant",
+      "v3": "meant",
+      "ru": "значить",
+      "group": "ee-e-t"
+    },
+    { "id": "send", "v1": "send", "v2": "sent", "v3": "sent", "ru": "отправлять", "group": "d-t" },
+    {
+      "id": "spend",
+      "v1": "spend",
+      "v2": "spent",
+      "v3": "spent",
+      "ru": "тратить, проводить",
+      "group": "d-t"
+    },
+    {
+      "id": "lend",
+      "v1": "lend",
+      "v2": "lent",
+      "v3": "lent",
+      "ru": "давать взаймы",
+      "group": "d-t"
+    },
+    { "id": "bend", "v1": "bend", "v2": "bent", "v3": "bent", "ru": "гнуть", "group": "d-t" },
+    { "id": "build", "v1": "build", "v2": "built", "v3": "built", "ru": "строить", "group": "d-t" },
+    {
+      "id": "feed",
+      "v1": "feed",
+      "v2": "fed",
+      "v3": "fed",
+      "ru": "кормить",
+      "group": "long-short"
+    },
+    {
+      "id": "bleed",
+      "v1": "bleed",
+      "v2": "bled",
+      "v3": "bled",
+      "ru": "кровоточить",
+      "group": "long-short"
+    },
+    { "id": "lead", "v1": "lead", "v2": "led", "v3": "led", "ru": "вести", "group": "long-short" },
+    {
+      "id": "breed",
+      "v1": "breed",
+      "v2": "bred",
+      "v3": "bred",
+      "ru": "разводить",
+      "group": "long-short"
+    },
+    {
+      "id": "speed",
+      "v1": "speed",
+      "v2": "sped",
+      "v3": "sped",
+      "ru": "мчаться",
+      "group": "long-short"
+    },
+    {
+      "id": "flee",
+      "v1": "flee",
+      "v2": "fled",
+      "v3": "fled",
+      "ru": "убегать",
+      "group": "long-short"
+    },
+    {
+      "id": "hold",
+      "v1": "hold",
+      "v2": "held",
+      "v3": "held",
+      "ru": "держать",
+      "group": "long-short"
+    },
+    {
+      "id": "shoot",
+      "v1": "shoot",
+      "v2": "shot",
+      "v3": "shot",
+      "ru": "стрелять",
+      "group": "long-short"
+    },
+    {
+      "id": "lose",
+      "v1": "lose",
+      "v2": "lost",
+      "v3": "lost",
+      "ru": "терять, проигрывать",
+      "group": "long-short"
+    },
+    {
+      "id": "light",
+      "v1": "light",
+      "v2": "lit|lighted",
+      "v3": "lit|lighted",
+      "ru": "зажигать",
+      "group": "long-short"
+    },
+    {
+      "id": "slide",
+      "v1": "slide",
+      "v2": "slid",
+      "v3": "slid",
+      "ru": "скользить",
+      "group": "long-short"
+    },
+    { "id": "say", "v1": "say", "v2": "said", "v3": "said", "ru": "сказать", "group": "d" },
+    { "id": "pay", "v1": "pay", "v2": "paid", "v3": "paid", "ru": "платить", "group": "d" },
+    {
+      "id": "lay",
+      "v1": "lay",
+      "v2": "laid",
+      "v3": "laid",
+      "ru": "класть, накрывать",
+      "group": "d"
+    },
+    { "id": "sell", "v1": "sell", "v2": "sold", "v3": "sold", "ru": "продавать", "group": "d" },
+    { "id": "tell", "v1": "tell", "v2": "told", "v3": "told", "ru": "рассказывать", "group": "d" },
+    { "id": "hear", "v1": "hear", "v2": "heard", "v3": "heard", "ru": "слышать", "group": "d" },
+    { "id": "make", "v1": "make", "v2": "made", "v3": "made", "ru": "делать", "group": "d" },
+    { "id": "have", "v1": "have", "v2": "had", "v3": "had", "ru": "иметь", "group": "d" },
+    { "id": "find", "v1": "find", "v2": "found", "v3": "found", "ru": "находить", "group": "ound" },
+    {
+      "id": "bind",
+      "v1": "bind",
+      "v2": "bound",
+      "v3": "bound",
+      "ru": "связывать",
+      "group": "ound"
+    },
+    {
+      "id": "wind",
+      "v1": "wind",
+      "v2": "wound",
+      "v3": "wound",
+      "ru": "заводить, виться",
+      "group": "ound"
+    },
+    {
+      "id": "grind",
+      "v1": "grind",
+      "v2": "ground",
+      "v3": "ground",
+      "ru": "молоть",
+      "group": "ound"
+    },
+    { "id": "sit", "v1": "sit", "v2": "sat", "v3": "sat", "ru": "сидеть", "group": "v2v3" },
+    { "id": "spit", "v1": "spit", "v2": "spat", "v3": "spat", "ru": "плевать", "group": "v2v3" },
+    { "id": "stand", "v1": "stand", "v2": "stood", "v3": "stood", "ru": "стоять", "group": "v2v3" },
+    {
+      "id": "understand",
+      "v1": "understand",
+      "v2": "understood",
+      "v3": "understood",
+      "ru": "понимать",
+      "group": "v2v3"
+    },
+    {
+      "id": "get",
+      "v1": "get",
+      "v2": "got",
+      "v3": "got|gotten",
+      "ru": "получать",
+      "group": "v2v3"
+    },
+    {
+      "id": "shine",
+      "v1": "shine",
+      "v2": "shone",
+      "v3": "shone",
+      "ru": "светить, сиять",
+      "group": "v2v3"
+    },
+    { "id": "give", "v1": "give", "v2": "gave", "v3": "given", "ru": "давать", "group": "en" },
+    {
+      "id": "forgive",
+      "v1": "forgive",
+      "v2": "forgave",
+      "v3": "forgiven",
+      "ru": "прощать",
+      "group": "en"
+    },
+    { "id": "eat", "v1": "eat", "v2": "ate", "v3": "eaten", "ru": "есть", "group": "en" },
+    { "id": "fall", "v1": "fall", "v2": "fell", "v3": "fallen", "ru": "падать", "group": "en" },
+    { "id": "see", "v1": "see", "v2": "saw", "v3": "seen", "ru": "видеть", "group": "en" },
+    { "id": "bite", "v1": "bite", "v2": "bit", "v3": "bitten", "ru": "кусать", "group": "en" },
+    { "id": "hide", "v1": "hide", "v2": "hid", "v3": "hidden", "ru": "прятать", "group": "en" },
+    {
+      "id": "beat",
+      "v1": "beat",
+      "v2": "beat",
+      "v3": "beaten",
+      "ru": "бить, побеждать",
+      "group": "en"
+    },
+    {
+      "id": "forbid",
+      "v1": "forbid",
+      "v2": "forbade",
+      "v3": "forbidden",
+      "ru": "запрещать",
+      "group": "en"
+    },
+    {
+      "id": "be",
+      "v1": "be",
+      "v2": "was/were|was|were",
+      "v3": "been",
+      "ru": "быть",
+      "group": "special"
+    },
+    { "id": "do", "v1": "do", "v2": "did", "v3": "done", "ru": "делать", "group": "special" },
+    { "id": "go", "v1": "go", "v2": "went", "v3": "gone", "ru": "идти, ехать", "group": "special" },
+    { "id": "lie", "v1": "lie", "v2": "lay", "v3": "lain", "ru": "лежать", "group": "special" },
+    { "id": "come", "v1": "come", "v2": "came", "v3": "come", "ru": "приходить", "group": "come" },
+    {
+      "id": "become",
+      "v1": "become",
+      "v2": "became",
+      "v3": "become",
+      "ru": "становиться",
+      "group": "come"
+    },
+    {
+      "id": "overcome",
+      "v1": "overcome",
+      "v2": "overcame",
+      "v3": "overcome",
+      "ru": "преодолевать",
+      "group": "come"
+    },
+    { "id": "run", "v1": "run", "v2": "ran", "v3": "run", "ru": "бегать", "group": "come" },
+    {
+      "id": "learn",
+      "v1": "learn",
+      "v2": "learnt|learned",
+      "v3": "learnt|learned",
+      "ru": "учить, узнавать",
+      "group": "t-ed"
+    },
+    {
+      "id": "burn",
+      "v1": "burn",
+      "v2": "burnt|burned",
+      "v3": "burnt|burned",
+      "ru": "гореть, жечь",
+      "group": "t-ed"
+    },
+    {
+      "id": "smell",
+      "v1": "smell",
+      "v2": "smelt|smelled",
+      "v3": "smelt|smelled",
+      "ru": "нюхать, пахнуть",
+      "group": "t-ed"
+    },
+    {
+      "id": "spell",
+      "v1": "spell",
+      "v2": "spelt|spelled",
+      "v3": "spelt|spelled",
+      "ru": "писать по буквам",
+      "group": "t-ed"
+    },
+    {
+      "id": "spill",
+      "v1": "spill",
+      "v2": "spilt|spilled",
+      "v3": "spilt|spilled",
+      "ru": "проливать",
+      "group": "t-ed"
+    },
+    {
+      "id": "spoil",
+      "v1": "spoil",
+      "v2": "spoilt|spoiled",
+      "v3": "spoilt|spoiled",
+      "ru": "портить",
+      "group": "t-ed"
+    },
+    {
+      "id": "dream",
+      "v1": "dream",
+      "v2": "dreamt|dreamed",
+      "v3": "dreamt|dreamed",
+      "ru": "мечтать, видеть сон",
+      "group": "t-ed"
+    },
+    {
+      "id": "lean",
+      "v1": "lean",
+      "v2": "leant|leaned",
+      "v3": "leant|leaned",
+      "ru": "наклоняться, опираться",
+      "group": "t-ed"
+    },
+    {
+      "id": "leap",
+      "v1": "leap",
+      "v2": "leapt|leaped",
+      "v3": "leapt|leaped",
+      "ru": "прыгать",
+      "group": "t-ed"
+    },
+    {
+      "id": "undo",
+      "v1": "undo",
+      "v2": "undid",
+      "v3": "undone",
+      "ru": "отменять, расстёгивать",
+      "group": "prefix"
+    },
+    {
+      "id": "rebuild",
+      "v1": "rebuild",
+      "v2": "rebuilt",
+      "v3": "rebuilt",
+      "ru": "перестраивать",
+      "group": "prefix"
+    },
+    {
+      "id": "retell",
+      "v1": "retell",
+      "v2": "retold",
+      "v3": "retold",
+      "ru": "пересказывать",
+      "group": "prefix"
+    },
+    {
+      "id": "rewrite",
+      "v1": "rewrite",
+      "v2": "rewrote",
+      "v3": "rewritten",
+      "ru": "переписывать",
+      "group": "prefix"
+    },
+    {
+      "id": "overhear",
+      "v1": "overhear",
+      "v2": "overheard",
+      "v3": "overheard",
+      "ru": "подслушать",
+      "group": "prefix"
+    },
+    {
+      "id": "oversleep",
+      "v1": "oversleep",
+      "v2": "overslept",
+      "v3": "overslept",
+      "ru": "проспать",
+      "group": "prefix"
+    },
+    {
+      "id": "misunderstand",
+      "v1": "misunderstand",
+      "v2": "misunderstood",
+      "v3": "misunderstood",
+      "ru": "неправильно понять",
+      "group": "prefix"
+    },
+    {
+      "id": "foresee",
+      "v1": "foresee",
+      "v2": "foresaw",
+      "v3": "foreseen",
+      "ru": "предвидеть",
+      "group": "prefix"
+    },
+    {
+      "id": "overtake",
+      "v1": "overtake",
+      "v2": "overtook",
+      "v3": "overtaken",
+      "ru": "обгонять",
+      "group": "prefix"
+    }
+  ]
+}

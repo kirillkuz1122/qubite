@@ -18,7 +18,7 @@ use uuid::Uuid;
 use crate::{
     Error, Result,
     course::{self, Check, Course},
-    game, may_read, may_use_ai, may_write,
+    game, may_read, may_use_ai, may_write, verbs,
 };
 
 /// Программа и разбор — Sol с рассуждением, если owner его включил (D-501).
@@ -874,21 +874,30 @@ pub async fn answer(
         run_lesson.as_str()
     };
     let ops = ops(&mut conn, account).await?;
-    let lesson = course::lesson(course, lesson_id, &ops).ok_or(Error::NotFound)?;
-    let original = course::task(&lesson, task_id).ok_or(Error::NotFound)?;
-    let task = replacements
-        .as_array()
-        .into_iter()
-        .flatten()
-        .find(|r| r["lesson_id"] == lesson_id && r["task"]["id"] == task_id)
-        .map(|r| &r["task"])
-        .unwrap_or(original)
-        .clone();
+    let learner = learner(&mut conn, account).await?;
+    // Глагол в повторении (D-889): задание «впиши формы» из набора, не из программы.
+    let verb = kind == "review" && lesson_id == verbs::REVIEW_LESSON;
+    let (lesson, task) = if verb {
+        let task = verbs::review_task(task_id).ok_or(Error::NotFound)?;
+        (json!({ "level": learner.level }), task)
+    } else {
+        let lesson = course::lesson(course, lesson_id, &ops).ok_or(Error::NotFound)?;
+        let original = course::task(&lesson, task_id).ok_or(Error::NotFound)?;
+        let task = replacements
+            .as_array()
+            .into_iter()
+            .flatten()
+            .find(|r| r["lesson_id"] == lesson_id && r["task"]["id"] == task_id)
+            .map(|r| &r["task"])
+            .unwrap_or(original)
+            .clone();
+        (lesson, task)
+    };
     let level = course
         .level(lesson["level"].as_str().unwrap_or_default())
+        .or(course.levels.first())
         .cloned()
         .ok_or(Error::NotFound)?;
-    let learner = learner(&mut conn, account).await?;
     drop(conn);
 
     // 1. Голос → текст.
@@ -962,7 +971,20 @@ pub async fn answer(
     let mut say = None;
     let mut mistakes = Vec::new();
     let mut offline = false;
-    let (correct, mut right) = match course::check(&task, &value, learner.strictness) {
+    // Формы глагола сверяет набор глаголов: у «вставь слово» `was/were` — это два варианта,
+    // а здесь — ещё и верный ответ целиком.
+    let checked = if verb {
+        if verbs::review_ok(task_id, &value) {
+            Check::Right
+        } else {
+            Check::Wrong {
+                right: String::new(),
+            }
+        }
+    } else {
+        course::check(&task, &value, learner.strictness)
+    };
+    let (correct, mut right) = match checked {
         Check::Right => (true, None),
         Check::Wrong { right } => (false, Some(right)),
         Check::Model => {
@@ -1018,6 +1040,10 @@ pub async fn answer(
             }
         }
     };
+    if verb {
+        // Показать формы как в таблице, а не запись с запасными вариантами.
+        right = task["example"].as_str().map(str::to_owned);
+    }
     if !correct && right.is_none() {
         let s = course::sample(&task);
         right = (!s.is_empty()).then_some(s);
@@ -1035,7 +1061,22 @@ pub async fn answer(
     .await?;
     let (attempts, was_correct) = prev.map_or((1, false), |(a, c)| (a + 1, c));
     let replay = replay_factor(&mut tx, account, lesson_id, kind.as_str(), &ops).await?;
-    let xp = if correct && !was_correct {
+    let today = game::today(&mut tx).await?;
+    // Глагол пишется в своё повторение, не в `english_review`: ошибка — «не знал». Награда —
+    // только если срок сдвинулся (D-897): тот же глагол могли уже ответить в тренажёре.
+    let verb_moved = if verb {
+        let grade = if correct {
+            verbs::Grade::Good
+        } else {
+            verbs::Grade::Again
+        };
+        verbs::record(&mut tx, account, task_id, grade, today)
+            .await?
+            .1
+    } else {
+        false
+    };
+    let xp = if correct && !was_correct && (!verb || verb_moved) {
         let full = course::task_xp(&task) * replay / 2;
         match attempts {
             1 => full,
@@ -1065,9 +1106,12 @@ pub async fn answer(
     .bind(call)
     .execute(&mut *tx)
     .await?;
-    let today = game::today(&mut tx).await?;
     let mut counters: Vec<(&'static str, i64)> = vec![("tasks", 1)];
-    if kind == "review" {
+    if verb {
+        if correct && !was_correct && verb_moved {
+            counters.extend([("fixed", 1), ("verbs", 1)]);
+        }
+    } else if kind == "review" {
         review_step(&mut tx, account, lesson_id, task_id, correct, today).await?;
         if correct {
             counters.push(("fixed", 1));
@@ -1228,27 +1272,29 @@ async fn review_step(
     Ok(())
 }
 
-/// Задания повторения на сегодня (до 10): `{lesson_id, task}`.
+/// Задания повторения на сегодня (до 10): `{lesson_id, task}`. У глаголов
+/// `lesson_id` = [`verbs::REVIEW_LESSON`], задание — «впиши формы».
 async fn review_tasks(conn: &mut PgConnection, account: Uuid) -> Result<Vec<Value>> {
     let today = game::today(conn).await?;
+    // Трудные неправильные глаголы — первыми (до трёх), потолок 10 не растёт (D-889).
+    let mut tasks = verbs::review_tasks(conn, account, today).await?;
     let rows: Vec<(String, String, String)> = sqlx::query_as(
         "SELECT lesson_id, task_id, wrong FROM english_review \
-         WHERE account_id = $1 AND NOT learned AND due_on <= $2 ORDER BY due_on, updated_at LIMIT 10",
+         WHERE account_id = $1 AND NOT learned AND due_on <= $2 ORDER BY due_on, updated_at LIMIT $3",
     )
     .bind(account)
     .bind(today)
+    .bind(10 - tasks.len() as i64)
     .fetch_all(&mut *conn)
     .await?;
     let course = course::course();
     let ops = ops(conn, account).await?;
-    Ok(rows
-        .into_iter()
-        .filter_map(|(lesson, task, wrong)| {
-            let l = course::lesson(course, &lesson, &ops)?;
-            let t = course::task(&l, &task)?.clone();
-            Some(json!({ "lesson_id": lesson, "task": t, "wrong": wrong }))
-        })
-        .collect())
+    tasks.extend(rows.into_iter().filter_map(|(lesson, task, wrong)| {
+        let l = course::lesson(course, &lesson, &ops)?;
+        let t = course::task(&l, &task)?.clone();
+        Some(json!({ "lesson_id": lesson, "task": t, "wrong": wrong }))
+    }));
+    Ok(tasks)
 }
 
 // ---------------------------------------------------------------- конец урока
@@ -1968,6 +2014,11 @@ pub async fn feedback(
     } else {
         run_lesson.as_str()
     };
+    if run_kind == "review" && lesson_id == verbs::REVIEW_LESSON {
+        return Err(Error::Invalid(
+            "у глаголов отметок нет — трудные сами возвращаются чаще".into(),
+        ));
+    }
     let ops = ops(&mut conn, account).await?;
     let lesson = course::lesson(course, lesson_id, &ops).ok_or(Error::NotFound)?;
     course::task(&lesson, task_id).ok_or(Error::NotFound)?;

@@ -7038,6 +7038,82 @@
         }
       }
     },
+    "/api/v1/english/verbs": {
+      "get": {
+        "tags": ["english"],
+        "operationId": "english_verbs",
+        "responses": {
+          "200": {
+            "description": "Глаголы по группам с прогрессом и счётчики (verbs::Overview)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет доступа к агенту",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/english/verbs/answer": {
+      "post": {
+        "tags": ["english"],
+        "operationId": "english_verb_answer",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnglishVerbAnswer"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Верно ли, правильные формы, новое состояние глагола, опыт (verbs::Answered)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Нет такого глагола или игры, лишние или слишком длинные поля",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет доступа к агенту",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/home": {
       "get": {
         "tags": ["home"],
@@ -12530,6 +12606,61 @@
             "type": "string"
           }
         }
+      },
+      "EnglishVerbAnswer": {
+        "type": "object",
+        "description": "Ответ на глагол. Что-то одно: `given` (впиши формы — сверяет сервер), `said`\n(скажи вслух — сверяет сервер), `grade` (карточки) или `correct` (остальные игры).",
+        "required": ["verb_id", "mode"],
+        "properties": {
+          "correct": {
+            "type": ["boolean", "null"]
+          },
+          "given": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/EnglishVerbForms"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "grade": {
+            "type": ["string", "null"],
+            "description": "`again`, `good` или `easy`."
+          },
+          "mode": {
+            "type": "string",
+            "description": "`cards`, `match`, `quiz`, `type`, `anagram`, `search`, `speak` или `sprint`."
+          },
+          "said": {
+            "type": ["string", "null"],
+            "description": "Распознанная речь: три формы подряд."
+          },
+          "verb_id": {
+            "type": "string",
+            "description": "Глагол из набора, например `go`."
+          }
+        },
+        "additionalProperties": false
+      },
+      "EnglishVerbForms": {
+        "type": "object",
+        "description": "Вписанные формы глагола.",
+        "required": ["v2", "v3"],
+        "properties": {
+          "v1": {
+            "type": ["string", "null"],
+            "description": "Первая форма — если спрашивали по переводу."
+          },
+          "v2": {
+            "type": "string"
+          },
+          "v3": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
       },
       "EnglishVoice": {
         "type": "object",

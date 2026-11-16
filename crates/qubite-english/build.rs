@@ -7,7 +7,11 @@ fn main() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../content/english");
     let root = root.canonicalize().expect("нет папки content/english");
     println!("cargo:rerun-if-changed={}", root.display());
-    let mut files = vec![root.join("course.json"), root.join("placement.json")];
+    let mut files = vec![
+        root.join("course.json"),
+        root.join("placement.json"),
+        root.join("verbs.json"),
+    ];
     let lessons = root.join("lessons");
     println!("cargo:rerun-if-changed={}", lessons.display());
     let mut levels: Vec<_> = fs::read_dir(&lessons)

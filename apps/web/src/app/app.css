@@ -1835,6 +1835,11 @@ button.proj {
 h4.eng-h {
   font-size: 14px;
 }
+.eng-gaps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr));
+  gap: 12px;
+}
 .eng-row {
   display: flex;
   flex-wrap: wrap;

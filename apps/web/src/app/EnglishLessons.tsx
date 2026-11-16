@@ -77,6 +77,7 @@ import {
   days,
   explainAsk,
   gaps,
+  gapsReply,
   kindLabel,
   matchRight,
   matchReply,
@@ -92,6 +93,7 @@ import {
   spoken,
   theory,
   tiles,
+  VERBS_LESSON,
   WEEKDAYS,
   WHY_TEXT,
 } from './english-lessons-view';
@@ -801,7 +803,7 @@ function LessonPlayer({
                   <section className="eng-card eng-task">
                     <div className="eng-task-head">
                       <p className="eng-kind">{kindLabel(item.task)}</p>
-                      {run && (
+                      {run && item.lesson !== VERBS_LESSON && (
                         <TaskFeedback
                           key={`${item.lesson ?? ''}:${item.task.id}`}
                           run={run.id}
@@ -889,7 +891,7 @@ function LessonPlayer({
         <footer className="eng-lesson-bottom">
           <div className="eng-lesson-column">
             {kind !== 'review' && phase !== 'result' && <Ask lesson={id} />}
-            {kind === 'review' && item && phase === 'tasks' && (
+            {kind === 'review' && item && item.lesson !== VERBS_LESSON && phase === 'tasks' && (
               <Ask key={item.lesson ?? id} lesson={item.lesson ?? id} />
             )}
             <Presence show={harderAccepted && phase !== 'result'}>
@@ -1778,6 +1780,47 @@ function Fill({
             </Button>
           ))}
         </div>
+      ) : n > 1 ? (
+        // Несколько пропусков без вариантов (в том числе формы глагола): по полю на пропуск.
+        <form
+          className="talk-form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const typed = gapsReply(vals);
+            if (!locked && typed) onReply({ value: typed });
+          }}
+        >
+          <div className="eng-gaps">
+            {vals.map((v, i) => (
+              <Field
+                key={i}
+                label={`Пропуск ${i + 1}`}
+                lang="en"
+                value={v}
+                disabled={locked}
+                maxLength={60}
+                autoCapitalize="none"
+                autoComplete="off"
+                spellCheck={false}
+                onChange={(e) => {
+                  const next = [...vals];
+                  next[i] = e.target.value;
+                  setVals(next);
+                  const typed = gapsReply(next);
+                  onDraft?.(typed ? { value: typed } : null);
+                }}
+              />
+            ))}
+          </div>
+          {onDraft ? (
+            <button type="submit" hidden aria-hidden="true" tabIndex={-1} />
+          ) : (
+            <Button size="sm" type="submit" disabled={locked || !gapsReply(vals)}>
+              Проверить
+            </Button>
+          )}
+          <p className="eng-hint">{WHY_TEXT}</p>
+        </form>
       ) : (
         <TextAnswer
           label="Пропущенное слово"
