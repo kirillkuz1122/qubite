@@ -68,3 +68,24 @@ test('сервер сказал «есть новое» — мысль из Tele
   server.ping();
   await expect(page.locator('.item').filter({ hasText: 'Подарок маме' })).toBeVisible();
 });
+
+/* DS-013, шаг 1: любой текст человека переносится — длинная ссылка без пробелов
+   не делает экран шире окна (раньше на телефоне появлялась прокрутка вбок). */
+test('длинная ссылка без пробелов не раздвигает экран', async ({ page }) => {
+  const server = await mockSync(page);
+  const link =
+    'https://example.com/ochen/dlinnaya/ssylka/bez-probelov/kotoraya-ne-pomeschaetsya-v-stroku-telefona?utm_source=qubite&utm_medium=test';
+  const today = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const due = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+  server.addElsewhere(link);
+  server.addTask(`Прочитать ${link}`, { due_date: due, due_time: '18:30' });
+  for (const path of ['/inbox', '/today', '/home']) {
+    await page.goto(path);
+    await expect(page.getByText(link, { exact: false }).first()).toBeVisible();
+    const over = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(over, `${path}: экран шире окна на ${over}px`).toBe(0);
+  }
+});

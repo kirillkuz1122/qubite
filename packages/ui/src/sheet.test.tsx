@@ -147,6 +147,56 @@ describe('модальное окно (DS-008)', () => {
     expect(save).toHaveFocus();
   });
 
+  it('Tab не выпускает фокус из окна, даже если последняя кнопка недоступна (DS-013)', () => {
+    const outside = document.createElement('button');
+    outside.textContent = 'Под окном';
+    document.body.prepend(outside);
+    wrap(
+      <Sheet open onClose={() => {}} title="Новое дело">
+        <input aria-label="Название" />
+        <button type="button" hidden>
+          Скрытая
+        </button>
+        <button type="button" style={{ display: 'none' }}>
+          Невидимая
+        </button>
+        <Button disabled>Сохранить</Button>
+      </Sheet>,
+    );
+    const dialog = screen.getByRole('dialog');
+    const name = screen.getByRole('textbox', { name: 'Название' });
+    const close = screen.getByRole('button', { name: 'Закрыть' });
+    // с самого окна Tab идёт на первый доступный элемент, Shift+Tab — на последний
+    expect(dialog).toHaveFocus();
+    fireEvent.keyDown(document, { key: 'Tab' });
+    expect(close).toHaveFocus();
+    dialog.focus();
+    fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
+    expect(name).toHaveFocus();
+    // поле — последнее, на что можно встать: дальше по кругу, а не на страницу
+    fireEvent.keyDown(document, { key: 'Tab' });
+    expect(close).toHaveFocus();
+    fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
+    expect(name).toHaveFocus();
+    // фокус, попавший на страницу под окном, возвращается в окно
+    outside.focus();
+    expect(name).toHaveFocus();
+    outside.remove();
+  });
+
+  it('окно без доступных элементов держит фокус на себе', () => {
+    render(
+      <Sheet open onClose={() => {}} title="Готово">
+        <p>Сохранено</p>
+        <Button disabled>Дальше</Button>
+      </Sheet>,
+    );
+    const dialog = screen.getByRole('dialog');
+    screen.getByRole('button', { name: 'Закрыть' }).setAttribute('disabled', '');
+    fireEvent.keyDown(document, { key: 'Tab' });
+    expect(dialog).toHaveFocus();
+  });
+
   it('сохраняет нижнюю панель на время закрытия вместе с телом окна', () => {
     const { rerender } = render(
       <Sheet open onClose={() => {}} title="Событие" footer={<Button>Сохранить</Button>}>

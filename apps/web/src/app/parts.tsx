@@ -37,6 +37,8 @@ export function TaskList({
   onToggle: (t: Task, done: boolean) => void;
 }) {
   const planner = usePlanner();
+  /* на телефоне срок стоит под названием и не сжимает его (DESIGN_SYSTEM §0.2) */
+  const wide = useMedia(WIDE);
   const sel = useSlide(58);
   const at = useRef<string | null>(null);
   const [open, setOpen] = useState<string | null>(null);
@@ -82,12 +84,19 @@ export function TaskList({
                   {t.title}
                 </Button>
               </div>
-              {(meta ?? defaultMeta)(t)}
+              {wide ? (
+                (meta ?? defaultMeta)(t)
+              ) : (
+                <div className="row-sub">
+                  {t.time && <span className="time">{t.time}</span>}
+                  {(meta ?? defaultMeta)(t)}
+                </div>
+              )}
               <Presence show={t.travelMinutes != null} className="task-travel">
                 в пути {t.travelMinutes} мин
               </Presence>
             </div>
-            <span className="time">{t.time}</span>
+            {wide && <span className="time">{t.time}</span>}
           </div>
           {detail && (
             <Presence show={open === t.id} className="trail">

@@ -1,4 +1,4 @@
-import { Button, Presence, useFlip } from '@qubite/ui';
+import { Button, ListRow, Presence, useFlip } from '@qubite/ui';
 import { useEffect, useRef, useState } from 'react';
 import { useShell } from '../context';
 import type { Task } from '../data';
@@ -128,11 +128,9 @@ export function TodayScreen() {
         </SecHead>
         {inbox.items.length === 0 && <p className="later">Пусто — всё разобрано.</p>}
         {inbox.items.slice(0, 3).map((it) => (
-          <div className="spark" key={it.id}>
-            <span className="q-dot" />
-            <span>{it.text}</span>
-            <small>{it.time}</small>
-          </div>
+          <ListRow key={it.id} color="yellow" meta={it.time}>
+            {it.text}
+          </ListRow>
         ))}
       </div>
     </div>

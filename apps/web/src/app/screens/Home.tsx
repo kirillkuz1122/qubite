@@ -3,6 +3,7 @@ import {
   Check,
   DotIcon,
   Field,
+  ListRow,
   Note,
   Presence,
   Sheet,
@@ -235,11 +236,9 @@ function InboxPart({ filed }: { filed: HomeOverview['filed'] }) {
       </SecHead>
       {n === 0 && filed.length === 0 && <p className="later">Пусто — всё разобрано.</p>}
       {inbox.items.slice(0, 3).map((it) => (
-        <div className="spark" key={it.id}>
-          <span className="q-dot" />
-          <span>{it.text}</span>
-          <small>{it.time}</small>
-        </div>
+        <ListRow key={it.id} color="yellow" meta={it.time}>
+          {it.text}
+        </ListRow>
       ))}
       {rows.length > 0 && (
         <div className="home-filed" ref={box} aria-label="Агент разложил">
@@ -347,22 +346,18 @@ function Deadlines() {
       {data && list.length === 0 && <p className="later">На неделю вперёд сроков нет.</p>}
       <div className="home-due">
         {list.map((u) => (
-          <button
+          <ListRow
             key={u.id}
             className="home-due-row"
-            type="button"
+            color={u.color}
+            meta={u.project ? `${u.when} · ${u.project}` : u.when}
             onClick={() => {
               shell.go('planner');
               reveal('planner', u.id);
             }}
           >
-            <span className="q-dot" style={{ background: `var(--q-${u.color})` }} />
-            <span className="t">
-              {u.title}
-              {u.project && <small>{u.project}</small>}
-            </span>
-            <span className="time">{u.when}</span>
-          </button>
+            {u.title}
+          </ListRow>
         ))}
       </div>
     </>

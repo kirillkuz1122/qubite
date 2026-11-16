@@ -245,7 +245,7 @@ test('Главная: сводка от AI, дела, Входящие, срок
   // Дела на сегодня — настоящие, из синхронизации.
   await expect(page.locator('.row').filter({ hasText: 'Упр. 145 по русскому' })).toBeVisible();
   // Входящие и что агент разложил.
-  await expect(page.locator('.spark').filter({ hasText: 'купить тетради' }).first()).toBeVisible();
+  await expect(page.locator('.q-lrow').filter({ hasText: 'купить тетради' }).first()).toBeVisible();
   await expect(page.getByLabel('Агент разложил')).toContainText('Разложил мысль «купить тетради»');
   // Сроки — неделя вперёд, далёкого нет.
   const due = page.locator('.home-due');

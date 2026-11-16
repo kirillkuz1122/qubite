@@ -659,6 +659,7 @@ pub fn router(state: AppState) -> Router {
 /// `extra` проходит те же слои: сессия, CSRF, таймаут.
 pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
     console::mark_started();
+    let limits = Limits::new(state.ai.call_timeout());
     Router::new()
         .route("/api/v1/planner/tasks/{id}/route", post(routes::task_route))
         .route("/api/health", get(health))
@@ -1118,7 +1119,9 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
         ))
         .with_state(state)
         .layer(middleware::map_response(security_headers))
-        .layer(middleware::from_fn(request_timeout))
+        .layer(middleware::from_fn(move |request, next| {
+            request_timeout(limits, request, next)
+        }))
         .layer(TraceLayer::new_for_http())
 }
 
@@ -1137,17 +1140,74 @@ fn is_file_upload(method: &axum::http::Method, path: &str) -> bool {
             .is_some_and(|id| !id.is_empty() && !id.contains('/'))
 }
 
+/// Запас сверх предела одного AI-вызова: разбор ответа, запись результата в базу.
+const AI_MARGIN: Duration = Duration::from_secs(30);
+
+/// Пределы времени на запрос.
+#[derive(Clone, Copy, Debug)]
+struct Limits {
+    /// обычный запрос
+    plain: Duration,
+    /// загрузка файла проекта
+    upload: Duration,
+    /// запрос, который ждёт ответа модели
+    ai: Duration,
+}
+
+impl Limits {
+    /// `ai_call` — предел одного AI-вызова в шлюзе (`QUBITE_AI_TIMEOUT_SECS`). Запрос ждёт
+    /// дольше него, иначе ответ модели между 30-й и 60-й секундой некому было бы вернуть.
+    /// При 60 с это 90 с — меньше 100 с, после которых соединение рвёт Cloudflare.
+    fn new(ai_call: Duration) -> Self {
+        Self {
+            plain: REQUEST_TIMEOUT,
+            upload: UPLOAD_TIMEOUT,
+            ai: (ai_call + AI_MARGIN).max(REQUEST_TIMEOUT),
+        }
+    }
+}
+
+/// Запросы, обработчик которых прямо в себе ждёт ответа модели: реплика репетитора, урок,
+/// разбор мысли, разговор с агентом, проба модели в Console. Только `POST` — чтение быстрое.
+const AI_PATHS: [&str; 5] = [
+    "/api/v1/english/",
+    "/api/v1/agent/",
+    "/api/v1/inbox",
+    "/api/owner/ai/",
+    "/api/ai/",
+];
+
+fn waits_for_ai(method: &axum::http::Method, path: &str) -> bool {
+    method == axum::http::Method::POST && AI_PATHS.iter().any(|prefix| path.starts_with(prefix))
+}
+
 /// Предел времени на запрос: дольше — ответ 408. Одновременных загрузок файлов
 /// не больше четырёх ([`AppState::project_uploads`]), поэтому долгий предел для них
 /// не даёт занять сервер.
+///
+/// Запрос к AI идёт отдельной задачей: если человек закрыл страницу или вышло время, задача
+/// всё равно доходит до конца — вызов получает настоящий итог, резерв денег закрывается,
+/// реплика сохраняется. Раньше отмена запроса бросала вызов в состоянии «отправляется»,
+/// и восстановление помечало его «неизвестно» с удержанным резервом (ревью 12.11, №10).
 async fn request_timeout(
+    limits: Limits,
     request: axum::extract::Request,
     next: middleware::Next,
 ) -> axum::response::Response {
-    let limit = if is_file_upload(request.method(), request.uri().path()) {
-        UPLOAD_TIMEOUT
+    let method = request.method();
+    let path = request.uri().path();
+    if waits_for_ai(method, path) {
+        let work = tokio::spawn(next.run(request));
+        return match tokio::time::timeout(limits.ai, work).await {
+            Ok(Ok(response)) => response,
+            Ok(Err(_)) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+            Err(_) => StatusCode::REQUEST_TIMEOUT.into_response(),
+        };
+    }
+    let limit = if is_file_upload(method, path) {
+        limits.upload
     } else {
-        REQUEST_TIMEOUT
+        limits.plain
     };
     match tokio::time::timeout(limit, next.run(request)).await {
         Ok(response) => response,
@@ -1269,8 +1329,111 @@ pub fn openapi_json() -> String {
 
 #[cfg(test)]
 mod timeout_tests {
-    use super::is_file_upload;
-    use axum::http::Method;
+    use super::{Limits, is_file_upload, request_timeout, waits_for_ai};
+    use axum::{
+        Router,
+        http::{Method, StatusCode},
+        middleware,
+        routing::post,
+    };
+    use std::{
+        sync::{
+            Arc,
+            atomic::{AtomicU32, Ordering},
+        },
+        time::Duration,
+    };
+
+    #[test]
+    fn ai_request_outlives_one_ai_call() {
+        // по умолчанию AI-вызов ждёт 60 с — запрос к нему ждёт дольше, но меньше 100 с Cloudflare
+        let limits = Limits::new(Duration::from_secs(60));
+        assert_eq!(limits.ai, Duration::from_secs(90));
+        assert!(limits.ai > Duration::from_secs(60));
+        assert_eq!(limits.plain, Duration::from_secs(30));
+        // короткий AI-предел не делает AI-запрос короче обычного
+        assert_eq!(
+            Limits::new(Duration::from_secs(1)).ai,
+            limits.plain.max(Duration::from_secs(31))
+        );
+    }
+
+    #[test]
+    fn only_posts_to_ai_modules_wait_for_ai() {
+        assert!(waits_for_ai(&Method::POST, "/api/v1/english/turn"));
+        assert!(waits_for_ai(&Method::POST, "/api/v1/english/lessons/a/ask"));
+        assert!(waits_for_ai(&Method::POST, "/api/v1/agent/chat"));
+        assert!(waits_for_ai(&Method::POST, "/api/v1/inbox"));
+        assert!(waits_for_ai(&Method::POST, "/api/v1/inbox/voice"));
+        assert!(!waits_for_ai(&Method::GET, "/api/v1/english/turn"));
+        assert!(!waits_for_ai(&Method::POST, "/api/v1/sync/push"));
+        assert!(!waits_for_ai(&Method::POST, "/api/auth/login"));
+    }
+
+    /// Сервер с медленным обработчиком: обычный предел 50 мс, AI — 400 мс.
+    async fn slow_server(work: Duration, done: Arc<AtomicU32>) -> String {
+        let limits = Limits {
+            plain: Duration::from_millis(50),
+            upload: Duration::from_millis(50),
+            ai: Duration::from_millis(400),
+        };
+        let slow = move || {
+            let done = done.clone();
+            async move {
+                tokio::time::sleep(work).await;
+                done.fetch_add(1, Ordering::SeqCst);
+                "ok"
+            }
+        };
+        let app = Router::new()
+            .route("/api/v1/english/turn", post(slow.clone()))
+            .route("/api/v1/planner/slow", post(slow))
+            .layer(middleware::from_fn(move |request, next| {
+                request_timeout(limits, request, next)
+            }));
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        format!("http://{address}")
+    }
+
+    #[tokio::test]
+    async fn ai_request_gets_answer_after_plain_limit() {
+        let done = Arc::new(AtomicU32::new(0));
+        let base = slow_server(Duration::from_millis(150), done.clone()).await;
+        let http = qubite_testkit::http_client();
+        // ответ модели пришёл позже обычного предела — запрос к AI его дождался
+        let ai = http
+            .post(format!("{base}/api/v1/english/turn"))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(ai.status(), StatusCode::OK);
+        // обычный запрос за то же время обрывается
+        let plain = http
+            .post(format!("{base}/api/v1/planner/slow"))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(plain.status(), StatusCode::REQUEST_TIMEOUT);
+        assert_eq!(done.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn ai_work_finishes_even_when_request_gave_up() {
+        let done = Arc::new(AtomicU32::new(0));
+        let base = slow_server(Duration::from_millis(700), done.clone()).await;
+        let late = qubite_testkit::http_client()
+            .post(format!("{base}/api/v1/english/turn"))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(late.status(), StatusCode::REQUEST_TIMEOUT);
+        assert_eq!(done.load(Ordering::SeqCst), 0);
+        // запрос уже получил 408, а работа дошла до конца: итог вызова записан
+        tokio::time::sleep(Duration::from_millis(600)).await;
+        assert_eq!(done.load(Ordering::SeqCst), 1);
+    }
 
     #[test]
     fn only_project_file_upload_gets_long_timeout() {

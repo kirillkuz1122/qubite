@@ -17,7 +17,38 @@ export interface SheetProps {
   footer?: ReactNode;
 }
 
-const FOCUSABLE = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+const FOCUSABLE =
+  'a[href], button, input, select, textarea, summary, [contenteditable]:not([contenteditable="false"]), [tabindex]';
+
+/**
+ * На что Tab действительно встанет внутри окна: без недоступных, скрытых (`hidden`, `inert`,
+ * `display: none`, `visibility: hidden`) и снятых с обхода (`tabindex="-1"`) элементов.
+ * Иначе недоступная последняя кнопка считалась «последней», и фокус уходил на страницу (DS-013).
+ */
+export function tabbable(box: HTMLElement): HTMLElement[] {
+  return [...box.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((el) => {
+    if (el.tabIndex < 0 || (el as HTMLButtonElement).disabled) return false;
+    if (el.closest('[hidden], [inert], fieldset:disabled')) return false;
+    if (getComputedStyle(el).visibility === 'hidden') return false;
+    for (let n: HTMLElement | null = el; n && n !== box; n = n.parentElement) {
+      if (getComputedStyle(n).display === 'none') return false;
+    }
+    return true;
+  });
+}
+
+/** Окно — верхнее из открытых: Tab и возврат фокуса ведёт только оно. */
+function isTop(box: HTMLElement): boolean {
+  const wraps = document.querySelectorAll('.q-sheet-wrap');
+  return wraps[wraps.length - 1] === box.parentElement;
+}
+
+/** Элемент лежит на странице под окном (а не в меню, открытом из самого окна). */
+function isBehind(box: HTMLElement, el: Element | null): boolean {
+  if (!el || el === document.body || !box.parentElement) return true;
+  if (box.contains(el)) return false;
+  return !!(box.parentElement.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_PRECEDING);
+}
 
 /**
  * Модальное окно «Частиц» (DS-008, D-431): на ПК вырастает в центре экрана, на телефоне —
@@ -103,23 +134,43 @@ export function Sheet({ open, onClose, title, className, children, footer }: She
       if (e.key === 'Escape') {
         e.stopPropagation();
         close.current();
-      } else if (e.key === 'Tab' && b) {
-        const all = [...b.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((el) => !el.hidden);
-        if (!all.length) return;
-        const a = all[0]!;
-        const z = all[all.length - 1]!;
-        if (e.shiftKey && document.activeElement === a) {
+      } else if (e.key === 'Tab' && b && isTop(b)) {
+        const all = tabbable(b);
+        const now = document.activeElement;
+        const a = all[0];
+        const z = all[all.length - 1];
+        if (!a || !z) {
+          // в окне не на что встать — фокус остаётся на самом окне
+          e.preventDefault();
+          b.focus({ preventScroll: true });
+        } else if (now === b || isBehind(b, now)) {
+          e.preventDefault();
+          (e.shiftKey ? z : a).focus();
+        } else if (e.shiftKey && now === a) {
           e.preventDefault();
           z.focus();
-        } else if (!e.shiftKey && document.activeElement === z) {
+        } else if (!e.shiftKey && now === z) {
           e.preventDefault();
           a.focus();
         }
       }
     };
+    /* Фокус попал на страницу под окном (например, вернулся из адресной строки) — обратно в окно. */
+    const pull = (e: FocusEvent) => {
+      if (!b || !isTop(b) || !(e.target instanceof Element) || !isBehind(b, e.target)) return;
+      const to = session.inside && b.contains(session.inside) ? session.inside : b;
+      to.focus({ preventScroll: true });
+    };
+    const keep = (e: FocusEvent) => {
+      if (b && e.target instanceof HTMLElement && b.contains(e.target)) session.inside = e.target;
+    };
+    document.addEventListener('focusin', pull);
+    b?.addEventListener('focusin', keep);
     document.addEventListener('keydown', key, true);
     return () => {
       document.removeEventListener('keydown', key, true);
+      document.removeEventListener('focusin', pull);
+      b?.removeEventListener('focusin', keep);
       if (session.back instanceof HTMLElement) session.back.focus({ preventScroll: true });
     };
   }, [open]);

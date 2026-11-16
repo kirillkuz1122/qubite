@@ -33,11 +33,14 @@ export function setLocalWhisperUrl(url: string): void {
   }
 }
 
-const LOOPBACK = new Set(['localhost', '127.0.0.1', '[::1]']);
+/** Адреса «этого компьютера». `[::1]` нет: политика сайта (CSP) не умеет адреса IPv6. */
+const LOOPBACK = new Set(['localhost', '127.0.0.1']);
 
 /**
- * Что не так с адресом; `null` — можно пробовать. `page` — протокол страницы Qubite: с https
- * браузер пустит на http только к этому же компьютеру (127.0.0.1, localhost).
+ * Что не так с адресом; `null` — можно пробовать. `page` — протокол страницы Qubite. На сайте
+ * (https) запрос пройдёт только к этому же компьютеру: политика сайта (CSP в
+ * `deploy/pi/qubite.caddy`) разрешает ровно `http://127.0.0.1:*` и `http://localhost:*`, и
+ * браузер пускает с https на http только туда. Другие адреса работают лишь при разработке.
  */
 export function localUrlProblem(
   url: string,
@@ -52,8 +55,8 @@ export function localUrlProblem(
     return 'Адрес вида http://127.0.0.1:8080';
   }
   if (p.protocol !== 'http:' && p.protocol !== 'https:') return 'Адрес вида http://127.0.0.1:8080';
-  if (page === 'https:' && p.protocol === 'http:' && !LOOPBACK.has(p.hostname))
-    return 'Qubite открыт по https — браузер пустит на http только к этому компьютеру (127.0.0.1). Для другого нужен https.';
+  if (page === 'https:' && !(p.protocol === 'http:' && LOOPBACK.has(p.hostname)))
+    return 'Локальный Whisper — только на этом компьютере: адрес вида http://127.0.0.1:8080 или http://localhost:8080.';
   return null;
 }
 

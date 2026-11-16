@@ -491,6 +491,12 @@ impl Gateway {
         }
     }
 
+    /// Сколько шлюз ждёт ответа провайдера на один вызов. HTTP-запрос, который ждёт AI,
+    /// должен жить дольше этого предела (ревью 12.11, №10).
+    pub fn call_timeout(&self) -> Duration {
+        self.config.timeout
+    }
+
     /// Ключ шифрования: без него свои ключи людей не прочитать.
     pub fn with_secrets(mut self, secrets: Arc<secret::SecretBox>) -> Self {
         self.secrets = Some(secrets);

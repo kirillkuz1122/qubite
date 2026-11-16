@@ -65,3 +65,45 @@ test('CSP: проверка ловит нарушения (встроенный 
   });
   await expect.poll(() => violations).toContain('script-src-elem');
 });
+
+/* DS-013 (ревью 12.11, №8): способ «локально» шлёт запись на Whisper этого компьютера —
+   политика должна пускать туда и не пускать на чужие адреса. */
+test('CSP: локальный Whisper на этом компьютере разрешён, чужой адрес — нет', async ({ page }) => {
+  test.skip(!process.env.QUBITE_CSP, 'нужен playwright.csp.config.ts');
+  const violations: string[] = [];
+  await page.exposeFunction('report', (text: string) => violations.push(text));
+  await page.addInitScript(() => {
+    document.addEventListener('securitypolicyviolation', (event) => {
+      (window as unknown as { report(text: string): void }).report(
+        `${event.violatedDirective} ${event.blockedURI}`,
+      );
+    });
+  });
+  for (const origin of [
+    'http://127.0.0.1:8080',
+    'http://localhost:9000',
+    'http://192.168.1.5:8080',
+  ])
+    await page.route(`${origin}/inference`, (route) =>
+      route.fulfill({
+        json: { text: 'привет' },
+        headers: { 'access-control-allow-origin': '*' },
+      }),
+    );
+  await mockAuth(page, { me: null });
+  await page.goto('/auth');
+  const ask = (url: string) =>
+    page.evaluate(
+      (u) =>
+        fetch(u, { method: 'POST', body: new FormData() }).then(
+          (r) => r.json().then((j: { text: string }) => j.text),
+          () => 'blocked',
+        ),
+      url,
+    );
+  expect(await ask('http://127.0.0.1:8080/inference')).toBe('привет');
+  expect(await ask('http://localhost:9000/inference')).toBe('привет');
+  expect(violations).toEqual([]);
+  expect(await ask('http://192.168.1.5:8080/inference')).toBe('blocked');
+  await expect.poll(() => violations.join('\n')).toMatch(/connect-src http:\/\/192\.168\.1\.5/);
+});
