@@ -279,4 +279,24 @@ describe('вкладка «Глаголы»', () => {
     expect(screen.queryByRole('dialog', { name: 'Тренажёр глаголов' })).not.toBeInTheDocument();
     expect(screen.queryByText('Занятие закончено')).not.toBeInTheDocument();
   });
+
+  it('закрыл во время проверки — когда ответ дошёл, список обновляется ещё раз', async () => {
+    let arrive: (a: VerbAnswered) => void = () => {};
+    mocks.answerVerb.mockReturnValue(new Promise<VerbAnswered>((r) => (arrive = r)));
+    const client = new QueryClient();
+    const refresh = vi.spyOn(client, 'invalidateQueries');
+    render(
+      <QueryClientProvider client={client}>
+        <EnglishVerbs />
+      </QueryClientProvider>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Трудные: 1' }));
+    type('sang', 'sung');
+    fireEvent.click(screen.getByRole('button', { name: 'Закрыть' }));
+    const before = refresh.mock.calls.length;
+    expect(before).toBeGreaterThan(0);
+    arrive(reply('sing', true));
+    await waitFor(() => expect(refresh.mock.calls.length).toBeGreaterThan(before));
+    expect(refresh.mock.calls.at(-2)?.[0]).toEqual({ queryKey: ['english', 'verbs'] });
+  });
 });

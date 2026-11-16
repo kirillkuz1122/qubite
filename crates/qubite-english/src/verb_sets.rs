@@ -353,7 +353,7 @@ pub async fn create(
         sqlx::query(
             "INSERT INTO english_verb_custom (account_id, verb_id, v1, v2, v3, ru) \
              VALUES ($1, $2, $3, $4, $5, $6) \
-             ON CONFLICT (account_id, verb_id) DO UPDATE SET v2 = $4, v3 = $5, \
+             ON CONFLICT (account_id, verb_id) DO UPDATE SET v1 = $3, v2 = $4, v3 = $5, \
              ru = CASE WHEN $6 = '' THEN english_verb_custom.ru ELSE $6 END",
         )
         .bind(account)

@@ -3,10 +3,11 @@
  * `qubite_english::verbs` (в схеме — объект), типы — здесь. Сверку вписанных форм, срок
  * повторения, минуты и опыт считает сервер; сайт только показывает.
  */
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback, useEffect, useRef } from 'react';
 import { api } from '../api';
 import { must } from '../auth/client';
-import type { Delta } from './english-lessons';
+import { ENGLISH_HOME, type Delta } from './english-lessons';
 import { toBase64 } from './english-view';
 
 /** Как глагол идёт у человека. */
@@ -187,4 +188,25 @@ export async function shrinkPhoto(file: Blob): Promise<Blob> {
   } catch {
     return file;
   }
+}
+
+/**
+ * Ответ мог дойти до сервера уже после того, как тренажёр закрыли: вкладка к этому времени
+ * перечитала список со старым прогрессом. Вызови после ответа сервера — если занятие закрыто,
+ * список и главная «Английского» обновятся ещё раз.
+ */
+export function useRefreshIfClosed(): () => void {
+  const qc = useQueryClient();
+  const open = useRef(true);
+  useEffect(() => {
+    open.current = true;
+    return () => {
+      open.current = false;
+    };
+  }, []);
+  return useCallback(() => {
+    if (open.current) return;
+    void qc.invalidateQueries({ queryKey: ENGLISH_VERBS });
+    void qc.invalidateQueries({ queryKey: ENGLISH_HOME });
+  }, [qc]);
 }

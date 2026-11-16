@@ -30,6 +30,7 @@ import {
   deleteVerbSet,
   ENGLISH_VERBS,
   useEnglishVerbs,
+  useRefreshIfClosed,
   type Verb,
   type VerbAnswered,
   type VerbGrade,
@@ -423,6 +424,7 @@ function VerbSession({
   const [err, setErr] = useState<string | null>(null);
   const [score, setScore] = useState(EMPTY_TALLY);
   const dict = useDictation('en');
+  const settled = useRefreshIfClosed();
   const mic = canRecord();
   const verb = byId.get(queue.ids[queue.at] ?? '');
   const total = queue.ids.length;
@@ -457,6 +459,7 @@ function VerbSession({
     nate.current?.setMood('think');
     try {
       const a = await answerVerb(verb.id, mode, reply);
+      settled();
       playCue(a.correct ? 'ok' : 'bad');
       nate.current?.setMood(a.correct ? 'happy' : 'angry');
       setScore((s) => tally(s, verb.id, a.correct, a.game.xp));

@@ -9,7 +9,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { say } from '../auth/client';
 import { playCue } from './english-feedback';
 import { ResultBar, SessionResult, TrainerShell, type Session } from './EnglishVerbParts';
-import { answerVerb, type Verb, type VerbsOverview } from './english-verbs';
+import { answerVerb, useRefreshIfClosed, type Verb, type VerbsOverview } from './english-verbs';
 import {
   askForm,
   foundWord,
@@ -56,12 +56,14 @@ export function VerbRound({
   const [score, setScore] = useState(EMPTY_TALLY);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const settled = useRefreshIfClosed();
   const finished = left !== null && left.length === 0 && !saving;
 
   // Итог по каждому глаголу — на сервер по очереди; оборвалось — можно повторить с того же места.
   const save = async (rest: [string, boolean][]) => {
     setSaving(true);
     setErr(null);
+    setLeft(rest);
     let todo = rest;
     try {
       while (todo.length > 0) {
@@ -77,6 +79,7 @@ export function VerbRound({
       setErr(say(e));
     } finally {
       setSaving(false);
+      settled();
     }
   };
   const done = (results: Results) => void save([...results]);
