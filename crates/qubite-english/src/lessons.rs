@@ -971,7 +971,20 @@ pub async fn answer(
     let mut say = None;
     let mut mistakes = Vec::new();
     let mut offline = false;
-    let (correct, mut right) = match course::check(&task, &value, learner.strictness) {
+    // Формы глагола сверяет набор глаголов: у «вставь слово» `was/were` — это два варианта,
+    // а здесь — ещё и верный ответ целиком.
+    let checked = if verb {
+        if verbs::review_ok(task_id, &value) {
+            Check::Right
+        } else {
+            Check::Wrong {
+                right: String::new(),
+            }
+        }
+    } else {
+        course::check(&task, &value, learner.strictness)
+    };
+    let (correct, mut right) = match checked {
         Check::Right => (true, None),
         Check::Wrong { right } => (false, Some(right)),
         Check::Model => {
@@ -1048,7 +1061,22 @@ pub async fn answer(
     .await?;
     let (attempts, was_correct) = prev.map_or((1, false), |(a, c)| (a + 1, c));
     let replay = replay_factor(&mut tx, account, lesson_id, kind.as_str(), &ops).await?;
-    let xp = if correct && !was_correct {
+    let today = game::today(&mut tx).await?;
+    // Глагол пишется в своё повторение, не в `english_review`: ошибка — «не знал». Награда —
+    // только если срок сдвинулся (D-897): тот же глагол могли уже ответить в тренажёре.
+    let verb_moved = if verb {
+        let grade = if correct {
+            verbs::Grade::Good
+        } else {
+            verbs::Grade::Again
+        };
+        verbs::record(&mut tx, account, task_id, grade, today)
+            .await?
+            .1
+    } else {
+        false
+    };
+    let xp = if correct && !was_correct && (!verb || verb_moved) {
         let full = course::task_xp(&task) * replay / 2;
         match attempts {
             1 => full,
@@ -1078,17 +1106,9 @@ pub async fn answer(
     .bind(call)
     .execute(&mut *tx)
     .await?;
-    let today = game::today(&mut tx).await?;
     let mut counters: Vec<(&'static str, i64)> = vec![("tasks", 1)];
     if verb {
-        // Пишется в повторение глаголов, не в `english_review`: ошибка — «не знал».
-        let grade = if correct {
-            verbs::Grade::Good
-        } else {
-            verbs::Grade::Again
-        };
-        verbs::record(&mut tx, account, task_id, grade, today).await?;
-        if correct && !was_correct {
+        if correct && !was_correct && verb_moved {
             counters.extend([("fixed", 1), ("verbs", 1)]);
         }
     } else if kind == "review" {

@@ -608,3 +608,102 @@ async fn nate_knows_weak_verbs_only_when_there_are_some() {
 
     test_db.drop_db().await;
 }
+
+#[tokio::test]
+async fn review_takes_whole_form_and_pays_only_when_the_schedule_moves() {
+    let (test_db, db) = TestDb::migrated().await;
+    let pool = db.pool();
+    let me = owner(pool).await;
+    let gateway = Gateway::new(pool.clone(), AiConfig::default());
+
+    verbs::answer(pool, me, played("be", "quiz", false))
+        .await
+        .unwrap();
+    let run = lessons::start(pool, me, "review", "review").await.unwrap();
+    assert_eq!(run.tasks.len(), 1);
+
+    // Пока повторение открыто, тот же глагол ответили в тренажёре: срок ушёл на завтра.
+    let trained = verbs::answer(pool, me, typed("be", "was", "been"))
+        .await
+        .unwrap();
+    assert!(trained.correct && trained.moved);
+
+    // Ответ из открытого повторения верный (и `was/were` целиком — тоже верно), но срок уже
+    // сдвинут: второй раз опыт и «исправленную ошибку» не даём.
+    let again = lessons::answer(
+        pool,
+        &gateway,
+        me,
+        run.id,
+        Some(verbs::REVIEW_LESSON),
+        "be",
+        Uuid::now_v7(),
+        Given::Value(json!(["was/were", "been"])),
+    )
+    .await
+    .unwrap();
+    assert!(again.correct);
+    assert_eq!(again.game.xp, 0);
+    let fixed: Option<i64> = sqlx::query_scalar(
+        "SELECT (counters->>'fixed')::bigint FROM english_learners WHERE account_id = $1",
+    )
+    .bind(me)
+    .fetch_one(pool)
+    .await
+    .unwrap();
+    assert_eq!(fixed.unwrap_or(0), 0);
+    let today = verbs::overview(pool, me).await.unwrap().today;
+    assert_eq!(due_on(pool, me, "be").await, today + Duration::days(1));
+
+    // Не две формы — не ответ.
+    for bad in [
+        json!(["was"]),
+        json!("was been"),
+        json!(["was", "been", "x"]),
+    ] {
+        let wrong = lessons::answer(
+            pool,
+            &gateway,
+            me,
+            run.id,
+            Some(verbs::REVIEW_LESSON),
+            "be",
+            Uuid::now_v7(),
+            Given::Value(bad.clone()),
+        )
+        .await
+        .unwrap();
+        assert!(!wrong.correct, "{bad}");
+    }
+
+    test_db.drop_db().await;
+}
+
+#[tokio::test]
+async fn two_first_answers_at_once_are_both_counted() {
+    let (test_db, db) = TestDb::migrated().await;
+    let pool = db.pool();
+    let me = owner(pool).await;
+
+    // Первый ответ на глагол пришёл сразу с двух устройств — обе ошибки на счету.
+    for verb in ["go", "sing", "buy", "be", "cut", "get"] {
+        let (a, b) = tokio::join!(
+            verbs::answer(pool, me, played(verb, "quiz", false)),
+            verbs::answer(pool, me, played(verb, "match", false)),
+        );
+        a.unwrap();
+        b.unwrap();
+        let (lapses, ease): (i32, f32) = sqlx::query_as(
+            "SELECT lapses, ease FROM english_verb_progress WHERE account_id = $1 AND verb_id = $2",
+        )
+        .bind(me)
+        .bind(verb)
+        .fetch_one(pool)
+        .await
+        .unwrap();
+        assert_eq!(lapses, 2, "{verb}");
+        assert!((ease - 2.1).abs() < 1e-4, "{verb}: {ease}");
+    }
+
+    test_db.drop_db().await;
+}

@@ -389,25 +389,33 @@ pub(crate) async fn record(
     grade: Grade,
     today: Date,
 ) -> sqlx::Result<(Card, bool)> {
-    let row: Option<CardRow> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
+    // Строка создаётся до чтения с блокировкой: иначе два первых ответа сразу (с двух
+    // устройств) оба посчитали бы от «нового» глагола, и одна ошибка пропала бы.
+    sqlx::query(
+        "INSERT INTO english_verb_progress (account_id, verb_id, due_on) VALUES ($1, $2, $3) \
+         ON CONFLICT (account_id, verb_id) DO NOTHING",
+    )
+    .bind(account)
+    .bind(verb)
+    .bind(today)
+    .execute(&mut *conn)
+    .await?;
+    let row: CardRow = sqlx::query_as(sqlx::AssertSqlSafe(format!(
         "{CARD} AND verb_id = $2 FOR UPDATE"
     )))
     .bind(account)
     .bind(verb)
-    .fetch_optional(&mut *conn)
+    .fetch_one(&mut *conn)
     .await?;
-    let old = row.as_ref().map(Card::from);
-    let before = old.unwrap_or_else(|| Card::new(today));
-    if grade != Grade::Again && old.is_some() && !before.due(today) {
+    let before = Card::from(&row);
+    if grade != Grade::Again && !before.due(today) {
         return Ok((before, false));
     }
     let next = before.next(grade, today);
     sqlx::query(
-        "INSERT INTO english_verb_progress \
-         (account_id, verb_id, ease, interval_days, due_on, reps, lapses, last_wrong_on) \
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) \
-         ON CONFLICT (account_id, verb_id) DO UPDATE SET ease = $3, interval_days = $4, \
-         due_on = $5, reps = $6, lapses = $7, last_wrong_on = $8, updated_at = now()",
+        "UPDATE english_verb_progress SET ease = $3, interval_days = $4, due_on = $5, reps = $6, \
+         lapses = $7, last_wrong_on = $8, updated_at = now() \
+         WHERE account_id = $1 AND verb_id = $2",
     )
     .bind(account)
     .bind(verb)
@@ -469,6 +477,21 @@ pub(crate) async fn review_tasks(
         .into_iter()
         .map(|v| json!({ "lesson_id": REVIEW_LESSON, "task": v.review_task(), "wrong": "" }))
         .collect())
+}
+
+/// Ответ на задание повторения: список из двух форм, вторая и третья.
+pub(crate) fn review_ok(verb: &str, answer: &Value) -> bool {
+    let Some(verb) = set().verb(verb) else {
+        return false;
+    };
+    let given: Vec<&str> = answer
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .collect();
+    matches!(given[..], [v2, v3]
+        if form_ok(v2, &verb.v2, &verb.v2_alt) && form_ok(v3, &verb.v3, &verb.v3_alt))
 }
 
 /// Задание повторения по глаголу (для сверки ответа).
