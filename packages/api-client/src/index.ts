@@ -47,7 +47,21 @@ export interface ClientOptions {
   fetch?: typeof globalThis.fetch;
   /** Откуда брать CSRF-токен. По умолчанию — из cookie `qubite_csrf`. */
   csrfToken?: () => string | undefined;
+  /**
+   * Кого приложение считает вошедшим (ID аккаунта). Уходит заголовком
+   * `X-Qubite-Account`: если в браузере тем временем вошёл другой человек (cookie
+   * общие на все вкладки), сервер отклонит запрос (409 `account_mismatch`), а не
+   * выполнит его от чужого имени (SYNC-008). Запросы `/api/auth/…` заголовок не
+   * получают: ими как раз выясняют и меняют, кто вошёл.
+   */
+  account?: () => string | undefined;
+  /** Сервер ответил «вошёл другой аккаунт» — пора перепроверить, кто вошёл. */
+  onAccountMismatch?: () => void;
 }
+
+/** Заголовок «от чьего имени сделан запрос» и код отказа при несовпадении. */
+export const ACCOUNT_HEADER = 'X-Qubite-Account';
+export const ACCOUNT_MISMATCH = 'account_mismatch';
 
 /**
  * Клиент сам добавляет `X-CSRF-Token` ко всем изменяющим запросам
@@ -66,6 +80,27 @@ export function createQubiteClient(options: ClientOptions = {}) {
       const token = csrfToken();
       if (token) request.headers.set(CSRF_HEADER, token);
       return request;
+    },
+  });
+  client.use({
+    onRequest({ request }) {
+      // Явно заданный заголовок (очередь конкретного аккаунта) не трогаем.
+      if (request.headers.has(ACCOUNT_HEADER)) return undefined;
+      if (new URL(request.url).pathname.startsWith('/api/auth/')) return undefined;
+      const account = options.account?.();
+      if (!account) return undefined;
+      request.headers.set(ACCOUNT_HEADER, account);
+      return request;
+    },
+    async onResponse({ response }) {
+      if (response.status !== 409 || !options.onAccountMismatch) return undefined;
+      try {
+        const body = (await response.clone().json()) as { error?: string };
+        if (body.error === ACCOUNT_MISMATCH) options.onAccountMismatch();
+      } catch {
+        // тело не JSON — это не наш отказ
+      }
+      return undefined;
     },
   });
   return client;

@@ -4,18 +4,25 @@
  * Свой ключ распознавания (CMD-005c) — `/api/v1/voice/key`: сервер хранит его зашифрованным
  * и обратно не отдаёт, только последние 4 символа.
  */
-import { CSRF_HEADER, csrfFromCookie } from '@qubite/api-client';
+import { ACCOUNT_HEADER, CSRF_HEADER, csrfFromCookie } from '@qubite/api-client';
 import { HttpError, type VoiceTransport } from '@qubite/sync-client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api';
 import { must } from '../auth/client';
 import type { VoiceMethod } from './voice-view';
 
-/** `POST /api/v1/inbox/voice`. Обрыв сети — исключение fetch, отказ сервера — `HttpError`. */
-export function httpVoiceTransport(): VoiceTransport {
+/**
+ * `POST /api/v1/inbox/voice`. Обрыв сети — исключение fetch, отказ сервера — `HttpError`.
+ * `account` — чья это очередь записей: запись могла ждать сети, пока в браузере вошёл
+ * другой человек, — тогда сервер её не примет (D-894).
+ */
+export function httpVoiceTransport(account?: string | null): VoiceTransport {
   return {
     async send(capture) {
-      const { data, error, response } = await api.POST('/api/v1/inbox/voice', { body: capture });
+      const { data, error, response } = await api.POST('/api/v1/inbox/voice', {
+        body: capture,
+        ...(account ? { headers: { [ACCOUNT_HEADER]: account } } : {}),
+      });
       if (!response.ok || !data) {
         const body = (error ?? {}) as { error?: string; message?: string };
         throw new HttpError(

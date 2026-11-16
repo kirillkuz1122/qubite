@@ -50,6 +50,51 @@ describe('хранилище в браузере — своё у каждого 
     await waitFor(() => expect(a.opened).toEqual([syncDbName('a'), syncDbName('b')]));
   });
 
+  it('хранилище открывается под именем аккаунта; сменился человек — прежний клиент остановлен (SYNC-008)', async () => {
+    const a = setup(me('a'));
+    const clients: SyncClient[] = [];
+    const accounts: (string | undefined)[] = [];
+    const pushes: string[] = [];
+    const open = async (dbName: string, account?: string) => {
+      accounts.push(account);
+      const client = await SyncClient.open({
+        dbName,
+        transport: {
+          push: async () => {
+            pushes.push(account ?? '?');
+            throw new Error('нет сети');
+          },
+          pull: () => Promise.reject(new Error('нет сети')),
+        },
+      });
+      clients.push(client);
+      return client;
+    };
+    const view = () => (
+      <QueryClientProvider client={a.qc}>
+        <AccountSyncProvider open={open}>
+          <span>разделы</span>
+        </AccountSyncProvider>
+      </QueryClientProvider>
+    );
+    const { rerender } = render(view());
+    await waitFor(() => expect(clients).toHaveLength(1));
+    // Мысль A записана без сети и ждёт отправки.
+    await clients[0]!.create('inbox.item', 'PRIVATE-A');
+    await clients[0]!.sync();
+    expect(pushes).toEqual(['a']);
+
+    // В браузере вошёл B (другая вкладка): эта узнала — клиент A закрыт.
+    await act(async () => a.qc.setQueryData(ME, me('b')));
+    rerender(view());
+    await waitFor(() => expect(clients).toHaveLength(2));
+    expect(accounts).toEqual(['a', 'b']);
+    // «Сеть вернулась»: закрытый клиент A больше ничего не отправляет.
+    await clients[0]!.sync();
+    await clients[1]!.sync();
+    expect(pushes).toEqual(['a']);
+  });
+
   it('гостю хранилище не открывается', async () => {
     const guest = setup(null);
     render(guest.view());

@@ -78,18 +78,24 @@ async fn allowed<A: qubite_policy::Action>(
 /// Тело и ответ — `PushRequest` / `PushResponse` протокола `qubite-sync`
 /// (типы — в `@qubite/sync-client`). Операция в модуле без права `write`
 /// отклоняется с причиной `forbidden`; остальные применяются.
+///
+/// Браузер обязан передать `X-Qubite-Account` — ID аккаунта, чья это
+/// очередь. Вошёл другой аккаунт — 409, ничего не применяется (D-894).
 #[utoipa::path(post, path = "/api/v1/sync/push", tag = "sync",
     request_body(content = Object, description = "PushRequest протокола qubite-sync"),
     responses(
         (status = 200, description = "Результат по каждой операции (PushResponse)", body = Object),
-        (status = 400, description = "Пустой пакет, больше 500 операций или повтор op_id", body = ApiErrorBody),
+        (status = 400, description = "Пустой пакет, больше 500 операций, повтор op_id или браузер не назвал аккаунт", body = ApiErrorBody),
         (status = 401, description = "Нужно войти", body = ApiErrorBody),
+        (status = 409, description = "В браузере вошёл другой аккаунт (`account_mismatch`)", body = ApiErrorBody),
     ))]
 pub async fn push(
     State(state): State<AppState>,
     session: Authenticated,
+    headers: HeaderMap,
     Json(request): Json<PushRequest>,
 ) -> Result<Json<PushResponse>, ApiError> {
+    crate::auth::require_account_header(&session, &headers)?;
     request
         .validate()
         .map_err(|error| sync_error(error.into()))?;

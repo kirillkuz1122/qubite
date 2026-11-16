@@ -1,3 +1,4 @@
+import { ACCOUNT_HEADER } from '@qubite/api-client';
 import { Button, Field, Note } from '@qubite/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useRouter, useSearch } from '@tanstack/react-router';
@@ -6,7 +7,17 @@ import { api } from '../api';
 import { saveHistory } from '../app/command';
 import { clearAccountStore, forgetSyncAccount } from '../app/sync-context';
 import { useShell } from '../app/context';
-import { deviceName, ME, must, param, PROVIDER_NAME, say, useMe, useProviders } from './client';
+import {
+  deviceName,
+  Fail,
+  ME,
+  must,
+  param,
+  PROVIDER_NAME,
+  say,
+  useMe,
+  useProviders,
+} from './client';
 import { RemindersSection } from './Reminders';
 import './auth.css';
 
@@ -83,31 +94,41 @@ export function AccountContent() {
   // Пока сессия жива: дослать очередь и стереть хранилище, если всё на сервере (D-284).
   const flush = async () =>
     me.data ? await clearAccountStore(me.data.id).catch(() => false) : false;
+  // «Сессии уже нет» (401) — это уже выход. Любой другой сбой — нет: сессия на сервере
+  // жива, и показать «вы вышли» значило бы оставить вход открытым следующему человеку.
+  const gone = (e: unknown) => e instanceof Fail && e.status === 401;
+  // Выход называет аккаунт: вкладка, оставшаяся от прежнего человека, не закроет чужой вход.
+  const asMe = { headers: { [ACCOUNT_HEADER]: account.id } };
+  const leave = (to: '/' | '/auth') => {
+    signedOut();
+    qc.setQueryData(ME, null);
+    router.history.push(to);
+  };
+  const stay = (e: unknown, cleared: boolean) => {
+    setNote({ ok: false, text: `Выйти не получилось — вы всё ещё в аккаунте. ${say(e)}` });
+    // Хранилище уже удалено, а выйти не вышло: рабочий клиент синхронизации потерял базу — обновляем страницу.
+    if (cleared) setTimeout(() => window.location.reload(), 2500);
+  };
   const everywhere = async () => {
     let cleared = false;
     try {
       cleared = await flush();
-      const r = await must(api.POST('/api/auth/logout-everywhere'));
-      signedOut();
-      qc.setQueryData(ME, null);
+      const r = await must(api.POST('/api/auth/logout-everywhere', asMe));
       setNote({ ok: true, text: `Закрыто входов: ${r.revoked}.` });
-      router.history.push('/auth');
     } catch (e) {
-      failed(e);
-      // Хранилище уже удалено, а выйти не вышло: рабочий клиент синхронизации потерял базу — обновляем страницу.
-      if (cleared) setTimeout(() => window.location.reload(), 2500);
+      if (!gone(e)) return stay(e, cleared);
     }
+    leave('/auth');
   };
   const logout = async () => {
-    await flush();
+    let cleared = false;
     try {
-      await must(api.POST('/api/auth/logout'));
-    } catch {
-      /* сессии уже нет — всё равно выходим */
+      cleared = await flush();
+      await must(api.POST('/api/auth/logout', asMe));
+    } catch (e) {
+      if (!gone(e)) return stay(e, cleared);
     }
-    signedOut();
-    qc.setQueryData(ME, null);
-    router.history.push('/');
+    leave('/');
   };
 
   const linkedIds = new Set(identities.data?.map((i) => i.provider));

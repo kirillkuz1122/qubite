@@ -49,10 +49,10 @@ export function InboxProvider({
   voiceTransport = httpVoiceTransport,
 }: {
   children: ReactNode;
-  /** Для тестов — свой сервер голосовых записей. */
-  voiceTransport?: () => VoiceTransport;
+  /** Для тестов — свой сервер голосовых записей. Аргумент — чья очередь. */
+  voiceTransport?: (account?: string | null) => VoiceTransport;
 }) {
-  const { client, ready, version, state } = useSync();
+  const { client, ready, version, state, account } = useSync();
   /* очередь голоса — рядом с хранилищем аккаунта (у каждого своя) */
   const dbName = client?.dbName ?? null;
   const [objects, setObjects] = useState<LocalObject[]>([]);
@@ -140,7 +140,7 @@ export function InboxProvider({
     if (!dbName) return;
     let alive = true;
     let off = () => {};
-    const opening = VoiceQueue.open(`${dbName}-voice`, voiceTransport()).then(
+    const opening = VoiceQueue.open(`${dbName}-voice`, voiceTransport(account)).then(
       (q) => {
         if (!alive) {
           q.close();
@@ -173,7 +173,7 @@ export function InboxProvider({
       queue.current = Promise.resolve(null);
       void opening.then((q) => q?.close());
     };
-  }, [dbName, voiceTransport, flushVoice]);
+  }, [dbName, account, voiceTransport, flushVoice]);
 
   /* запись ждала текст от устройства (hold_until_ms): когда срок выйдет, уйдёт одним звуком —
      и после перезагрузки страницы, когда ни сети, ни синхронизации «событий» уже не будет */

@@ -22,7 +22,7 @@ import type {
   PushResponse,
 } from './protocol';
 import { MAX_OPS_PER_PUSH } from './protocol';
-import { LocalStore, type LocalObject, type Problem } from './store';
+import { LocalStore, snapshotOf, type LocalObject, type Problem } from './store';
 import { uuidv7 } from './uuid';
 
 /** Как клиент разговаривает с сервером. В тестах — подделка, в приложении — HTTP. */
@@ -157,16 +157,20 @@ export class SyncClient {
       | { kind: 'patch'; fields: Fields },
     change: (object: LocalObject) => LocalObject,
   ): Promise<LocalObject> {
-    const object = await this.store.object(id);
-    if (!object) throw new Error(`объект ${id} не найден на устройстве`);
-    const updated: LocalObject = {
-      ...change(object),
-      revision: object.revision + 1,
-      updated_at_ms: Date.now(),
-      pending: true,
-    };
-    const op = { op_id: uuidv7(), object_id: id, base_revision: object.revision, ...kind };
-    await this.store.commitLocal(updated, op as Operation);
+    // Чтение, новая версия, запись и операция — одной транзакцией хранилища: две
+    // правки подряд (в том числе из двух вкладок) не затирают друг друга.
+    const updated = await this.store.edit(id, (object) => ({
+      object: {
+        ...change(object),
+        revision: object.revision + 1,
+        updated_at_ms: Date.now(),
+        pending: true,
+        // Первая неотправленная правка: запомнить версию сервера, чтобы вернуться
+        // к ней, если правку отклонят.
+        ...(object.pending || object.server || object.stale ? {} : { server: snapshotOf(object) }),
+      },
+      op: { op_id: uuidv7(), object_id: id, base_revision: object.revision, ...kind } as Operation,
+    }));
     await this.refreshState();
     return updated;
   }
@@ -254,58 +258,90 @@ export class SyncClient {
         ops: queued.map((entry) => entry.op),
       });
       const byId = new Map(response.results.map((result) => [result.op_id, result]));
-      const handled: number[] = [];
+      let handled = 0;
       for (const entry of queued) {
         const result = byId.get(entry.op.op_id);
         if (!result) break; // сервер не ответил по операции — оставляем её и следующие
         await this.handleResult(entry.seq, entry.op, result);
-        handled.push(entry.seq);
+        handled += 1;
       }
-      await this.store.removeFromOutbox(handled);
-      if (handled.length < queued.length) return;
+      if (handled < queued.length) return;
     }
   }
 
+  /**
+   * Ответ сервера на операцию. Объект, «проблема» и очередь меняются одной
+   * транзакцией: правка, сделанная в этот момент (или в другой вкладке), не теряется.
+   */
   private async handleResult(seq: number, op: Operation, result: OpResult): Promise<void> {
-    // Ждут отправки только более поздние правки того же объекта: ранние уже
-    // разобраны в этом же пакете, хоть и не убраны из очереди.
-    const stillPending = (await this.store.outbox(MAX_OPS_PER_PUSH * 2)).some(
-      (entry) => entry.seq > seq && entry.op.object_id === op.object_id,
-    );
-    const local = await this.store.object(op.object_id);
-    switch (result.status) {
-      case 'applied':
-        if (local && !stillPending) await this.store.putObject({ ...local, pending: false });
-        return;
-      case 'conflict':
-        await this.store.putObject({ ...result.current, pending: stillPending });
-        await this.store.addProblem({ op, result });
-        return;
-      case 'rejected':
-        if (local && op.kind === 'create')
-          await this.store.putObject({ ...local, deleted: true, pending: false });
-        await this.store.addProblem({ op, result });
-        return;
-    }
+    const problem = result.status === 'applied' ? null : { op, result };
+    await this.store.settle(seq, op, problem, (local, stillPending) => {
+      // `stillPending` — ждут отправки более поздние правки того же объекта.
+      switch (result.status) {
+        case 'applied': {
+          if (!local || stillPending) return {};
+          // Отложенная версия сервера больше не нужна; пометка `stale` остаётся —
+          // снимок, который придёт следом, заменит объект.
+          const confirmed: LocalObject = { ...snapshotOf(local), pending: false };
+          return { object: local.stale ? { ...confirmed, stale: true } : confirmed };
+        }
+        case 'conflict':
+          return {
+            object: {
+              ...result.current,
+              pending: stillPending,
+              ...(stillPending ? { server: result.current } : {}),
+            },
+          };
+        case 'rejected': {
+          if (!local) return {};
+          // Объект так и не появился на сервере — на устройстве его больше нет.
+          if (op.kind === 'create') {
+            return { object: { ...snapshotOf(local), deleted: true, pending: false } };
+          }
+          // Сервер правку не принял: на экране не должно остаться то, чего нет на
+          // сервере. Пока в очереди есть более поздние правки объекта, решают они.
+          if (stillPending) return { object: { ...local, stale: true } };
+          if (local.server) return { object: { ...local.server, pending: false } };
+          if (!local.pending && !local.stale) return {};
+          // Вернуться не к чему (правка сделана до SYNC-008): помечаем объект и
+          // забираем всё с сервера заново — снимок его заменит.
+          return { object: { ...local, pending: false, stale: true }, resync: true };
+        }
+      }
+    });
   }
 
   private async pullAll(): Promise<void> {
-    let cursor = (await this.store.meta<Cursor>('cursor')) ?? 0;
+    // «Забрать всё заново» переживает перезагрузку и другую вкладку: флаг снимается
+    // только после того, как полная выгрузка дошла до конца.
+    const resync = (await this.store.meta<boolean>('resync')) === true;
+    let cursor: Cursor = resync ? 0 : ((await this.store.meta<Cursor>('cursor')) ?? 0);
     for (;;) {
       const page = await this.transport.pull(cursor, PULL_PAGE);
       for (const snapshot of page.changes) await this.mergeSnapshot(snapshot);
       cursor = page.cursor;
       await this.store.setMeta('cursor', cursor);
-      if (!page.has_more) return;
+      if (!page.has_more) break;
     }
+    if (resync) await this.store.deleteMeta('resync');
   }
 
-  /** Серверная версия не затирает локальные неотправленные правки. */
+  /**
+   * Серверная версия не затирает локальные неотправленные правки: пока они есть,
+   * снимок откладывается рядом (`server`) — к нему объект вернётся, если правку
+   * отклонят. Объект с отклонённой правкой (`stale`) снимок заменяет всегда.
+   */
   private async mergeSnapshot(snapshot: ObjectSnapshot): Promise<void> {
-    const local = await this.store.object(snapshot.id);
-    if (local?.pending) return;
-    if (local && local.revision > snapshot.revision) return;
-    await this.store.putObject({ ...snapshot, pending: false });
+    await this.store.merge(snapshot, (local) => {
+      if (!local) return { ...snapshot, pending: false };
+      if (local.pending) {
+        if (local.server && local.server.revision > snapshot.revision) return null;
+        return { ...local, server: snapshot };
+      }
+      if (!local.stale && local.revision > snapshot.revision) return null;
+      return { ...snapshot, pending: false };
+    });
   }
 
   private async refreshState(lastError?: string): Promise<SyncState> {

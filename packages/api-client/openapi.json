@@ -7779,6 +7779,16 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "В браузере вошёл другой аккаунт (`account_mismatch`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
           }
         }
       }
@@ -9457,7 +9467,7 @@
       "post": {
         "tags": ["sync"],
         "summary": "Отправить пакет операций устройства.",
-        "description": "Тело и ответ — `PushRequest` / `PushResponse` протокола `qubite-sync`\n(типы — в `@qubite/sync-client`). Операция в модуле без права `write`\nотклоняется с причиной `forbidden`; остальные применяются.",
+        "description": "Тело и ответ — `PushRequest` / `PushResponse` протокола `qubite-sync`\n(типы — в `@qubite/sync-client`). Операция в модуле без права `write`\nотклоняется с причиной `forbidden`; остальные применяются.\n\nБраузер обязан передать `X-Qubite-Account` — ID аккаунта, чья это\nочередь. Вошёл другой аккаунт — 409, ничего не применяется (D-894).",
         "operationId": "push",
         "requestBody": {
           "description": "PushRequest протокола qubite-sync",
@@ -9482,7 +9492,7 @@
             }
           },
           "400": {
-            "description": "Пустой пакет, больше 500 операций или повтор op_id",
+            "description": "Пустой пакет, больше 500 операций, повтор op_id или браузер не назвал аккаунт",
             "content": {
               "application/json": {
                 "schema": {
@@ -9493,6 +9503,16 @@
           },
           "401": {
             "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "В браузере вошёл другой аккаунт (`account_mismatch`)",
             "content": {
               "application/json": {
                 "schema": {
