@@ -526,6 +526,27 @@ pub struct VerbView {
     pub progress: Progress,
 }
 
+/// Дата для экрана — строкой `2026-11-16` (сама `time::Date` в JSON — пара чисел).
+fn iso(day: Date) -> String {
+    format!(
+        "{:04}-{:02}-{:02}",
+        day.year(),
+        u8::from(day.month()),
+        day.day()
+    )
+}
+
+fn iso_date<S: serde::Serializer>(day: &Date, to: S) -> Result<S::Ok, S::Error> {
+    to.serialize_str(&iso(*day))
+}
+
+fn iso_date_option<S: serde::Serializer>(day: &Option<Date>, to: S) -> Result<S::Ok, S::Error> {
+    match day {
+        Some(day) => to.serialize_some(&iso(*day)),
+        None => to.serialize_none(),
+    }
+}
+
 /// Состояние глагола для экрана.
 #[derive(Debug, Clone, Serialize)]
 pub struct Progress {
@@ -538,6 +559,8 @@ pub struct Progress {
     pub reps: i32,
     pub lapses: i32,
     pub interval_days: i32,
+    /// `2026-11-16`; у нового глагола — нет.
+    #[serde(serialize_with = "iso_date_option")]
     pub due_on: Option<Date>,
 }
 
@@ -584,6 +607,8 @@ pub struct Overview {
     pub groups: Vec<Group>,
     pub verbs: Vec<VerbView>,
     pub counts: Counts,
+    /// Сегодня по часам платформы, `2026-11-16`.
+    #[serde(serialize_with = "iso_date")]
     pub today: Date,
 }
 

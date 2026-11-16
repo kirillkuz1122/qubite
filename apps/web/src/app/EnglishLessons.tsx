@@ -24,11 +24,9 @@ import {
 } from '@qubite/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { createPortal } from 'react-dom';
 import {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -37,6 +35,8 @@ import {
 } from 'react';
 import { Fail, say } from '../auth/client';
 import { AgentEnglish } from './AgentEnglish';
+import { Denied, Gain, LessonScreen, Progress } from './EnglishParts';
+import { EnglishVerbs } from './EnglishVerbs';
 import { canRecord, record, type Recording } from './english';
 import {
   askNate,
@@ -101,12 +101,12 @@ import { useDictation } from './english-dictation';
 import { playCue, readFeedback, writeFeedback, type FeedbackSettings } from './english-feedback';
 import { LimitLink } from './LimitLink';
 
-type Tab = 'lessons' | 'talk' | 'game' | 'settings';
-const TABS: readonly Tab[] = ['lessons', 'talk', 'game', 'settings'];
+type Tab = 'lessons' | 'verbs' | 'talk' | 'game' | 'settings';
+const TABS: readonly Tab[] = ['lessons', 'verbs', 'talk', 'game', 'settings'];
 
 /**
  * Открыть урок по ссылке: `/agent?tab=english&lesson=a0-m1-l1&homework=1` (домашка из Planner);
- * вкладку — `&view=talk`.
+ * вкладку — `&view=talk` (`verbs` — глаголы).
  */
 function linked(): { lesson: string; kind: Run['kind'] } | null {
   const q = new URLSearchParams(globalThis.location?.search ?? '');
@@ -162,6 +162,7 @@ export function EnglishModule() {
         onChange={(v) => setTab(v)}
         options={[
           { value: 'lessons', label: 'Уроки' },
+          { value: 'verbs', label: 'Глаголы' },
           { value: 'talk', label: 'Разговор' },
           { value: 'game', label: 'Игра' },
           { value: 'settings', label: 'Настройки' },
@@ -176,6 +177,7 @@ export function EnglishModule() {
           ) : (
             <LessonsHome onOpen={(lesson, kind) => setOpen({ lesson, kind })} />
           ))}
+        {tab === 'verbs' && <EnglishVerbs />}
         {tab === 'talk' && <AgentEnglish />}
         {tab === 'game' && <GameView />}
         {tab === 'settings' && <SettingsView />}
@@ -185,17 +187,6 @@ export function EnglishModule() {
 }
 
 // ---------------------------------------------------------------- главная
-
-function Denied({ error }: { error: unknown }) {
-  const denied = error instanceof Fail && error.status === 403;
-  return (
-    <p className="later" role="status">
-      {denied
-        ? 'Английский — часть агента: нет доступа к модулю «Агент Qubite». Его включает owner в Console.'
-        : say(error)}
-    </p>
-  );
-}
 
 /** Кольцо дня — точками: сколько минут из цели. */
 function Ring({ game }: { game: Game }) {
@@ -504,68 +495,6 @@ function Path({ home, onOpen }: { home: Home; onOpen: (l: string, k: Run['kind']
 // ---------------------------------------------------------------- урок
 
 type Phase = 'intro' | 'theory' | 'tasks' | 'result';
-
-/** Отдельный слой в body: transform оболочки не ограничивает полный экран. */
-function LessonScreen({ children, onClose }: { children: ReactNode; onClose: () => void }) {
-  const screen = useRef<HTMLDivElement>(null);
-  const close = useRef(onClose);
-  useEffect(() => {
-    close.current = onClose;
-  });
-  useLayoutEffect(() => {
-    const root = document.getElementById('root');
-    const wasInert = root?.inert ?? false;
-    const overflow = document.body.style.overflow;
-    const back = document.activeElement as HTMLElement | null;
-    if (root) root.inert = true;
-    document.body.style.overflow = 'hidden';
-    screen.current?.focus({ preventScroll: true });
-    const key = (e: KeyboardEvent) => {
-      // Sheet перехватывает Escape раньше, в фазе capture.
-      if (e.key === 'Escape') close.current();
-      if (e.key !== 'Tab' || !screen.current?.contains(document.activeElement)) return;
-      const controls = [
-        ...screen.current.querySelectorAll<HTMLElement>(
-          'button:not(:disabled), input:not(:disabled), a[href], [tabindex="0"]',
-        ),
-      ].filter((el) => el.getClientRects().length > 0);
-      const first = controls[0];
-      const last = controls.at(-1);
-      if (
-        e.shiftKey &&
-        (document.activeElement === first || document.activeElement === screen.current)
-      ) {
-        e.preventDefault();
-        last?.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first?.focus();
-      }
-    };
-    document.addEventListener('keydown', key);
-    return () => {
-      document.removeEventListener('keydown', key);
-      if (root) root.inert = wasInert;
-      document.body.style.overflow = overflow;
-      back?.focus({ preventScroll: true });
-    };
-  }, []);
-  return createPortal(
-    <div
-      ref={screen}
-      className="eng-lesson-screen"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Урок английского"
-      tabIndex={-1}
-    >
-      <Presence show className="eng-lesson-presence">
-        {children}
-      </Presence>
-    </div>,
-    document.body,
-  );
-}
 
 function LessonPlayer({
   lesson: id,
@@ -1100,24 +1029,6 @@ function Ask({ lesson }: { lesson: string }) {
   );
 }
 
-/** Полоска хода урока точками: пройдено, текущее, впереди. */
-function Progress({ total, done, now }: { total: number; done: number; now: number | null }) {
-  return (
-    <div
-      className="eng-progress"
-      role="progressbar"
-      aria-label="Ход урока"
-      aria-valuemin={0}
-      aria-valuemax={total}
-      aria-valuenow={done}
-    >
-      {Array.from({ length: total }, (_, i) => (
-        <span key={i} data-on={i < done ? '' : undefined} data-now={i === now ? '' : undefined} />
-      ))}
-    </div>
-  );
-}
-
 const MARKS: { kind: Mark; label: string; about: string }[] = [
   { kind: 'easy', label: 'Слишком легко', about: 'после урока Нейт решит, как ускорить темп' },
   { kind: 'hard', label: 'Слишком трудно', about: 'вернётся завтра, Нейт сбавит темп' },
@@ -1284,23 +1195,6 @@ function Verdict({ a }: { a: Answered }) {
         <p className="eng-hint">AI сейчас недоступен — проверил по обязательным словам.</p>
       )}
     </div>
-  );
-}
-
-function Gain({ d, announce = true }: { d: Delta; announce?: boolean }) {
-  return (
-    <p className="eng-gain" role={announce ? 'status' : undefined}>
-      {d.xp > 0 && <b>+{d.xp} XP</b>}
-      {d.streak_up && <> · огонёк {days(d.streak)}</>}
-      {d.ring_closed && <> · цель дня закрыта</>}
-      {d.quests_closed && <> · все задания дня</>}
-      {d.unlocked.map((u) => (
-        <span key={u.kind + u.id}>
-          {' '}
-          · {u.kind === 'badge' ? 'достижение' : 'Частица'} «{u.title}»
-        </span>
-      ))}
-    </p>
   );
 }
 

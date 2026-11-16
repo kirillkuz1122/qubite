@@ -714,6 +714,14 @@ async fn english_verbs_over_http() {
     assert_eq!(typed.body["correct"], true);
     assert_eq!(typed.body["expected"]["v2"], "learnt");
     assert_eq!(typed.body["progress"]["interval_days"], 1);
+    // Даты — строками ISO: сайт сравнивает и считает по ним дни.
+    let today = set.body["today"].as_str().expect("today — строка");
+    assert_eq!(today.len(), 10, "{today}");
+    let due = typed.body["progress"]["due_on"]
+        .as_str()
+        .expect("due_on — строка");
+    assert!(due > today, "{due} > {today}");
+    assert!(sing["progress"]["due_on"].is_null());
     assert!(typed.body["game"]["xp"].as_i64().unwrap() >= 2);
 
     // Ошибка в игре — глагол трудный и ждёт повторения сегодня.
