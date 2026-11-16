@@ -233,31 +233,50 @@ fn sound(word: &str) -> &str {
 }
 
 /// Слова формы для сверки на слух: `was/were` — годится любое.
-fn spoken_options(main: &str, alt: &[String]) -> Vec<String> {
+/// Варианты формы, каждый — слова подряд (`zoomed in` — два слова).
+fn spoken_options(main: &str, alt: &[String]) -> Vec<Vec<String>> {
     std::iter::once(main)
         .chain(alt.iter().map(String::as_str))
-        .flat_map(|f| {
+        .map(|f| {
             course::normalize(f)
                 .split(' ')
                 .map(|w| sound(w).to_owned())
+                .filter(|w| !w.is_empty())
                 .collect::<Vec<_>>()
         })
-        .filter(|w| !w.is_empty())
+        .filter(|words| !words.is_empty())
         .collect()
 }
 
-/// «Скажи вслух»: три формы прозвучали по порядку. Лишние слова («and», «um»)
+/// «Скажи вслух»: три формы прозвучали по порядку, каждая целиком (у формы из
+/// нескольких слов — все слова подряд). Лишние слова («and», «um») между формами
 /// не мешают; одинаково звучащие слова распознавания (`red` = `read`) годятся.
 pub fn said_ok(verb: &Verb, said: &str) -> bool {
     let normal = course::normalize(said);
-    let mut words = normal.split(' ').map(sound);
+    let words: Vec<&str> = normal
+        .split(' ')
+        .map(sound)
+        .filter(|w| !w.is_empty())
+        .collect();
+    let mut pos = 0;
     [
         spoken_options(&verb.v1, &[]),
         spoken_options(&verb.v2, &verb.v2_alt),
         spoken_options(&verb.v3, &verb.v3_alt),
     ]
     .iter()
-    .all(|options| words.any(|w| options.iter().any(|o| o == w)))
+    .all(|options| {
+        let found = (pos..words.len()).find_map(|start| {
+            options
+                .iter()
+                .find(|o| {
+                    words.len() - start >= o.len()
+                        && o.iter().zip(&words[start..]).all(|(a, b)| a == b)
+                })
+                .map(|o| start + o.len())
+        });
+        found.map(|end| pos = end).is_some()
+    })
 }
 
 // ---------------------------------------------------------------- повторение
@@ -961,6 +980,26 @@ mod tests {
         // Одинаковые формы нужно сказать трижды.
         assert!(said_ok(set.verb("cut").unwrap(), "cut cut cut"));
         assert!(!said_ok(set.verb("cut").unwrap(), "cut cut"));
+    }
+
+    #[test]
+    fn spoken_multiword_forms_must_sound_whole() {
+        let zoom = Verb {
+            id: "my:zoom-in".into(),
+            v1: "zoom in".into(),
+            v2: "zoomed in".into(),
+            v3: "zoomed in".into(),
+            v2_alt: vec![],
+            v3_alt: vec![],
+            ru: "приблизить".into(),
+            group: String::new(),
+        };
+        assert!(said_ok(&zoom, "zoom in zoomed in zoomed in"));
+        assert!(said_ok(&zoom, "um zoom in, and zoomed in, zoomed in"));
+        assert!(!said_ok(&zoom, "in in in"));
+        assert!(!said_ok(&zoom, "zoom zoomed zoomed"));
+        assert!(!said_ok(&zoom, "zoom in zoomed in"));
+        assert!(!said_ok(&zoom, "zoom in zoomed zoomed in"));
     }
 
     #[test]
