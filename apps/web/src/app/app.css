@@ -2410,7 +2410,7 @@ h4.eng-h {
   padding: 12px;
   border-radius: calc(var(--q-round) * 14px);
   background: var(--q-panel-2);
-  border: 1px solid var(--q-bad);
+  border: 1px solid var(--q-red);
 }
 .eng-answer-bar[data-ok] {
   border-color: var(--q-green);
@@ -2419,7 +2419,7 @@ h4.eng-h {
   color: var(--q-green);
 }
 .eng-answer-bar[data-wrong] .eng-answer-bar-content > p {
-  color: var(--q-bad);
+  color: var(--q-red);
 }
 .eng-answer-bar .eng-row {
   justify-content: flex-end;
@@ -2442,6 +2442,122 @@ h4.eng-h {
   .eng-answer-bar-content > .q-btn:only-child {
     grid-column: 2;
   }
+}
+
+/* ---------- «Глаголы» (ENG-008) ---------- */
+.vb-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--q-mute);
+  font-size: 13px;
+}
+.vb-counts b {
+  color: var(--q-ink);
+  font-weight: 600;
+}
+.vb-counts li[data-tone='hard'] b {
+  color: var(--q-red);
+}
+.vb-groups,
+.vb-rows {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.vb-groups > li + li,
+.vb-rows > li + li {
+  border-top: 1px solid var(--q-line);
+}
+.vb-group,
+.vb-rows > li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 8px 4px;
+}
+.vb-group {
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+.vb-group:hover {
+  background: var(--q-panel-2);
+}
+.vb-group:focus-visible {
+  outline: 2px solid var(--q-orange);
+  outline-offset: -2px;
+}
+.vb-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: calc(var(--q-round) * 2px);
+  background: var(--q-faint);
+}
+.vb-dot[data-tone='wait'] {
+  background: var(--q-sky);
+}
+.vb-dot[data-tone='due'] {
+  background: var(--q-orange);
+}
+.vb-dot[data-tone='hard'] {
+  background: var(--q-red);
+}
+.vb-dot[data-tone='learned'] {
+  background: var(--q-green);
+}
+.vb-group-t,
+.vb-row-t {
+  display: grid;
+  flex: 1 1 auto;
+  gap: 2px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.vb-group-t b,
+.vb-row-t b {
+  font-size: 15px;
+  font-weight: 500;
+}
+.vb-group-t em,
+.vb-row-t em {
+  color: var(--q-mute);
+  font-size: 13px;
+  font-style: normal;
+}
+.vb-group-n,
+.vb-row-when {
+  display: grid;
+  flex: none;
+  gap: 2px;
+  justify-items: end;
+  color: var(--q-mute);
+  font-size: 13px;
+  text-align: right;
+}
+.vb-group-n i {
+  color: var(--q-ink);
+  font-style: normal;
+}
+.vb-word {
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.vb-answer {
+  font-size: 20px;
 }
 
 /* ---------- голосовой ввод (CMD-005b) ---------- */
