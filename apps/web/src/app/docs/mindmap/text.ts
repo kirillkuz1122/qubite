@@ -26,11 +26,11 @@ export function treeMarkdown(tree: MindNode, links: readonly DocLink[] = []): st
   const lines: string[] = [];
   const walk = (node: MindNode, depth: number) => {
     // Подпись с «[» в начале экранируется: иначе «[x] done» прочитается как галочка списка,
-    // а «[@…](qubite://…)» — как ссылка.
+    // а «[@…](qubite://…)» — как ссылка. Исходный «\» в начале тоже: иначе «\[x]» потеряет слеш.
     const text = node.text.trim();
     const label = node.link
       ? mentionText(node.link.target, links)
-      : text.startsWith('[')
+      : text.startsWith('[') || text.startsWith('\\')
         ? `\\${text}`
         : text;
     lines.push(`${'  '.repeat(depth)}- ${label}`);
@@ -80,7 +80,7 @@ export function parseOutline(
           },
           children: [],
         }
-      : { text: raw.startsWith('\\[') ? raw.slice(1) : raw, children: [] };
+      : { text: /^\\[[\\]/.test(raw) ? raw.slice(1) : raw, children: [] };
     while (stack.length && stack[stack.length - 1]!.indent >= indent) stack.pop();
     const parent = stack[stack.length - 1];
     (parent ? parent.item.children : top).push(item);
