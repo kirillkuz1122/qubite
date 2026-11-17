@@ -1,4 +1,5 @@
 import * as Y from 'yjs';
+import { isMindmap, readTree, type MindNode } from './mindmap/model';
 
 export interface VersionBlock {
   kind: string;
@@ -201,6 +202,17 @@ function inlineText(node: Y.XmlText | Y.XmlElement): string {
 
 /** Только Yjs: не создаёт Lexical/DOM и не меняет исходное дерево. */
 export function blocksFromDoc(doc: Y.Doc): VersionBlock[] {
+  // Mind map (DOC-006): узел — пункт списка, глубина — точками в начале строки.
+  if (doc.share.has('meta') && isMindmap(doc)) {
+    const blocks: VersionBlock[] = [];
+    const walk = (node: MindNode) => {
+      const label = node.link ? `@${node.text || 'ссылка'}` : node.text;
+      blocks.push({ kind: 'ul', text: `${'· '.repeat(node.depth)}${label}` });
+      node.children.forEach(walk);
+    };
+    walk(readTree(doc));
+    return blocks;
+  }
   // get() создал бы пустой корень у совершенно пустой версии.
   if (!doc.share.has('root')) return [];
   const root = doc.get('root', Y.XmlText);

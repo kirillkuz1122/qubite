@@ -699,7 +699,12 @@ class StoredDocHandle implements DocHandle {
 
   /** Есть серверное состояние или свои правки: пустое дерево без них не заменит чужие блоки. */
   get loaded(): boolean {
-    return this.serverSv.size > 0 || this.doc.get('root', Y.XmlText).length > 0;
+    return (
+      this.serverSv.size > 0 ||
+      this.doc.get('root', Y.XmlText).length > 0 ||
+      // Mind map (DOC-006) хранит узлы рядом с деревом редактора.
+      this.doc.getMap('mindmap').size > 0
+    );
   }
 
   async restoreVersion(version: Pick<DocVersion, 'id' | 'ystate'>): Promise<void> {
