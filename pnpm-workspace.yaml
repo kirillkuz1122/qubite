@@ -7,3 +7,11 @@ packages:
 peerDependencyRules:
   allowedVersions:
     openapi-typescript>typescript: '6'
+
+# Исправления уязвимостей в инструментах разработки (OPS-009, ревью 12.11): glob ≥ 14.0.2
+# (GHSA-3g3m-2fjr-6pw4) и minimatch ≥ 11.0.1 (GHSA-g3hv-75wg-m249). API у них тот же,
+# что у 10.x; typescript-eslint 8.73 сам перешёл на minimatch 11. Убрать, когда
+# license-checker и typescript-eslint потянут эти версии сами.
+overrides:
+  glob@10: 14.0.2
+  '@typescript-eslint/typescript-estree>minimatch': ^11.0.1

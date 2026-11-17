@@ -26,7 +26,8 @@ export interface NavItem<T extends string = string> {
 export interface DockProps<T extends string> {
   items: NavItem<T>[];
   current: T;
-  onGo: (id: T) => void;
+  /** перейти в раздел; `false` — перехода не было (например, «Ещё» открыл окно) */
+  onGo: (id: T) => void | boolean;
   /** раскрыта ли строка Command */
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -34,12 +35,15 @@ export interface DockProps<T extends string> {
   children: ReactNode;
 }
 
-const H = 60;
+/* панель 64 px (DESIGN_SYSTEM §5); раздел — значок и подпись 10 px под ним */
+const H = 64;
 const GAP = 8;
-const ITEM = 52;
+const ITEM = 60;
+/** половина ширины подсветки раздела */
+const HALF = 30;
 
 /**
- * Нижняя «капля» на телефоне: разделы и кнопка Command — две пилюли в одном слое.
+ * Нижняя «капля» на телефоне: разделы с подписями и оранжевая кнопка Command — две пилюли в одном слое.
  * По нажатию на Command строка вытекает влево, разделы догоняют и сжимаются в точку текущего раздела.
  * Подсветку раздела можно тащить пальцем и смахивать: отпустил — открылся раздел под ней,
  * быстрый свайп — соседний раздел. Escape или прокрутка посреди жеста возвращают её на место.
@@ -58,8 +62,9 @@ export function Dock<T extends string>({
   const btns = useRef(new Map<T, HTMLButtonElement>());
   const [W, setW] = useState(0);
   const nav = useFlow(H, 0, { className: 'q-dock-body' });
-  const cmd = useFlow(H, 0, { className: 'q-dock-body' });
-  const ind = useFlow(44, 8, { className: 'q-dock-ind' });
+  // кнопка Command — оранжевая; раскрылась в строку — подложка снова цвета панели
+  const cmd = useFlow(H, 0, { className: 'q-dock-body q-dock-cmd-body' });
+  const ind = useFlow(52, 6, { className: 'q-dock-ind' });
   const cmdPress = usePress(0.84);
 
   const closed = { na: 0, nb: W - H - GAP, ca: W - H, cb: W };
@@ -90,7 +95,7 @@ export function Dock<T extends string>({
       const keep = it.id === geo.current.current;
       b.style.opacity = keep ? '1' : Math.max(0, 1 - v * 1.8).toFixed(3);
       b.style.pointerEvents = v > 0.5 && !keep ? 'none' : '';
-      const x = keep ? geo.current.x0(i) * (1 - v) + 4 * v : geo.current.x0(i);
+      const x = keep ? geo.current.x0(i) * (1 - v) + 2 * v : geo.current.x0(i);
       // свойство translate, а не transform: нажатие (usePress) и «вздрагивание» (flyDot) пишут scale,
       // а scale умножает transform — иконка при нажатии уезжала влево тем сильнее, чем правее стоит
       b.style.translate = `${x.toFixed(2)}px`;
@@ -130,8 +135,8 @@ export function Dock<T extends string>({
   useLayoutEffect(() => {
     if (!W) return;
     const i = items.findIndex((it) => it.id === current);
-    const cx = (open ? 4 : x0(i)) + ITEM / 2;
-    ind.to(cx - 24, cx + 24, first.current);
+    const cx = (open ? 2 : x0(i)) + ITEM / 2;
+    ind.to(cx - HALF, cx + HALF, first.current);
     first.current = false;
     fo.emit();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -153,7 +158,7 @@ export function Dock<T extends string>({
       setTimeout(() => {
         L.to(nA, opened.na, f);
         L.to(nB, opened.nb, scaled(f, 1.375));
-        ind.to(8, 52);
+        ind.to(6, 6 + 2 * HALF);
       }, 40);
     } else {
       L.to(nB, closed.nb, scaled(f, 0.75));
@@ -163,7 +168,7 @@ export function Dock<T extends string>({
       }, 40);
       const i = items.findIndex((it) => it.id === current);
       const cx = x0(i) + ITEM / 2;
-      ind.to(cx - 24, cx + 24);
+      ind.to(cx - HALF, cx + HALF);
     }
     L.to(fo, open ? 1 : 0, scaled(f, 0.875));
     const t = setTimeout(() => {
@@ -186,7 +191,7 @@ export function Dock<T extends string>({
     const center = (i: number) => geo.current.x0(i) + ITEM / 2;
     const back = () => {
       const i = live.current.items.findIndex((it) => it.id === live.current.current);
-      ind.to(center(i) - 24, center(i) + 24);
+      ind.to(center(i) - HALF, center(i) + HALF);
     };
     const h = drag(el, {
       axis: 'x',
@@ -202,7 +207,7 @@ export function Dock<T extends string>({
       onMove: ({ dx }) => {
         const n = live.current.items.length;
         c = rubber(from + dx, center(0), center(n - 1), 18);
-        ind.hold(c - 24, c + 24);
+        ind.hold(c - HALF, c + HALF);
       },
       onEnd: ({ vx }) => {
         const { items: its, current: cur, onGo: go } = live.current;
@@ -214,9 +219,10 @@ export function Dock<T extends string>({
           if (Math.abs(center(j) - goal) < Math.abs(center(i) - goal)) i = j;
         // быстрый свайп, но не дотянул до соседа — всё равно соседний раздел
         if (i === now && Math.abs(vx) > 450) i = Math.min(n - 1, Math.max(0, now + Math.sign(vx)));
-        ind.hold(c - 24, c + 24, vx);
+        ind.hold(c - HALF, c + HALF, vx);
         if (i === now) back();
-        else go(its[i]!.id);
+        // жест открыл окно, а раздел не сменился — подсветка возвращается к текущему
+        else if (go(its[i]!.id) === false) back();
       },
       onCancel: back,
     });
@@ -304,6 +310,9 @@ function DockButton<T extends string>({
       onClick={onClick}
     >
       <DotIcon name={item.icon} />
+      <span className="q-navb-label" aria-hidden="true">
+        {item.label}
+      </span>
       {item.badge && !!item.count && <span className="q-badge" aria-hidden="true" />}
     </button>
   );

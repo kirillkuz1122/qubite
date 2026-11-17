@@ -121,10 +121,8 @@ function show(undoMs = 40) {
   return { ...view, layout };
 }
 
-const card = (title: string) => screen.getByRole('article', { name: title });
-
 describe('Возможности на Главной', () => {
-  it('до трёх карточек, отобранных агентом: вид, даты, класс, место, почему, сайт', async () => {
+  it('одна карточка — лучшая из отобранных агентом (D-867): вид, даты, класс, место, почему, сайт', async () => {
     server.items = [
       item({
         title: 'Устная геометрия ВШЭ',
@@ -142,7 +140,8 @@ describe('Возможности на Главной', () => {
     ];
     const { layout } = show();
     const first = await screen.findByRole('article', { name: 'Устная геометрия ВШЭ' });
-    expect(screen.getAllByRole('article')).toHaveLength(3);
+    expect(screen.getAllByRole('article')).toHaveLength(1);
+    expect(screen.queryByText('Kiroween')).toBeNull();
     expect(screen.queryByText('Четвёртая — про запас')).toBeNull();
     expect(screen.getByText('отобрал агент')).toBeInTheDocument();
     expect(first).toHaveTextContent('олимпиада');
@@ -156,11 +155,22 @@ describe('Возможности на Главной', () => {
     expect(site).toHaveAttribute('href', 'https://example.org/olymp');
     expect(site).toHaveAttribute('target', '_blank');
     expect(site).toHaveAttribute('rel', 'noopener noreferrer');
-    expect(card('Kiroween')).toHaveTextContent('хакатон');
-    expect(card('Олимпиада 2')).toHaveTextContent('олимпиада · Отборочный этап');
-    expect(card('Олимпиада 2')).toHaveTextContent('1–20 декабря 2099');
     // высота блока поменялась — Главная знает, что двигать
     expect(layout).toHaveBeenCalled();
+  });
+
+  it('хакатон подписан «хакатон»', async () => {
+    server.items = [item({ kind: 'hackathon', source: 'devpost', title: 'Kiroween' })];
+    show();
+    expect(await screen.findByRole('article', { name: 'Kiroween' })).toHaveTextContent('хакатон');
+  });
+
+  it('у олимпиады — этап и даты', async () => {
+    server.items = [item({ title: 'Олимпиада по информатике' })];
+    show();
+    const c = await screen.findByRole('article', { name: 'Олимпиада по информатике' });
+    expect(c).toHaveTextContent('олимпиада · Отборочный этап');
+    expect(c).toHaveTextContent('1–20 декабря 2099');
   });
 
   it('нет отбора агента — ближайшие новые с пометкой, прошедшие не показываем', async () => {
@@ -241,6 +251,22 @@ describe('Возможности на Главной', () => {
     expect(server.posts).toEqual(['/api/v1/opportunities/opp-1/interested']);
   });
 
+  it('после «Интересно» можно перейти к следующей карточке (одна на Главной, D-867)', async () => {
+    server.items = [item({ title: 'Первая' }), item({ title: 'Вторая' })];
+    show();
+    const c = await screen.findByRole('article', { name: 'Первая' });
+    fireEvent.click(within(c).getByRole('button', { name: 'Интересно' }));
+    expect(await within(c).findByText('Дела поставлены: 3')).toBeInTheDocument();
+    fireEvent.click(within(c).getByRole('button', { name: 'Следующая' }));
+    expect(await screen.findByRole('article', { name: 'Вторая' })).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('article', { name: 'Первая' })).toBeNull());
+    // последняя — «Следующей» нет
+    const last = screen.getByRole('article', { name: 'Вторая' });
+    fireEvent.click(within(last).getByRole('button', { name: 'Интересно' }));
+    expect(await within(last).findByText('Дела поставлены: 3')).toBeInTheDocument();
+    expect(within(last).queryByRole('button', { name: 'Следующая' })).toBeNull();
+  });
+
   it('«Интересно» не прошло — ошибка, кнопки снова доступны', async () => {
     server.items = [item({ title: 'ВКОШП' })];
     post.mockImplementationOnce(() => fail(503, 'Агент сейчас занят'));
@@ -277,10 +303,10 @@ describe('Возможности на Главной', () => {
     show();
     const c = await screen.findByRole('article', { name: 'Первая' });
     fireEvent.click(within(c).getByRole('button', { name: 'Не надо' }));
-    await screen.findByRole('article', { name: 'Запасная' });
+    await screen.findByRole('article', { name: 'Вторая' });
     await waitFor(() => expect(screen.queryByRole('group', { name: 'Убрано: Первая' })).toBeNull());
     expect(server.posts).toEqual(['/api/v1/opportunities/opp-1/dismiss']);
-    expect(screen.getAllByRole('article')).toHaveLength(3);
+    expect(screen.getAllByRole('article')).toHaveLength(1);
   });
 
   it('убрать не вышло — ошибка и «Повторить»', async () => {

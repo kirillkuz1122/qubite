@@ -58,10 +58,10 @@ import { useSync } from '../sync-context';
 import '../home.css';
 
 /**
- * Главная (HOME-001, D-298, D-327): первый экран после входа. Сверху — сводка от AI (её пишет
- * агент; без агента её нет), под ней — возможности (олимпиады и хакатоны, AGT-005), ниже —
- * факты: дела на сегодня, новое во Входящих и что агент разложил, ближайшие сроки, погода,
- * курсы и новости. Город, валюты и темы меняются тут же — шестерёнкой у виджета.
+ * Главная (HOME-001, D-298, D-327, D-867): первый экран после входа. Сверху — сводка от AI (её
+ * пишет агент; без агента её нет), ниже — дела на сегодня, новое во Входящих и что агент разложил,
+ * ближайшие сроки, одна карточка возможностей (AGT-005), погода, курсы и новости. Город, валюты
+ * и темы меняются тут же — шестерёнкой у виджета.
  */
 export function HomeScreen() {
   const home = useHome();
@@ -83,12 +83,13 @@ export function HomeScreen() {
       <Presence className="home-held panel" show={!!data?.held.length} onLayout={relayout}>
         {data && data.held.length > 0 && <Held held={data.held} />}
       </Presence>
+      {/* Порядок D-867: дела → входящие → сроки → одна карточка возможностей → погода и курсы */}
+      <TodayPart />
+      <InboxPart filed={data?.filed ?? []} />
+      <Deadlines />
       <div className="home-rest" data-flip="home-rest" ref={rest}>
         <Opportunities onLayout={relayoutRest} />
         <div className="home-below" data-flip="home-below">
-          <TodayPart />
-          <InboxPart filed={data?.filed ?? []} />
-          <Deadlines />
           <Widgets settings={data?.settings ?? null} />
           <News settings={data?.settings ?? null} />
         </div>

@@ -739,6 +739,9 @@ pub struct Filed {
 pub struct Overview {
     /// Мысли, за которые агент вот-вот возьмётся (Элик думает).
     pub thinking: Vec<Uuid>,
+    /// Мысли, которые агент не смог разобрать: задача уже падала (нет ключа AI, сбой) — ждёт
+    /// повтора или сдалась. Входящие говорят об этом честно, а не «думают» бесконечно (DS-013).
+    pub stuck: Vec<Uuid>,
     /// Разложенное за сутки и не откаченное, новые сверху.
     pub filed: Vec<Filed>,
 }
@@ -748,10 +751,29 @@ pub async fn overview(pool: &PgPool, who: &Who) -> Result<Overview> {
     let account = who.account();
     let mut conn = pool.acquire().await?;
     timeline::check_agent(&mut conn, who).await?;
+    // «Думает» — пока задача работает или ещё ни разу не падала; упавшая и ждущая повтора
+    // или сдавшаяся — «не смог».
     let thinking: Vec<Uuid> = sqlx::query_scalar(
         "SELECT DISTINCT (j.payload->>'item_id')::uuid FROM jobs j \
-          WHERE j.kind = $1 AND j.status IN ('queued', 'running') \
+          WHERE j.kind = $1 \
+            AND (j.status = 'running' OR (j.status = 'queued' AND j.last_error IS NULL)) \
             AND j.payload->>'account_id' = $2::text",
+    )
+    .bind(JOB)
+    .bind(account)
+    .fetch_all(&mut *conn)
+    .await?;
+    // «Не смог» — по последней задаче разбора этой мысли: старый успех (например, вопрос агента)
+    // не прячет упавший позже разбор ответа.
+    let stuck: Vec<Uuid> = sqlx::query_scalar(
+        "SELECT item FROM ( \
+           SELECT DISTINCT ON (j.payload->>'item_id') (j.payload->>'item_id')::uuid AS item, \
+                  j.status, j.last_error \
+             FROM jobs j \
+            WHERE j.kind = $1 AND j.payload->>'account_id' = $2::text \
+            ORDER BY j.payload->>'item_id', j.created_at DESC, j.id DESC \
+         ) last \
+         WHERE last.status IN ('queued', 'dead') AND last.last_error IS NOT NULL",
     )
     .bind(JOB)
     .bind(account)
@@ -801,7 +823,11 @@ pub async fn overview(pool: &PgPool, who: &Who) -> Result<Overview> {
             reason: action.reason.clone(),
         });
     }
-    Ok(Overview { thinking, filed })
+    Ok(Overview {
+        thinking,
+        stuck,
+        filed,
+    })
 }
 
 /// Откатили действие с мыслью — вернуть и её разбор, как был до действия

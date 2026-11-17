@@ -5,6 +5,7 @@ import {
   lazyRouteComponent,
   Outlet,
   parseSearchWith,
+  redirect,
   stringifySearchWith,
 } from '@tanstack/react-router';
 import { AppShell } from './app/AppShell';
@@ -78,8 +79,26 @@ const appRoute = createRoute({
 });
 const sectionRoutes = [
   ...SECTIONS.map((s) =>
-    createRoute({ getParentRoute: () => appRoute, path: s.path, component: () => null }),
+    createRoute({
+      getParentRoute: () => appRoute,
+      path: s.path,
+      component: () => null,
+      // «Английский» стал своим разделом (D-914): старые ссылки `/agent?tab=english…` ведут туда
+      beforeLoad: ({ location }) => {
+        if (s.id !== 'agent') return;
+        const q = new URLSearchParams(location.searchStr);
+        if (q.get('tab') !== 'english') return;
+        q.delete('tab');
+        const rest = q.toString();
+        throw redirect({ href: `/english${rest ? `?${rest}` : ''}`, replace: true });
+      },
+    }),
   ),
+  createRoute({
+    getParentRoute: () => appRoute,
+    path: '/english',
+    component: () => null,
+  }),
   createRoute({
     getParentRoute: () => appRoute,
     path: '/docs/$id',

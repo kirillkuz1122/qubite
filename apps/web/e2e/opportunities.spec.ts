@@ -6,16 +6,20 @@ import { long, mockOpportunities, opportunity, suggested } from './opportunities
 const block = (page: Page) => page.getByRole('region', { name: 'Возможности' });
 const card = (page: Page, title: string) => block(page).getByRole('article', { name: title });
 
-test('агент предложил три возможности: вид, даты, почему, сайт организатора', async ({ page }) => {
+test('агент предложил возможности: на Главной одна карточка — вид, даты, почему, сайт', async ({
+  page,
+}) => {
   await mockOpportunities(page);
   await page.goto('/home');
   const opps = block(page);
-  await expect(opps.getByRole('article')).toHaveCount(3);
+  await expect(opps.getByRole('article')).toHaveCount(1);
   await expect(opps).toContainText('отобрал агент');
-  // блок — сразу под сводкой от AI
-  const digest = await page.getByRole('region', { name: 'Сводка от AI' }).boundingBox();
+  // блок — после сроков и перед погодой (D-867)
+  const due = await page.getByRole('heading', { name: 'Ближайшие сроки' }).boundingBox();
+  const weather = await page.getByRole('heading', { name: 'Погода и курсы' }).boundingBox();
   const box = await opps.boundingBox();
-  expect(box!.y).toBeGreaterThan(digest!.y + digest!.height);
+  expect(box!.y).toBeGreaterThan(due!.y);
+  expect(box!.y + box!.height).toBeLessThanOrEqual(weather!.y);
   const geometry = card(page, 'Устная геометрия ВШЭ');
   await expect(geometry).toContainText('олимпиада');
   await expect(geometry).toContainText('Регистрация до 27 октября 2099');
@@ -25,21 +29,14 @@ test('агент предложил три возможности: вид, да�
   await expect(site).toHaveAttribute('href', 'https://school.hse.ru/olymp-geometry/');
   await expect(site).toHaveAttribute('target', '_blank');
   await expect(site).toHaveAttribute('rel', 'noopener noreferrer');
-  const hack = card(page, 'Kiroween 2099');
-  await expect(hack).toContainText('хакатон');
-  await expect(hack).toContainText('30 октября – 4 декабря 2099');
-  await expect(hack).toContainText('Онлайн');
-  await expect(card(page, 'Олимпиада СПбГУ по информатике')).toContainText(
-    'олимпиада · Отборочный этап',
-  );
-  await expect(opps).not.toContainText('Innopolis Open');
+  await expect(opps).not.toContainText('Kiroween');
 });
 
 test('«Интересно» ставит дела и ведёт в ленту агента', async ({ page }) => {
   const mock = await mockOpportunities(page);
   mock.interestedDown = true;
   await page.goto('/home');
-  const spbu = card(page, 'Олимпиада СПбГУ по информатике');
+  const spbu = card(page, 'Устная геометрия ВШЭ');
   await spbu.getByRole('button', { name: 'Интересно' }).click();
   await expect(spbu.getByRole('alert')).toContainText('Агент сейчас занят — попробуй позже');
   mock.interestedDown = false;
@@ -49,8 +46,8 @@ test('«Интересно» ставит дела и ведёт в ленту �
   const feed = spbu.getByRole('link', { name: 'Что сделал агент →' });
   await expect(feed).toHaveAttribute('href', '/agent');
   expect(mock.posts).toEqual([
-    `/api/v1/opportunities/${mock.items[2]!.id}/interested`,
-    `/api/v1/opportunities/${mock.items[2]!.id}/interested`,
+    `/api/v1/opportunities/${mock.items[0]!.id}/interested`,
+    `/api/v1/opportunities/${mock.items[0]!.id}/interested`,
   ]);
   await feed.click();
   await expect(page).toHaveURL(/\/agent$/);
@@ -60,19 +57,33 @@ test('«Не надо»: можно вернуть, иначе карточка 
   const mock = await mockOpportunities(page);
   await page.goto('/home');
   const opps = block(page);
-  await card(page, 'Kiroween 2099').getByRole('button', { name: 'Не надо' }).click();
-  const away = opps.getByRole('group', { name: 'Убрано: Kiroween 2099' });
+  const first = card(page, 'Устная геометрия ВШЭ');
+  await first.getByRole('button', { name: 'Не надо' }).click();
+  const away = opps.getByRole('group', { name: 'Убрано: Устная геометрия ВШЭ' });
   await away.getByRole('button', { name: 'Вернуть' }).click();
-  await expect(card(page, 'Kiroween 2099')).toBeVisible();
+  await expect(first).toBeVisible();
   await page.waitForTimeout(500);
   expect(mock.posts).toEqual([]);
 
-  await card(page, 'Kiroween 2099').getByRole('button', { name: 'Не надо' }).click();
+  await first.getByRole('button', { name: 'Не надо' }).click();
   await expect(away).toBeVisible();
-  await expect(card(page, 'Innopolis Open, информатика')).toBeVisible({ timeout: 10_000 });
+  // на место убранной встаёт следующая — хакатон
+  const hack = card(page, 'Kiroween 2099');
+  await expect(hack).toBeVisible({ timeout: 10_000 });
   await expect(away).toHaveCount(0);
-  await expect(opps.getByRole('article')).toHaveCount(3);
-  expect(mock.posts).toEqual([`/api/v1/opportunities/${mock.items[1]!.id}/dismiss`]);
+  await expect(opps.getByRole('article')).toHaveCount(1);
+  expect(mock.posts).toEqual([`/api/v1/opportunities/${mock.items[0]!.id}/dismiss`]);
+  await expect(hack).toContainText('хакатон');
+  await expect(hack).toContainText('30 октября – 4 декабря 2099');
+  await expect(hack).toContainText('Онлайн');
+
+  // и следующая — олимпиада с этапом
+  await hack.getByRole('button', { name: 'Не надо' }).click();
+  await expect(card(page, 'Олимпиада СПбГУ по информатике')).toContainText(
+    'олимпиада · Отборочный этап',
+    { timeout: 10_000 },
+  );
+  await expect(opps).not.toContainText('Innopolis Open');
 });
 
 test('без отбора агента — ближайшие новые с пометкой; пусто — «Обновить»', async ({ page }) => {
@@ -95,7 +106,7 @@ test('сервер не ответил — блок честно пишет и �
   await expect(opps).toContainText('Возможности сейчас недоступны');
   mock.down = false;
   await opps.getByRole('button', { name: 'Повторить' }).click();
-  await expect(opps.getByRole('article')).toHaveCount(3);
+  await expect(opps.getByRole('article')).toHaveCount(1);
 });
 
 /** Всё внутри карточки остаётся в её границах. */

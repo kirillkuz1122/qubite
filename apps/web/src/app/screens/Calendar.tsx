@@ -43,6 +43,8 @@ import {
   nowDots,
   nowPosition,
   periodLabel,
+  shortPeriodLabel,
+  zoneLabel,
   shiftPeriod,
   shortDayLabel,
   snapMinute,
@@ -518,7 +520,11 @@ function Calendar({ timeZone, linkedEvent }: { timeZone: string; linkedEvent: st
           aria-atomic="true"
           title={periodLabel(mode, anchor, window.days)}
         >
-          {periodLabel(mode, anchor, window.days)}
+          {/* на телефоне — короткая дата «16–22 ноя», чтобы шапка не переносилась (находка 7) */}
+          <span className="calendar-period-long">{periodLabel(mode, anchor, window.days)}</span>
+          <span className="calendar-period-short">
+            {shortPeriodLabel(mode, anchor, window.days)}
+          </span>
         </p>
         <div className="calendar-mode">
           <Segmented<CalendarMode>
@@ -541,7 +547,7 @@ function Calendar({ timeZone, linkedEvent }: { timeZone: string; linkedEvent: st
             </span>
           ))}
           <span className="calendar-zone" title={timeZone}>
-            {timeZone}
+            {zoneLabel(timeZone)}
           </span>
         </div>
       </div>

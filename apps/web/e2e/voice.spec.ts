@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { mockSync } from './sync-mock';
 import { fakeMicrophone, mockVoice } from './voice-mock';
+import { goSection } from './nav';
 
 /* Голосовой ввод (CMD-005b): микрофон и сервер подделаны, браузер настоящий. */
 
@@ -101,9 +102,6 @@ test('микрофон в строке Command: запись уходит во �
   await page.waitForTimeout(1200);
   await page.getByRole('button', { name: 'Остановить и отправить' }).click();
   await expect.poll(() => voice.calls.length).toBe(1);
-  await page
-    .getByRole('navigation', { name: 'Разделы' })
-    .getByRole('button', { name: 'Входящие' })
-    .click();
+  await goSection(page, 'Входящие');
   await expect(page.locator('.item').filter({ hasText: 'Позвонить бабушке' })).toBeVisible();
 });

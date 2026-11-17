@@ -105,7 +105,7 @@ type Tab = 'lessons' | 'verbs' | 'talk' | 'game' | 'settings';
 const TABS: readonly Tab[] = ['lessons', 'verbs', 'talk', 'game', 'settings'];
 
 /**
- * Открыть урок по ссылке: `/agent?tab=english&lesson=a0-m1-l1&homework=1` (домашка из Planner);
+ * Открыть урок по ссылке: `/english?lesson=a0-m1-l1&homework=1` (домашка из Planner);
  * вкладку — `&view=talk` (`verbs` — глаголы).
  */
 function linked(): { lesson: string; kind: Run['kind'] } | null {

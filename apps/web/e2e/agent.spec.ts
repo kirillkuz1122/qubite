@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { mockSync } from './sync-mock';
+import { goSection } from './nav';
 
 /*
  * Лента «Что сделал агент» (AGT-002): сервер подделан, браузер настоящий. Откат натыкается на
@@ -11,7 +12,7 @@ const year = new Date().getFullYear();
 const date = (d: number) => `${year}-10-${pad(d)}`;
 
 async function go(page: Page, name: string) {
-  await page.getByRole('navigation', { name: 'Разделы' }).getByRole('button', { name }).click();
+  await goSection(page, name);
 }
 
 function action(over: Record<string, unknown>) {

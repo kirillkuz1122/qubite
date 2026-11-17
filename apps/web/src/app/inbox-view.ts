@@ -140,11 +140,26 @@ export function queuedView(q: QueuedVoice, now: number, sending: boolean): Inbox
   };
 }
 
-/** Мысли, за которые агент вот-вот возьмётся (CMD-004): Элик над ними думает. */
-export function withThinking(items: InboxItem[], thinking: readonly string[]): InboxItem[] {
-  if (thinking.length === 0) return items;
+/** Подсказка у мысли, которую агент не смог разобрать сам (нет ключа AI, сбой) — DS-013, D-915. */
+export const STUCK_HINT = 'не смог разобрать сам — AI сейчас недоступен. Разложи кнопками ниже.';
+
+/**
+ * Мысли, за которые агент вот-вот возьмётся (CMD-004): Элик над ними думает. Если разбор уже
+ * падал (`stuck`), Элик не «думает» бесконечно, а честно говорит, что не смог.
+ */
+export function withThinking(
+  items: InboxItem[],
+  thinking: readonly string[],
+  stuck: readonly string[] = [],
+): InboxItem[] {
+  if (thinking.length === 0 && stuck.length === 0) return items;
   const busy = new Set(thinking);
+  const failed = new Set(stuck);
   return items.map((it) =>
-    busy.has(it.id) ? { ...it, mood: 'think', hint: 'думаю, куда положить…', answers: [] } : it,
+    busy.has(it.id)
+      ? { ...it, mood: 'think', hint: 'думаю, куда положить…', answers: [] }
+      : failed.has(it.id)
+        ? { ...it, mood: 'oops', hint: STUCK_HINT, answers: [] }
+        : it,
   );
 }

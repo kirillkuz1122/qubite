@@ -43,7 +43,7 @@ export function InboxScreen() {
   const answer = useAnswer();
   const [filter, setFilter] = useState<Filter>('all');
   const box = useRef<HTMLDivElement>(null);
-  const items = withThinking(inbox.items, triage.data?.thinking ?? []);
+  const items = withThinking(inbox.items, triage.data?.thinking ?? [], triage.data?.stuck ?? []);
   const shown = items.filter((x) => filter === 'all' || x.from === filter);
   /* пропавшие из списка (фильтр, разобрали) сначала тают, новые выезжают по очереди, соседи доезжают */
   const [rows, gone] = useLeaving(shown, (x) => x.id);

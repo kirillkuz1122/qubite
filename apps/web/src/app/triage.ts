@@ -21,6 +21,8 @@ export interface Filed {
 
 export interface Triage {
   thinking: string[];
+  /** разбор падал (нет ключа AI, сбой) — разбирает человек */
+  stuck?: string[];
   filed: Filed[];
 }
 

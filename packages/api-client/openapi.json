@@ -10778,7 +10778,7 @@
       "AgentTriage": {
         "type": "object",
         "description": "Агент и Входящие сейчас.",
-        "required": ["thinking", "filed"],
+        "required": ["thinking", "stuck", "filed"],
         "properties": {
           "filed": {
             "type": "array",
@@ -10786,6 +10786,14 @@
               "$ref": "#/components/schemas/AgentFiled"
             },
             "description": "Разложенное за сутки и не откаченное, новые сверху."
+          },
+          "stuck": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Мысли, которые агент не смог разобрать (нет ключа AI, сбой): разбирает человек."
           },
           "thinking": {
             "type": "array",

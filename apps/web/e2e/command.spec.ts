@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { mockSync, type SyncMock } from './sync-mock';
 import { mockDocs } from './docs-mock';
+import { goSection } from './nav';
 
 // Qubite Command (CMD-002): поиск и навигация из строки — на ПК по Ctrl+K, на телефоне из капли.
 let server: SyncMock;
@@ -132,10 +133,7 @@ test('ничего не нашлось — можно сохранить как 
   await input.fill('найди квазары');
   await expect(list(page).getByRole('option', { selected: true })).toContainText('не нашлось');
   await input.press('Enter');
-  await page
-    .getByRole('navigation', { name: 'Разделы' })
-    .getByRole('button', { name: 'Входящие' })
-    .click();
+  await goSection(page, 'Входящие');
   // на экране, а не в спрятанной карточке под строкой («Недавнее»)
   await expect(page.locator('.screen').getByText('квазары', { exact: true })).toBeVisible();
 });

@@ -43,6 +43,8 @@ pub struct AgentFiled {
 pub struct AgentTriage {
     /// Мысли, за которые агент вот-вот возьмётся (Элик думает).
     thinking: Vec<Uuid>,
+    /// Мысли, которые агент не смог разобрать (нет ключа AI, сбой): разбирает человек.
+    stuck: Vec<Uuid>,
     /// Разложенное за сутки и не откаченное, новые сверху.
     filed: Vec<AgentFiled>,
 }
@@ -70,6 +72,7 @@ pub async fn triage_overview(
         .map_err(agent_error)?;
     Ok(Json(AgentTriage {
         thinking: overview.thinking,
+        stuck: overview.stuck,
         filed: overview
             .filed
             .into_iter()

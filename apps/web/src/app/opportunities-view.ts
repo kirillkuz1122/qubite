@@ -6,8 +6,8 @@ import type { components } from '@qubite/api-client';
 
 type Item = components['schemas']['OpportunityItem'];
 
-/** На Главной — не больше трёх карточек (D-734). */
-export const MAX_CARDS = 3;
+/** На Главной — одна карточка за раз, лучшая из отобранных (D-867, уточняет D-734). */
+export const MAX_CARDS = 1;
 
 const KIND: Record<string, string> = {
   olympiad: 'олимпиада',
