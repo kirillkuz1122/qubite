@@ -682,6 +682,12 @@ pub(crate) async fn save(
     speech: Option<(Vec<u8>, String, Uuid)>,
 ) -> Result<(Session, Message, Message)> {
     let mut tx = pool.begin().await?;
+    // Пара «ученик → репетитор» одного хода идёт подряд: второй ход того же разговора
+    // (другая вкладка) ждёт здесь, а не вклинивается между ними (D-972, повтор по `key`).
+    sqlx::query("SELECT id FROM english_sessions WHERE id = $1 FOR UPDATE")
+        .bind(session)
+        .execute(&mut *tx)
+        .await?;
     let learner_id = Uuid::now_v7();
     sqlx::query(
         "INSERT INTO english_messages (id, session_id, account_id, role, text, via, stt_call) \
@@ -783,22 +789,30 @@ pub(crate) fn with_heard(error: AiError, heard: Option<&str>) -> Error {
 /// (до 60 с каждый), а HTTP-запрос ждёт 90 с: после 408 работа доводится в фоне
 /// (D-904), и экран спрашивает ещё раз с тем же ключом.
 /// - ответ сохранён → тот же ход, бесплатно;
-/// - вызов ещё идёт или ответ вот-вот сохранится → [`Error::InProgress`];
+/// - вызов ещё идёт, ответ вот-вот сохранится или распознавание только что закончилось,
+///   а ответ ещё не запрошен (меньше 30 с назад) → [`Error::InProgress`];
 /// - прошлый ход с этим ключом не удался или его не было → `None`, дальше как обычно.
 async fn replay(pool: &PgPool, account: Uuid, key: Uuid) -> Result<Option<Turn>> {
     let tutor_request = format!("english:{key}:tutor");
-    let calls: Vec<(String, String, Uuid)> = sqlx::query_as(
-        "SELECT request_id, status, id FROM ai_calls \
+    let stt_request = format!("english:{key}:stt");
+    // (запрос, статус, вызов, обновлён меньше 30 с назад)
+    let calls: Vec<(String, String, Uuid, bool)> = sqlx::query_as(
+        "SELECT request_id, status, id, updated_at > now() - interval '30 seconds' FROM ai_calls \
          WHERE account_id = $1 AND request_id = ANY($2)",
     )
     .bind(account)
-    .bind(vec![tutor_request.clone(), format!("english:{key}:stt")])
+    .bind(vec![tutor_request.clone(), stt_request.clone()])
     .fetch_all(pool)
     .await?;
+    let stt = calls.iter().find(|(request, ..)| *request == stt_request);
     let tutor = calls.iter().find(|(request, ..)| *request == tutor_request);
-    let Some((_, status, call)) = tutor else {
-        // Ответа ещё не просили: распознавание идёт — ждать; иначе как обычно.
-        return if calls.iter().any(|(_, status, _)| status == "sending") {
+    let Some((_, status, call, _)) = tutor else {
+        // Ответа ещё не просили. Распознавание идёт или только что закончилось (между ним
+        // и вызовом модели — несколько запросов к базе) — ждать; иначе ход не удался.
+        let busy = stt.is_some_and(|(_, status, _, fresh)| {
+            status == "sending" || (status == "succeeded" && *fresh)
+        });
+        return if busy {
             Err(Error::InProgress)
         } else {
             Ok(None)
@@ -822,14 +836,31 @@ async fn replay(pool: &PgPool, account: Uuid, key: Uuid) -> Result<Option<Turn>>
     let Some((tutor_id, session_id, seq)) = saved else {
         return Err(Error::InProgress);
     };
-    let learner_id: Uuid = sqlx::query_scalar(
-        "SELECT id FROM english_messages WHERE session_id = $1 AND role = 'learner' AND seq < $2 \
-         ORDER BY seq DESC LIMIT 1",
-    )
-    .bind(session_id)
-    .bind(seq)
-    .fetch_one(&mut *conn)
-    .await?;
+    // Голосом — реплика с этим распознаванием; текстом — прямо перед ответом (`save`
+    // вставляет пару под блокировкой разговора, чужая реплика между ними не встанет).
+    let learner_id: Uuid = match stt {
+        Some((_, _, stt_call, _)) => {
+            sqlx::query_scalar(
+                "SELECT id FROM english_messages \
+                 WHERE account_id = $1 AND role = 'learner' AND stt_call = $2",
+            )
+            .bind(account)
+            .bind(stt_call)
+            .fetch_one(&mut *conn)
+            .await?
+        }
+        None => {
+            sqlx::query_scalar(
+                "SELECT id FROM english_messages \
+                 WHERE session_id = $1 AND role = 'learner' AND seq < $2 \
+                 ORDER BY seq DESC LIMIT 1",
+            )
+            .bind(session_id)
+            .bind(seq)
+            .fetch_one(&mut *conn)
+            .await?
+        }
+    };
     let session: Session = sqlx::query_as(sqlx::AssertSqlSafe(format!("{SESSION} WHERE id = $1")))
         .bind(session_id)
         .fetch_one(&mut *conn)

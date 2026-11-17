@@ -618,6 +618,34 @@ async fn same_key_returns_saved_turn_or_in_progress() {
     assert!(matches!(busy, Err(Error::InProgress)), "{busy:?}");
     assert_eq!(Error::InProgress.code(), "in_progress");
 
+    // Распознавание готово, а модель ещё не спрашивали (вызова репетитора нет): только
+    // что — «ещё думаю»; полминуты назад и больше — ход не удался, как раньше.
+    sqlx::query("UPDATE ai_calls SET request_id = request_id || ':moved' WHERE request_id = $1")
+        .bind(format!("english:{key}:tutor"))
+        .execute(pool)
+        .await
+        .unwrap();
+    let gap = qubite_english::turn(pool, &ai.gateway, &settings, me, key, voice_clip()).await;
+    assert!(matches!(gap, Err(Error::InProgress)), "{gap:?}");
+    sqlx::query(
+        "UPDATE ai_calls SET updated_at = now() - interval '1 minute' WHERE request_id = $1",
+    )
+    .bind(format!("english:{key}:stt"))
+    .execute(pool)
+    .await
+    .unwrap();
+    let stale = qubite_english::turn(pool, &ai.gateway, &settings, me, key, voice_clip()).await;
+    assert!(
+        matches!(
+            stale,
+            Err(Error::Ai {
+                error: AiError::DuplicateRequest { .. },
+                ..
+            })
+        ),
+        "{stale:?}"
+    );
+
     db.close().await;
     test_db.drop_db().await;
 }

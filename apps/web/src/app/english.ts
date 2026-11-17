@@ -4,6 +4,7 @@
  */
 import { CSRF_HEADER, csrfFromCookie, type components } from '@qubite/api-client';
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { currentAccount } from '../account';
 import { api } from '../api';
 import { Fail, must } from '../auth/client';
 import { MAX_RECORD_MS, pickMime, toBase64 } from './english-view';
@@ -69,8 +70,17 @@ function worthRetry(fail: TurnFail): boolean {
   return fail.status === 408 || fail.code === 'in_progress';
 }
 
-export async function sendTurn(saying: Saying, wait = sleep): Promise<EnglishTurn> {
+/** Часы и ожидание — подменяются в тестах. */
+export type TurnClock = { wait: (ms: number) => Promise<void>; now: () => number };
+const REAL_CLOCK: TurnClock = { wait: sleep, now: () => Date.now() };
+
+export async function sendTurn(
+  saying: Saying,
+  clock: TurnClock = REAL_CLOCK,
+): Promise<EnglishTurn> {
   const key = crypto.randomUUID();
+  // Повтор идёт только от того, кто сказал: сменился аккаунт — его реплику не отправляем.
+  const account = currentAccount();
   const body =
     'text' in saying
       ? { key, text: saying.text }
@@ -80,10 +90,10 @@ export async function sendTurn(saying: Saying, wait = sleep): Promise<EnglishTur
           mime: saying.audio.type || 'audio/webm',
           duration_ms: Math.round(saying.ms),
         };
-  const send = async (): Promise<EnglishTurn | TurnFail> => {
+  const send = async (signal: AbortSignal | null = null): Promise<EnglishTurn | TurnFail> => {
     let r;
     try {
-      r = await api.POST('/api/v1/english/turn', { body });
+      r = await api.POST('/api/v1/english/turn', { body, signal });
     } catch {
       return new TurnFail('network', 'Нет связи с сервером', 0, null);
     }
@@ -98,25 +108,33 @@ export async function sendTurn(saying: Saying, wait = sleep): Promise<EnglishTur
     }
     return r.data as EnglishTurn;
   };
-  for (let waited = 0; ; waited += TURN_RETRY_MS) {
-    const result = await send();
-    if (!(result instanceof TurnFail)) return result;
-    if (!worthRetry(result) || waited >= TURN_RETRY_FOR_MS) throw result;
-    await wait(TURN_RETRY_MS);
+  // Первая попытка ждёт сколько нужно (сервер сам обрывает на 90 с). Повторы — в общей
+  // минуте от первого обрыва, считая и время самих запросов: ответ на повтор быстрый
+  // (готовый ход или «ещё думаю»), долгий — обрываем.
+  let result = await send();
+  const deadline = clock.now() + TURN_RETRY_FOR_MS;
+  while (result instanceof TurnFail) {
+    if (!worthRetry(result) || currentAccount() !== account) throw result;
+    if (clock.now() + TURN_RETRY_MS >= deadline) throw result;
+    await clock.wait(TURN_RETRY_MS);
+    if (currentAccount() !== account) throw result;
+    result = await send(AbortSignal.timeout(Math.max(1, deadline - clock.now())));
   }
+  return result;
 }
 
-/** Записанный ход — в экран без лишнего запроса. */
+/** Записанный ход — в экран без лишнего запроса. Уже загруженные реплики (ход пришёл
+ * повтором, а обзор успел обновиться) второй раз не добавляются. */
 export function appendTurn(qc: QueryClient, t: EnglishTurn) {
-  qc.setQueryData<EnglishOverview>(ENGLISH, (o) =>
-    o
-      ? {
-          ...o,
-          session: t.session,
-          messages: [...o.messages, t.learner, t.tutor],
-        }
-      : o,
-  );
+  qc.setQueryData<EnglishOverview>(ENGLISH, (o) => {
+    if (!o) return o;
+    const have = new Set(o.messages.map((m) => m.id));
+    return {
+      ...o,
+      session: t.session,
+      messages: [...o.messages, ...[t.learner, t.tutor].filter((m) => !have.has(m.id))],
+    };
+  });
 }
 
 /** Ход целиком (запасной путь без потока). */
