@@ -259,3 +259,47 @@ test('палец: долгое нажатие переносит ветку, щ�
   await touch('touchEnd', []);
   await expect.poll(() => server.pushes.at(-1)?.text ?? '').toContain('\n  - a lack of ~');
 });
+
+test('экспорт PNG и SVG, узел-ссылка @ на документ', async ({ page }, info) => {
+  test.skip(info.project.name === 'firefox-mobile', 'ПК-сценарий');
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const server = await mockDocs(page);
+  const lesson = server.add('Урок английского', 'Домашнее задание');
+  await page.goto('/docs');
+  await createFromMenu(page, 'Mind map: collocations');
+  await expect(node(page, 'information')).toBeVisible();
+
+  // Ссылка: «Действия с узлом» → «Ссылка на объект…» → поиск → узел-ссылка под центром.
+  await tap(page, 'information');
+  await page.getByRole('button', { name: 'Действия с узлом' }).click();
+  await page.getByRole('menuitem', { name: 'Ссылка на объект…' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Ссылка на объект' });
+  await dialog.getByRole('textbox', { name: 'Дело, документ или событие' }).fill('Урок');
+  await dialog.getByRole('button', { name: /Урок английского · Документ/ }).click();
+  await expect(node(page, 'Урок английского')).toBeVisible();
+  await expect(node(page, 'Урок английского')).toContainText('@');
+  await expect
+    .poll(() => server.pushes.at(-1)?.text ?? '')
+    .toContain(`  - [@Урок английского](qubite://${lesson})`);
+  await expect.poll(() => server.pushes.at(-1)?.links ?? []).toContain(lesson);
+
+  // Скачать: SVG — рисунок с подписями, PNG — картинка.
+  const save = async (item: string) => {
+    await page.getByRole('button', { name: 'Скачать' }).click();
+    const wait = page.waitForEvent('download');
+    await page.getByRole('menuitem', { name: item }).click();
+    return wait;
+  };
+  const svg = await save('Рисунок SVG');
+  expect(svg.suggestedFilename()).toBe('Collocations information.svg');
+  const text = await (await svg.createReadStream()).toArray();
+  const body = Buffer.concat(text).toString('utf8');
+  expect(body).toContain('<svg');
+  expect(body).toContain('noun + information');
+  expect(body).toContain('@ Урок английского');
+  const png = await save('Картинка PNG');
+  expect(png.suggestedFilename()).toBe('Collocations information.png');
+  const bytes = Buffer.concat(await (await png.createReadStream()).toArray());
+  expect(bytes.subarray(1, 4).toString()).toBe('PNG');
+  expect(bytes.length).toBeGreaterThan(5000);
+});

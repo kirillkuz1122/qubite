@@ -26,26 +26,31 @@ const STYLES: Style[] = [
 
 export const styleOf = (depth: number): Style => STYLES[Math.min(depth, 2)]!;
 
-/** Сколько строк займёт текст при переносе по словам (длинное слово рвётся). */
-export function wrapLines(text: string, perLine: number): number {
-  if (perLine < 1) return 1;
-  let lines = 1;
-  let used = 0;
+/** Строки текста при переносе по словам (длинное слово рвётся) — как CSS `overflow-wrap: anywhere`. */
+export function wrapText(text: string, perLine: number): string[] {
+  if (perLine < 1) return [text];
+  const lines: string[] = [];
+  let line = '';
   for (const word of text.split(/\s+/).filter(Boolean)) {
-    let rest = word.length;
-    const need = used ? used + 1 + rest : rest;
-    if (need <= perLine) {
-      used = need;
+    const joined = line ? `${line} ${word}` : word;
+    if (joined.length <= perLine) {
+      line = joined;
       continue;
     }
-    if (used) lines++;
-    while (rest > perLine) {
-      rest -= perLine;
-      lines++;
+    if (line) lines.push(line);
+    let rest = word;
+    while (rest.length > perLine) {
+      lines.push(rest.slice(0, perLine));
+      rest = rest.slice(perLine);
     }
-    used = rest;
+    line = rest;
   }
+  lines.push(line);
   return lines;
+}
+
+export function wrapLines(text: string, perLine: number): number {
+  return wrapText(text, perLine).length;
 }
 
 export interface NodeSize extends Size {

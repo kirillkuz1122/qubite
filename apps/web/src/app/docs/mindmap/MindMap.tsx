@@ -6,10 +6,12 @@
 import { useNavigate } from '@tanstack/react-router';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type * as Y from 'yjs';
-import type { DocHandle, DocLink } from '@qubite/sync-client';
+import type { DocHandle, DocLink, DocLinkKind, DocLinkTarget } from '@qubite/sync-client';
 import {
   Button,
   DotIcon,
+  Field,
+  Note,
   IconButton,
   Menu,
   Presence,
@@ -18,11 +20,12 @@ import {
   WIDE,
   type IconName,
 } from '@qubite/ui';
-import { linkHref } from '../links';
+import { httpLinkSource, LINK_LABELS, linkHref } from '../links';
 import { layoutTree, neighbour, type Box, type Layout } from './layout';
 import { ADVANCE, descendants, measureNode, probeAdvance, type NodeSize } from './measure';
 import {
   addChild,
+  addLinkChild,
   addSibling,
   BRANCH_COLORS,
   findNode,
@@ -110,7 +113,7 @@ export function MindMap({ handle, title }: { handle: DocHandle; title: string })
     blank ? { id: ROOT, original: '', fresh: false } : null,
   );
   const [drop, setDrop] = useState<string | null>(null);
-  const [sheet, setSheet] = useState<'node' | 'color' | null>(null);
+  const [sheet, setSheet] = useState<'node' | 'color' | 'link' | null>(null);
   const [zoom, setZoom] = useState(1);
   const [ghosts, setGhosts] = useState<ReadonlyMap<string, View>>(new Map());
   const [advance, setAdvance] = useState(ADVANCE);
@@ -389,6 +392,21 @@ export function MindMap({ handle, title }: { handle: DocHandle; title: string })
       if (node.link) void navigate({ href: linkHref(node.link.target, node.link.kind) });
     },
     [navigate],
+  );
+
+  /** Узел-ссылка @ под выделенным (DOC-003): подпись — из кэша названий документа. */
+  const link = useCallback(
+    (target: DocLinkTarget) => {
+      if (!selected) return;
+      const id = addLinkChild(doc, selected, { target: target.id, kind: target.type });
+      void handle.cacheLinks([
+        ...handle.links.filter((item) => item.id !== target.id),
+        { ...target, deleted: false },
+      ]);
+      setSheet(null);
+      select(id);
+    },
+    [doc, handle, selected, select],
   );
 
   // Ушли со страницы посреди правки: пустой новый узел не остаётся.
@@ -796,6 +814,11 @@ export function MindMap({ handle, title }: { handle: DocHandle; title: string })
                       },
                     ]
                   : []),
+                {
+                  label: 'Ссылка на объект…',
+                  icon: 'link' as IconName,
+                  onPick: () => setSheet('link'),
+                },
                 ...(selectedNode.link
                   ? [
                       {
@@ -889,11 +912,14 @@ export function MindMap({ handle, title }: { handle: DocHandle; title: string })
         title={
           sheet === 'color'
             ? 'Цвет ветки'
-            : `Ветка «${selectedNode ? nodeLabel(selectedNode, links) || placeholder(selectedNode) : ''}»`
+            : sheet === 'link'
+              ? 'Ссылка на объект'
+              : `Ветка «${selectedNode ? nodeLabel(selectedNode, links) || placeholder(selectedNode) : ''}»`
         }
         onClose={() => setSheet(null)}
       >
-        {selectedNode && (
+        {selectedNode && sheet === 'link' && <LinkPicker onPick={link} />}
+        {selectedNode && sheet !== 'link' && (
           <div className="mm-sheet">
             {sheet === 'node' && (
               <>
@@ -923,6 +949,7 @@ export function MindMap({ handle, title }: { handle: DocHandle; title: string })
                     }}
                   />
                 )}
+                <SheetRow icon="link" label="Ссылка на объект" onClick={() => setSheet('link')} />
                 {selectedNode.link ? (
                   <SheetRow
                     icon="link"
@@ -1090,5 +1117,62 @@ function SheetRow({
       <DotIcon name={icon} />
       <span>{label}</span>
     </Button>
+  );
+}
+
+const KIND_ICON: Record<DocLinkKind, IconName> = {
+  'docs.page': 'docs',
+  'planner.task': 'check',
+  'planner.project': 'folder',
+  'calendar.event': 'calendar',
+};
+
+/** Поиск цели ссылки — тот же API, что у @ в тексте документа (DOC-003). */
+function LinkPicker({ onPick }: { onPick: (target: DocLinkTarget) => void }) {
+  const [query, setQuery] = useState('');
+  const [found, setFound] = useState<{ query: string; targets: DocLinkTarget[] } | null>(null);
+  const [failed, setFailed] = useState<string | null>(null);
+  const source = useMemo(() => httpLinkSource(), []);
+  const q = query.trim();
+  useEffect(() => {
+    if (!q) return;
+    const abort = new AbortController();
+    const timer = window.setTimeout(() => {
+      source
+        .search(q, abort.signal)
+        .then((targets) => {
+          setFound({ query: q, targets });
+          setFailed(null);
+        })
+        .catch(() => {
+          if (!abort.signal.aborted) setFailed(q);
+        });
+    }, 150);
+    return () => {
+      clearTimeout(timer);
+      abort.abort();
+    };
+  }, [q, source]);
+  const targets = found && found.query === q ? found.targets : [];
+  return (
+    <div className="mm-sheet">
+      <Field
+        label="Дело, документ или событие"
+        placeholder="Начните писать название"
+        value={query}
+        autoFocus
+        onChange={(event) => setQuery(event.target.value)}
+      />
+      {failed === q && q && <Note tone="bad">Поиск недоступен. Проверьте сеть и повторите.</Note>}
+      {found?.query === q && q && !targets.length && <Note>Ничего не найдено.</Note>}
+      {targets.map((target) => (
+        <SheetRow
+          key={target.id}
+          icon={KIND_ICON[target.type]}
+          label={`${target.title || 'Без названия'} · ${LINK_LABELS[target.type]}`}
+          onClick={() => onPick(target)}
+        />
+      ))}
+    </div>
   );
 }
