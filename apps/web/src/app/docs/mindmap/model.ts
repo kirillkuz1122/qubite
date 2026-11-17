@@ -21,6 +21,9 @@ export const MAX_UPDATE_BYTES = 480 * 1024;
  * подпись ссылки берётся из кэша и может быть длиннее сохранённой.
  */
 export const MAX_MARKDOWN_CHARS = 190_000;
+/** Разных целей ссылок в документе — как у редактора и синхронизации (Mentions.tsx, docs.ts). */
+export const MAX_LINKS = 200;
+const TOO_MANY_LINKS = 'В карте может быть до 200 разных ссылок';
 
 export interface MindLink {
   target: string;
@@ -374,6 +377,11 @@ export function setFolded(doc: Y.Doc, id: string, folded: boolean, origin?: unkn
 }
 
 export function setLink(doc: Y.Doc, id: string, link: MindLink | null, origin?: unknown): void {
+  if (link) {
+    const targets = mindmapLinks(doc);
+    if (targets.length >= MAX_LINKS && !targets.includes(link.target))
+      throw new Error(TOO_MANY_LINKS);
+  }
   doc.transact(() => {
     if (link) node(doc, id).set('link', { target: link.target, kind: link.kind });
     else node(doc, id).delete('link');
@@ -387,6 +395,9 @@ export function addLinkChild(
   link: MindLink,
   origin?: unknown,
 ): string {
+  const targets = mindmapLinks(doc);
+  if (targets.length >= MAX_LINKS && !targets.includes(link.target))
+    throw new Error(TOO_MANY_LINKS);
   const id = addChild(doc, parentId, '', origin);
   setLink(doc, id, link, origin);
   return id;
@@ -415,6 +426,13 @@ export function appendOutline(
   }, 0);
   if (nodes(doc).size + total > MAX_NODES)
     throw new Error('В карте будет больше 2000 узлов. Разделите её.');
+  const targets = new Set(mindmapLinks(doc));
+  const collect = (item: Outline) => {
+    if (item.link) targets.add(item.link.target);
+    item.children.forEach(collect);
+  };
+  items.forEach(collect);
+  if (targets.size > MAX_LINKS) throw new Error(TOO_MANY_LINKS);
   // Сервер принимает обновление до 512 КиБ (D-751): пробуем запись на копии и меряем.
   const probe = new Y.Doc();
   let size = 0;
