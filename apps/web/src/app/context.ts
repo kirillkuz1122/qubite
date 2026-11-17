@@ -9,6 +9,8 @@ export interface ShellApi {
   /** точка долетает от from до пункта раздела в навигации */
   fly(from: { x: number; y: number }, to: SectionId, color: ColorName, done?: () => void): void;
   go(to: SectionId): void;
+  /** открыть строку Command, чтобы записать мысль или дело */
+  write(): void;
   /** ПК (боковая панель) или телефон (капля снизу) */
   wide: boolean;
 }

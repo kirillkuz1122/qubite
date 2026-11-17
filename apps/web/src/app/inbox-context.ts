@@ -10,6 +10,8 @@ export interface InboxApi {
   capture(text: string): Promise<void>;
   /** Разобрано — в архив (не удаляется). */
   done(id: string): Promise<void>;
+  /** Вернуть из архива — «Откатить» в сообщении. */
+  back(id: string): Promise<void>;
   /** «Позже» — в конец списка (только на этом устройстве). */
   later(id: string): void;
   /**

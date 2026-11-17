@@ -20,7 +20,7 @@
 }
 .task-place-hint {
   color: var(--q-mute);
-  font-size: 12px;
+  font-size: 13px;
   margin: 12px 0;
 }
 .task-place .q-field {
@@ -82,7 +82,7 @@
   color: var(--q-ink);
 }
 .task-route-credit {
-  font-size: 12px;
+  font-size: 13px;
 }
 .q-btn.task-open {
   min-width: 44px;
@@ -98,5 +98,5 @@
 }
 .task-travel {
   color: var(--q-mute);
-  font-size: 12px;
+  font-size: 13px;
 }

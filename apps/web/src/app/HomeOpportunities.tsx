@@ -74,7 +74,7 @@ export function Opportunities({
           <p className="opps-text">Возможности сейчас недоступны — сервер не ответил.</p>
           <Button
             size="sm"
-            dot={false}
+            variant="quiet"
             disabled={query.isFetching}
             onClick={() => void query.refetch()}
           >
@@ -214,7 +214,7 @@ function OpportunityRow({
             {away === 'failed' && (
               <Button
                 size="sm"
-                dot={false}
+                variant="quiet"
                 onClick={() => {
                   setAway('sending');
                   send(item.id, {
@@ -230,7 +230,7 @@ function OpportunityRow({
             )}
             <Button
               size="sm"
-              dot={false}
+              variant="quiet"
               disabled={away === 'sending'}
               onClick={() => {
                 setAwayError(null);
@@ -334,7 +334,7 @@ function Card({
               <Button size="sm" variant="fill" disabled={busy} onClick={onYes}>
                 {busy ? 'Ставлю дела…' : 'Интересно'}
               </Button>
-              <Button size="sm" dot={false} disabled={busy} onClick={onNo}>
+              <Button size="sm" variant="quiet" disabled={busy} onClick={onNo}>
                 Не надо
               </Button>
             </div>

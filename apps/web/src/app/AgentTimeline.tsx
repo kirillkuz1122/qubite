@@ -5,7 +5,7 @@
  * После отката действия агента — необязательный вопрос «почему» (AGT-007, D-397).
  * Одна и та же лента — целиком (раздел «Агент») и короткая у проекта и дела.
  */
-import { Button, Field, Segmented } from '@qubite/ui';
+import { Button, EmptyState, Field, Segmented } from '@qubite/ui';
 import { useState, type FormEvent } from 'react';
 import { Fail, say } from '../auth/client';
 import {
@@ -53,10 +53,14 @@ export function AgentTimeline({ trail, compact = false }: { trail: Trail; compac
   }
   const items = timeline.data.pages.flatMap((p) => p.items);
   if (items.length === 0) {
+    if (compact) return <p className="later">Агент здесь ещё ничего не делал.</p>;
     return (
-      <p className="later">
-        {compact ? 'Агент здесь ещё ничего не делал.' : 'Агент пока ничего не сделал.'}
-      </p>
+      <EmptyState
+        kind="proto"
+        label="Прото ждёт"
+        title="Агент пока ничего не сделал."
+        hint="Здесь появится всё, что он разложит, запланирует или спросит."
+      />
     );
   }
   return (
@@ -159,7 +163,7 @@ function ActionRow({
           {canRevert(a) && (
             <Button
               size="sm"
-              dot={false}
+              variant="quiet"
               disabled={revert.isPending}
               onClick={() => run({ action: a.id }, false)}
             >
@@ -169,7 +173,7 @@ function ActionRow({
           {a.state.batch_size > 1 && (
             <Button
               size="sm"
-              dot={false}
+              variant="quiet"
               disabled={revert.isPending}
               onClick={() => run({ batch: a.batch_id }, false)}
             >
@@ -177,7 +181,7 @@ function ActionRow({
             </Button>
           )}
           {fix && (
-            <Button size="sm" dot={false} onClick={() => setFixing(true)}>
+            <Button size="sm" variant="quiet" onClick={() => setFixing(true)}>
               Исправить
             </Button>
           )}
@@ -189,7 +193,7 @@ function ActionRow({
       {asked && <WhyAsk batch={asked} onDone={() => setAsked(null)} />}
       {!compact && asksWhy(a) && !whyOpen && (
         <div className="act-btns">
-          <Button size="sm" dot={false} onClick={() => setWhyOpen(true)}>
+          <Button size="sm" variant="quiet" onClick={() => setWhyOpen(true)}>
             Почему откатил?
           </Button>
         </div>
@@ -251,7 +255,7 @@ function WhyAsk({ batch, onDone }: { batch: string; onDone: () => void }) {
           <Button
             key={w}
             size="sm"
-            dot={false}
+            variant="quiet"
             type="button"
             disabled={why.isPending}
             onClick={() => send(w)}
@@ -275,7 +279,7 @@ function WhyAsk({ batch, onDone }: { batch: string; onDone: () => void }) {
         <Button size="sm" variant="fill" type="submit" disabled={why.isPending || !text.trim()}>
           Ответить
         </Button>
-        <Button size="sm" dot={false} type="button" onClick={onDone}>
+        <Button size="sm" variant="quiet" type="button" onClick={onDone}>
           Пропустить
         </Button>
       </div>
@@ -329,7 +333,7 @@ function Conflict({
         <Button size="sm" variant="fill" disabled={busy} onClick={onForce}>
           Вернуть как было
         </Button>
-        <Button size="sm" dot={false} disabled={busy} onClick={onKeep}>
+        <Button size="sm" variant="quiet" disabled={busy} onClick={onKeep}>
           Оставить как сейчас
         </Button>
       </div>
@@ -440,7 +444,7 @@ function FixForm({
         <Button size="sm" variant="fill" type="submit" disabled={fix.isPending}>
           Сохранить
         </Button>
-        <Button size="sm" dot={false} type="button" onClick={onDone}>
+        <Button size="sm" variant="quiet" type="button" onClick={onDone}>
           Отмена
         </Button>
       </div>

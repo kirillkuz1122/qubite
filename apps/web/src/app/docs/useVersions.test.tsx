@@ -3,11 +3,7 @@ import type { DocsVersionsTransport, DocVersionItem } from '@qubite/sync-client'
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { groupVersions, useVersions, versionDay } from './useVersions';
 
-const item = (
-  id: string,
-  created_at = '2026-11-04T08:00:00Z',
-  kind = 'auto',
-): DocVersionItem => ({
+const item = (id: string, created_at = '2026-11-04T08:00:00Z', kind = 'auto'): DocVersionItem => ({
   id,
   created_at,
   kind,
@@ -52,11 +48,7 @@ describe('список версий', () => {
       ],
       now,
     );
-    expect(groups.map((group) => group.day)).toEqual([
-      'Сегодня',
-      'Вчера',
-      versionDay(older, now),
-    ]);
+    expect(groups.map((group) => group.day)).toEqual(['Сегодня', 'Вчера', versionDay(older, now)]);
     expect(groups[0]!.items.map((version) => version.id)).toEqual(['named', 'auto']);
   });
 
@@ -118,9 +110,7 @@ describe('список версий', () => {
 
   it('при возвращении сети заново запрашивает сервер', async () => {
     const online = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
-    const list = vi
-      .fn<DocsVersionsTransport['listVersions']>()
-      .mockResolvedValue([item('fresh')]);
+    const list = vi.fn<DocsVersionsTransport['listVersions']>().mockResolvedValue([item('fresh')]);
     const api = transport(list);
     const view = renderHook(() => useVersions('doc', true, api));
     expect(list).not.toHaveBeenCalled();

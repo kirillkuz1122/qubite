@@ -1,8 +1,4 @@
-import {
-  createYjsBinding,
-  syncLexicalUpdateToYjs,
-  syncYjsChangesToLexical,
-} from '@lexical/yjs';
+import { createYjsBinding, syncLexicalUpdateToYjs, syncYjsChangesToLexical } from '@lexical/yjs';
 import { createEditor } from 'lexical';
 import * as Y from 'yjs';
 import type { DocLink } from '@qubite/sync-client';

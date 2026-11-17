@@ -142,7 +142,7 @@
   flex: 1 1 120px;
   min-width: 0;
   text-align: right;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--q-mute);
 }
 .docs-title {
@@ -461,7 +461,7 @@
 }
 .docs-mention-kind {
   color: var(--q-mute);
-  font-size: 12px;
+  font-size: 13px;
 }
 .docs-mention-empty {
   padding: 12px 8px;

@@ -220,7 +220,8 @@ export function Mentions({ handle, source: supplied }: { handle: DocHandle; sour
       (event) => {
         const selection = $getSelection();
         if (!$isNodeSelection(selection) || selection.getNodes().length !== 1) return false;
-        if (!open(selection.getNodes()[0] ?? null, !!(event?.ctrlKey || event?.metaKey))) return false;
+        if (!open(selection.getNodes()[0] ?? null, !!(event?.ctrlKey || event?.metaKey)))
+          return false;
         event?.preventDefault();
         return true;
       },
@@ -255,7 +256,9 @@ export function Mentions({ handle, source: supplied }: { handle: DocHandle; sour
       if (key && event.key === 'Enter') {
         event.preventDefault();
         event.stopPropagation();
-        editor.getEditorState().read(() => open($getNodeByKey(key), event.ctrlKey || event.metaKey));
+        editor
+          .getEditorState()
+          .read(() => open($getNodeByKey(key), event.ctrlKey || event.metaKey));
         return;
       }
       if (!query || event.isComposing) return;
@@ -264,7 +267,8 @@ export function Mentions({ handle, source: supplied }: { handle: DocHandle; sour
         setQuery(null);
       } else if (results.length && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
         setActive(
-          (value) => (value + (event.key === 'ArrowDown' ? 1 : -1) + results.length) % results.length,
+          (value) =>
+            (value + (event.key === 'ArrowDown' ? 1 : -1) + results.length) % results.length,
         );
       } else if (results.length && (event.key === 'Enter' || event.key === 'Tab')) {
         pick(results[Math.min(active, results.length - 1)]!);

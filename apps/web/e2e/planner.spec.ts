@@ -97,7 +97,7 @@ test('доска: перенести дело меню, клавишами и м
   );
 
   await page.getByRole('radio', { name: 'Неделя' }).click();
-  await page.getByRole('button', { name: '+ Новый проект' }).click();
+  await page.getByRole('button', { name: 'Новый проект' }).click();
   await page.getByLabel('Название проекта').fill('Физика');
   await page
     .getByRole('form', { name: 'Новый проект' })

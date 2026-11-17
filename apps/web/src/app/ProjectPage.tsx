@@ -130,7 +130,7 @@ export function ProjectPage({ id }: { id: string }) {
           <div className="pp-project-actions" role="group" aria-label="Действия проекта">
             <Button
               size="sm"
-              dot={false}
+              variant="quiet"
               onClick={() => {
                 setOpened((value) => value + 1);
                 setProjectMenu(false);
@@ -141,7 +141,7 @@ export function ProjectPage({ id }: { id: string }) {
             </Button>
             <Button
               size="sm"
-              dot={false}
+              variant="quiet"
               onClick={() => {
                 setOpened((value) => value + 1);
                 setProjectMenu(false);
@@ -215,7 +215,7 @@ function Back() {
   const navigate = useNavigate();
   return (
     <div className="pp-back">
-      <Button size="sm" dot={false} onClick={() => void navigate({ to: '/planner' })}>
+      <Button size="sm" variant="quiet" onClick={() => void navigate({ to: '/planner' })}>
         ← Все проекты
       </Button>
     </div>
@@ -270,7 +270,7 @@ function EditProject({ project, onClose }: { project: PlannerProject; onClose: (
         <Button size="sm" variant="fill" type="submit" disabled={!title.trim()}>
           Сохранить
         </Button>
-        <Button size="sm" dot={false} type="button" onClick={onClose}>
+        <Button size="sm" variant="quiet" type="button" onClick={onClose}>
           Отмена
         </Button>
       </div>
@@ -352,7 +352,7 @@ function FilesTab({ id, page }: { id: string; page: Page }) {
         <span className="sec-h-end">
           <span className="n">{page.files.length}</span>
           <Button size="sm" onClick={() => input.current?.click()} disabled={upload.isPending}>
-            + Файл
+            Добавить файл
           </Button>
         </span>
       </SecHead>
@@ -375,7 +375,7 @@ function FilesTab({ id, page }: { id: string; page: Page }) {
       >
         {page.files.length === 0 ? (
           <p className="later">
-            {upload.isPending ? 'Кладу файл…' : 'Файлов нет — «+ Файл» или перетащи сюда.'}
+            {upload.isPending ? 'Кладу файл…' : 'Файлов нет — «Добавить файл» или перетащи сюда.'}
           </p>
         ) : (
           <ul className="pp-files" aria-label="Файлы проекта">
@@ -431,7 +431,7 @@ function Docs({ id, page }: { id: string; page: Page }) {
         <span className="sec-h-end">
           <span className="n">{page.docs.length}</span>
           <Button size="sm" onClick={() => setCreating(true)}>
-            + Документ
+            Новый документ
           </Button>
         </span>
       </SecHead>
@@ -451,7 +451,7 @@ function Docs({ id, page }: { id: string; page: Page }) {
               </Button>
               <Button
                 size="sm"
-                dot={false}
+                variant="quiet"
                 disabled={unlink.isPending}
                 onClick={() => unlink.mutate(d.id)}
               >
@@ -462,7 +462,7 @@ function Docs({ id, page }: { id: string; page: Page }) {
         </ul>
       )}
       <div className="act-btns">
-        <Button size="sm" dot={false} onClick={() => setLinking(true)}>
+        <Button size="sm" variant="quiet" onClick={() => setLinking(true)}>
           Привязать документ
         </Button>
       </div>
@@ -503,7 +503,7 @@ function NewDoc({ id, open, onClose }: { id: string; open: boolean; onClose: () 
           >
             Создать
           </Button>
-          <Button size="sm" dot={false} type="button" onClick={onClose}>
+          <Button size="sm" variant="quiet" type="button" onClick={onClose}>
             Отмена
           </Button>
         </div>
@@ -623,7 +623,7 @@ function MemoryTab({ id, page }: { id: string; page: Page }) {
             <div className="act-btns">
               <Button
                 size="sm"
-                dot={false}
+                variant="quiet"
                 onClick={() => {
                   setText(memory.body);
                   setEditing(true);
@@ -654,7 +654,7 @@ function MemoryTab({ id, page }: { id: string; page: Page }) {
               <Button size="sm" variant="fill" type="submit" disabled={write.isPending}>
                 Сохранить
               </Button>
-              <Button size="sm" dot={false} type="button" onClick={() => setEditing(false)}>
+              <Button size="sm" variant="quiet" type="button" onClick={() => setEditing(false)}>
                 Отмена
               </Button>
             </div>
@@ -663,7 +663,7 @@ function MemoryTab({ id, page }: { id: string; page: Page }) {
         {!editing && <pre className="rec-text">{memory.body || 'Файл пуст.'}</pre>}
       </section>
       <div className="act-btns">
-        <Button size="sm" dot={false} onClick={() => void navigate({ to: '/agent' })}>
+        <Button size="sm" variant="quiet" onClick={() => void navigate({ to: '/agent' })}>
           Вся папка агента →
         </Button>
       </div>
@@ -719,7 +719,7 @@ function FeedTab({ id, page }: { id: string; page: Page }) {
       )}
       {!end && (
         <div className="act-btns">
-          <Button size="sm" dot={false} disabled={busy} onClick={() => void load()}>
+          <Button size="sm" variant="quiet" disabled={busy} onClick={() => void load()}>
             Показать ещё
           </Button>
         </div>

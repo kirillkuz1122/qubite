@@ -82,7 +82,7 @@ test('owner: «Сделать мне безлимит» — пароль, лич
 test('лимиты: новый «на каждого», изменить, снять; ошибки словами', async ({ page }) => {
   const { auth } = await owner(page, { confirmed: true });
   await page.goto('/console/ai');
-  await page.getByRole('button', { name: '+ Лимит' }).click();
+  await page.getByRole('button', { name: 'Новый лимит' }).click();
   const sheet = page.getByRole('dialog', { name: 'Новый лимит' });
   await sheet.getByLabel('На что').selectOption('each_user');
   await sheet

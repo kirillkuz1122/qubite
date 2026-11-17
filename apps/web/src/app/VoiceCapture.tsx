@@ -85,7 +85,7 @@ export function VoiceBar({ onSaved }: { onSaved?: (saved: VoiceSaved) => void })
           <small className={recording && v.heard ? 'voice-heard' : undefined}>{hint}</small>
         </div>
         <Presence show={live} className="voice-bar-cancel">
-          <Button size="sm" dot={false} onClick={v.cancel}>
+          <Button size="sm" variant="quiet" onClick={v.cancel}>
             Отменить
           </Button>
         </Presence>

@@ -94,6 +94,79 @@ body {
   border-radius: calc(var(--q-round) * 17px);
   font-size: 13px;
 }
+/* тихая кнопка: без рамки и без точки — вторые действия («Позже», «Отмена») */
+.q-btn.q-quiet {
+  padding: 0 12px;
+  border-color: transparent;
+  color: var(--q-mute);
+}
+/* Под курсором меняется только цвет, за 0,15 с (DS v2 §2). :where — чтобы строки и плитки
+   со своим классом на Button сохраняли свой фон. */
+.q-btn,
+.q-icon-btn,
+button.q-lrow {
+  transition:
+    background-color 0.15s,
+    border-color 0.15s,
+    color 0.15s;
+}
+@media (hover: hover) {
+  .q-btn:where(:hover:not(:disabled, [aria-disabled='true'])) {
+    background: var(--q-panel-2);
+  }
+  .q-btn.q-fill:where(:hover:not(:disabled, [aria-disabled='true'])) {
+    background: var(--q-orange-hover);
+  }
+  .q-btn.q-quiet:where(:hover:not(:disabled, [aria-disabled='true'])) {
+    background: none;
+    color: var(--q-ink);
+  }
+}
+.q-btn:where(:active:not(:disabled, [aria-disabled='true'])) {
+  border-color: var(--q-mute);
+}
+.q-btn.q-fill:where(:active),
+.q-btn.q-quiet:where(:active) {
+  border-color: transparent;
+}
+.q-btn.q-quiet:where(:active:not(:disabled, [aria-disabled='true'])) {
+  background: var(--q-panel-2);
+}
+
+/* кнопка-значок 44×44 */
+.q-icon-btn {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: calc(var(--q-round) * 20px);
+  background: none;
+  color: var(--q-mute);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.q-icon-btn-frame {
+  border-color: var(--q-line-2);
+}
+.q-icon-btn-fill {
+  background: var(--q-orange);
+  color: var(--q-on-accent);
+}
+@media (hover: hover) {
+  .q-icon-btn:where(:hover:not(:disabled)) {
+    color: var(--q-ink);
+  }
+  .q-icon-btn-frame:where(:hover:not(:disabled)) {
+    background: var(--q-panel-2);
+  }
+  .q-icon-btn-fill:where(:hover:not(:disabled)) {
+    background: var(--q-orange-hover);
+    color: var(--q-on-accent);
+  }
+}
 
 /* перетекающая подсветка */
 .q-flow {
@@ -285,7 +358,7 @@ body {
   align-items: center;
   gap: 4px 10px;
   padding: 14px 18px;
-  font-size: 13.5px;
+  font-size: 14px;
   color: var(--q-mute);
 }
 .q-command-card-in b {
@@ -361,23 +434,23 @@ body {
 .q-field-eye:hover:not(:disabled, [aria-disabled='true']),
 .q-field-eye:focus-visible:not(:disabled, [aria-disabled='true']),
 .q-field-eye[aria-pressed='true'] {
-  color: var(--q-orange);
+  color: var(--q-orange-ink);
 }
 .q-field-eye .q-ico {
   fill: currentColor;
 }
 .q-field-note {
   margin: 6px 0 0 2px;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.4;
   color: var(--q-dim);
 }
 .q-bad .q-field-box,
 .q-bad .q-check-box {
-  border-color: var(--q-peach);
+  border-color: var(--q-red);
 }
 .q-bad .q-field-note {
-  color: var(--q-peach);
+  color: var(--q-red-ink);
 }
 
 /* галочка-согласие */
@@ -452,11 +525,101 @@ body {
 .q-note-ok .q-dot {
   background: var(--q-green);
 }
+.q-note-warn .q-dot {
+  background: var(--q-yellow);
+}
 .q-note-bad .q-dot {
-  background: var(--q-peach);
+  background: var(--q-red);
 }
 .q-note a {
   color: var(--q-ink);
+}
+
+/* Пустой раздел (DS v2): помощник, одна фраза, одно действие */
+.q-empty {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 40px 16px;
+  text-align: center;
+}
+.q-empty-title,
+.q-empty-hint {
+  margin: 0;
+  max-width: 420px;
+}
+.q-empty-title {
+  margin-top: 8px;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--q-mute);
+}
+.q-empty-hint {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--q-dim);
+}
+.q-empty-act {
+  margin-top: 16px;
+}
+
+/* Подтверждение над Command (DS v2): держится 5 секунд, справа — «Откатить» */
+.q-toast-wrap {
+  position: fixed;
+  z-index: 41;
+  left: 16px;
+  right: 16px;
+  bottom: calc(max(12px, env(safe-area-inset-bottom)) + 72px);
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+.q-toast {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  max-width: 420px;
+  padding: 12px 16px;
+  border: 1px solid var(--q-line-2);
+  border-radius: calc(var(--q-round) * 24px);
+  background: var(--q-panel);
+  box-shadow: 0 12px 32px var(--q-shadow);
+  font-size: 13px;
+  line-height: 1.45;
+  pointer-events: auto;
+}
+.q-toast .q-dot {
+  background: var(--q-green);
+  transform: translateY(-1px);
+}
+.q-toast-info .q-dot {
+  background: var(--q-sky);
+}
+.q-toast-bad .q-dot {
+  background: var(--q-red);
+}
+.q-toast-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.q-toast-undo {
+  flex: none;
+  min-width: 0;
+  min-height: 0;
+  margin: -12px -8px -12px 8px;
+  padding: 12px 8px;
+  border: 0;
+  background: none;
+  color: var(--q-orange-ink);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+@media (min-width: 900px) {
+  /* по центру колонки, а не окна: слева боковая панель 248 px */
+  .q-toast-wrap {
+    left: 264px;
+  }
 }
 
 /* Строка списка v2 (DS-013): точка, название, подпись. Текст человека переносится по символам;
@@ -479,6 +642,11 @@ body {
 }
 button.q-lrow {
   cursor: pointer;
+}
+@media (hover: hover) {
+  button.q-lrow:hover {
+    background: var(--q-panel);
+  }
 }
 .q-lrow > .q-dot {
   margin-top: 8px;
@@ -580,7 +748,7 @@ kbd {
   color: var(--q-ink);
 }
 .q-chips button.q-on b {
-  color: var(--q-orange);
+  color: var(--q-orange-ink);
 }
 .q-flow i.q-chip-flow {
   background: var(--q-panel);
@@ -596,7 +764,7 @@ kbd {
   justify-content: space-between;
 }
 .q-range-val {
-  color: var(--q-orange);
+  color: var(--q-orange-ink);
   font-size: 13px;
 }
 /* дорожка: рисуем сами, а настоящий input лежит сверху прозрачным */
@@ -695,7 +863,7 @@ kbd {
   color: var(--q-dim);
 }
 .q-side-nav button.q-on b {
-  color: var(--q-orange);
+  color: var(--q-orange-ink);
 }
 
 /* нижняя капля на телефоне: разделы и Command */
@@ -896,7 +1064,7 @@ kbd {
 .q-player-time,
 .q-player-note {
   flex: none;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--q-dim);
   font-variant-numeric: tabular-nums;
 }
@@ -958,7 +1126,7 @@ kbd {
   font-size: 14px;
 }
 .q-choice-text small {
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.45;
   color: var(--q-dim);
 }
@@ -1118,7 +1286,7 @@ kbd {
 .q-suggest-h {
   padding: 8px 10px 2px;
   color: var(--q-mute);
-  font-size: 11.5px;
+  font-size: 13px;
   letter-spacing: 0.04em;
 }
 @keyframes q-suggest-in {
@@ -1144,12 +1312,12 @@ kbd {
 .q-suggest-w {
   margin-top: 3px;
   color: var(--q-mute);
-  font-size: 12.5px;
+  font-size: 13px;
 }
 .q-suggest-r {
   margin-top: 3px;
-  color: var(--q-orange);
-  font-size: 12.5px;
+  color: var(--q-orange-ink);
+  font-size: 13px;
 }
 .q-suggest-w b {
   color: var(--q-ink);

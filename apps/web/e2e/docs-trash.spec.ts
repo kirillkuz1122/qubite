@@ -10,7 +10,7 @@ for (const width of [1440, 360]) {
       }, theme);
       const server = await mockDocs(page);
       await page.goto('/docs');
-      await page.getByRole('button', { name: '+ Документ', exact: true }).click();
+      await page.getByRole('button', { name: 'Новый документ', exact: true }).click();
       const title = page.getByRole('textbox', { name: 'Название документа' });
       await title.fill('Заметка из корзины');
       const editor = page.getByRole('textbox', { name: 'Текст документа' });

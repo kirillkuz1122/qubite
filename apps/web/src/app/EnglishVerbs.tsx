@@ -329,7 +329,7 @@ function VerbsHome({ o }: { o: VerbsOverview }) {
                 {opened.set ? 'Учить набор' : 'Учить группу'}
               </Button>
               {opened.set && (
-                <Button dot={false} onClick={() => void removeSet(opened.set!)}>
+                <Button variant="quiet" onClick={() => void removeSet(opened.set!)}>
                   Удалить набор
                 </Button>
               )}

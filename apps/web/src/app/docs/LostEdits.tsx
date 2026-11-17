@@ -68,7 +68,12 @@ export function LostEdits({ handle }: { handle: DocHandle }) {
             >
               Вставить
             </Button>
-            <Button size="sm" disabled={busy} onClick={() => void accept('recovered', false)}>
+            <Button
+              variant="quiet"
+              size="sm"
+              disabled={busy}
+              onClick={() => void accept('recovered', false)}
+            >
               Не надо
             </Button>
           </div>
@@ -89,7 +94,12 @@ export function LostEdits({ handle }: { handle: DocHandle }) {
             >
               Вернуть
             </Button>
-            <Button size="sm" disabled={busy} onClick={() => void accept('lost', false)}>
+            <Button
+              variant="quiet"
+              size="sm"
+              disabled={busy}
+              onClick={() => void accept('lost', false)}
+            >
               Не надо
             </Button>
           </div>

@@ -15,6 +15,7 @@ import {
   archiveThought,
   captureThought,
   inboxItems,
+  unarchiveThought,
   uuidv7,
   voiceHeld,
   type LocalObject,
@@ -103,6 +104,15 @@ export function InboxProvider({
     async (id: string) => {
       if (!client) return;
       await archiveThought(client, id);
+      void client.sync();
+    },
+    [client],
+  );
+
+  const back = useCallback(
+    async (id: string) => {
+      if (!client) return;
+      await unarchiveThought(client, id);
       void client.sync();
     },
     [client],
@@ -247,11 +257,12 @@ export function InboxProvider({
       sync: state,
       capture,
       done,
+      back,
       later: (id) => setLater((l) => [...l.filter((x) => x !== id), id]),
       voice,
       dropVoice,
     }),
-    [items, state, capture, done, voice, dropVoice],
+    [items, state, capture, done, back, voice, dropVoice],
   );
   return <InboxCtx.Provider value={value}>{children}</InboxCtx.Provider>;
 }

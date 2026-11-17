@@ -252,10 +252,12 @@ export function AppShell() {
     [navigate],
   );
   const helperOn = state.helpers[sec.who];
+  const write = useRef(() => {});
   const api = useMemo<ShellApi>(
     () => ({
       wide,
       go,
+      write: () => write.current(),
       cheer: (kind) => crew.current?.jump(kind),
       fly: (from, to, color, done) => flyDot(from, visibleTarget(to), color, done),
     }),
@@ -299,6 +301,9 @@ export function AppShell() {
     if (!wide) setOpen(true);
     requestAnimationFrame(() => input.current?.focus());
   }, [wide]);
+  useEffect(() => {
+    write.current = openCmd;
+  }, [openCmd]);
   const closeCmd = useCallback(() => {
     setOpen(false);
     change('');

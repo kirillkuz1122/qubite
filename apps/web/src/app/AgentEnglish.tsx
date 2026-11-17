@@ -487,7 +487,7 @@ function ElevenLabsEnglish() {
               </p>
             )}
             {streaming && voicePlaying && (
-              <Button size="sm" dot={false} onClick={() => talkRef.current?.interrupt()}>
+              <Button size="sm" variant="quiet" onClick={() => talkRef.current?.interrupt()}>
                 Перебить
               </Button>
             )}

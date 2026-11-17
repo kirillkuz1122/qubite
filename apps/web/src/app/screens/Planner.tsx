@@ -1,6 +1,16 @@
 import { loop, MASS } from '@qubite/motion';
 import type { TaskStatus } from '@qubite/sync-client';
-import { Button, DotIcon, Field, Presence, Segmented, Swap, useFlow, useSpring } from '@qubite/ui';
+import {
+  Button,
+  DotIcon,
+  EmptyState,
+  Field,
+  Presence,
+  Segmented,
+  Swap,
+  useFlow,
+  useSpring,
+} from '@qubite/ui';
 import {
   useEffect,
   useLayoutEffect,
@@ -175,13 +185,13 @@ function Projects() {
 
   return (
     <>
-      {/* «+ Новый проект» — справа от заголовка (отзыв 21.10, D-435) */}
+      {/* «Новый проект» — справа от заголовка (отзыв 21.10, D-435) */}
       <SecHead text="ПРОЕКТЫ" label="Проекты">
         <span className="sec-h-end">
           <span className="n">{planner.projects.length}</span>
           {!adding && (
             <Button className="proj-add" size="sm" onClick={() => setAdding(true)}>
-              + Новый проект
+              Новый проект
             </Button>
           )}
         </span>
@@ -199,16 +209,19 @@ function Projects() {
             <Button type="submit" variant="fill" size="sm" disabled={!name.trim() || busy}>
               Создать
             </Button>
-            <Button size="sm" onClick={() => setAdding(false)}>
+            <Button variant="quiet" size="sm" onClick={() => setAdding(false)}>
               Отмена
             </Button>
           </div>
         </form>
       </Presence>
       {planner.loaded && planner.projects.length === 0 && !adding && (
-        <p className="later">
-          Проектов пока нет. Создай кнопкой «+ Новый проект» или в Command: «новый проект Алгебра».
-        </p>
+        <EmptyState
+          kind="proto"
+          label="Прото ждёт"
+          title="Проектов пока нет."
+          hint="Создай кнопкой «Новый проект» выше или в Command: «новый проект Алгебра»."
+        />
       )}
       {planner.projects.map((p) => (
         <div className="proj-item" key={p.id}>

@@ -16,7 +16,10 @@ import {
   Companion,
   EdgeScroll,
   DotIcon,
+  EmptyState,
   Field,
+  IconButton,
+  Note,
   DotText,
   ICON_NAMES,
   MicButton,
@@ -25,6 +28,7 @@ import {
   Switch,
   useLook,
   useSpring,
+  useToast,
   type CompanionHandle,
   type CompanionKind,
   type ColorName,
@@ -437,13 +441,33 @@ function Components() {
     { t: 'Алгебра: № 214–220', c: 'sky', time: '18:00', done: false },
     { t: 'Сдать конспект по физике', c: 'sky', time: '9:00', done: true },
   ]);
+  const toast = useToast();
   return (
     <div className="ds-comp">
       <div className="ds-row">
         <Button variant="fill">Начать</Button>
         <Button>Войти</Button>
-        <Button size="sm">Позже</Button>
+        <Button variant="quiet" size="sm">
+          Позже
+        </Button>
       </div>
+      <div className="ds-row">
+        <IconButton icon="search" label="Найти" />
+        <IconButton icon="more" label="Ещё" variant="frame" />
+        <IconButton icon="plus" label="Добавить" variant="fill" />
+        <Button
+          size="sm"
+          onClick={() => toast.show('Дело перенесено на завтра.', { undo: () => undefined })}
+        >
+          Показать сообщение
+        </Button>
+      </div>
+      <Note tone="ok">Сохранено на устройстве.</Note>
+      <Note tone="warn">Нет сети — отправится позже.</Note>
+      <Note tone="bad">Не получилось сохранить. Попробуй ещё раз.</Note>
+      <EmptyState kind="elik" title="Пусто — всё разобрано." hint="Так выглядит пустой раздел.">
+        <Button size="sm">Записать мысль</Button>
+      </EmptyState>
       <div className="ds-row">
         <Segmented
           label="Вид"

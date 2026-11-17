@@ -70,14 +70,14 @@
   box-shadow: 0 6px 20px var(--q-shadow);
   color: var(--q-ink);
   font-family: var(--q-text);
-  font-size: 12px;
+  font-size: 13px;
   transform: translateX(-50%);
 }
 .mt-strip .q-dot {
   background: var(--q-yellow);
 }
 .mt-strip a {
-  color: var(--q-orange);
+  color: var(--q-orange-ink);
 }
 @media (max-width: 600px) {
   .mt-strip-more {

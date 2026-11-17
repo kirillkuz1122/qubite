@@ -43,4 +43,14 @@ describe('токены', () => {
     expect(contrast(p.mute, p.panel)).toBeGreaterThanOrEqual(4.5);
     expect(contrast(p['on-accent'], p.orange)).toBeGreaterThanOrEqual(4.5);
   });
+
+  it.each(['dark', 'light'] as const)('цветной текст читается в теме %s (DS-013)', (theme) => {
+    const p = PALETTES[theme];
+    for (const name of ['orange-ink', 'sky-ink', 'yellow-ink', 'green-ink', 'red-ink'] as const)
+      for (const ground of [p.bg, p.panel])
+        expect(contrast(p[name], ground)).toBeGreaterThanOrEqual(4.5);
+    // подписи читаются и на выбранной строке
+    expect(contrast(p.dim, p['panel-2'])).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(p['on-accent'], p['orange-hover'])).toBeGreaterThanOrEqual(4.5);
+  });
 });

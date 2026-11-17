@@ -130,7 +130,7 @@ function Speak({ text, label = 'Послушать' }: { text: string; label?: s
     <>
       <Button
         size="sm"
-        dot={false}
+        variant="quiet"
         onClick={() => {
           setErr(null);
           playPhrase(text).catch((e) => setErr(say(e)));
@@ -833,7 +833,7 @@ function LessonPlayer({
                   <Button disabled={busy} onClick={() => void acceptHarder()}>
                     Давай
                   </Button>
-                  <Button disabled={busy} onClick={() => setOffer(false)}>
+                  <Button variant="quiet" disabled={busy} onClick={() => setOffer(false)}>
                     Не сейчас
                   </Button>
                 </div>
@@ -1593,7 +1593,7 @@ function Build({
       <div className="eng-row">
         <Button
           size="sm"
-          dot={false}
+          variant="quiet"
           disabled={locked || !used.length}
           onClick={() => {
             const next = used.slice(0, -1);
@@ -1951,7 +1951,7 @@ function SpeakTask({
             {starting ? 'Подключаю микрофон…' : on ? 'Готово' : 'Говорить'}
           </Button>
           {!typing && by === 'voice_or_text' && (
-            <Button size="sm" dot={false} onClick={() => setTyping(true)}>
+            <Button size="sm" variant="quiet" onClick={() => setTyping(true)}>
               Ответить текстом
             </Button>
           )}
@@ -2001,7 +2001,7 @@ function GameView() {
               {p.open && (
                 <Button
                   size="sm"
-                  dot={false}
+                  variant="quiet"
                   aria-pressed={home.learner.companion === p.id}
                   onClick={() =>
                     change.mutate({ companion: home.learner.companion === p.id ? '' : p.id })
@@ -2086,7 +2086,7 @@ function SettingsView() {
             <span className="eng-row">
               <Button
                 size="sm"
-                dot={false}
+                variant="quiet"
                 onClick={() =>
                   playPhrase(body.sample, v.id).catch((e) => setErr({ text: say(e), code: null }))
                 }
@@ -2095,7 +2095,7 @@ function SettingsView() {
               </Button>
               <Button
                 size="sm"
-                dot={false}
+                variant="quiet"
                 aria-pressed={v.id === current}
                 onClick={() => set({ voice: v.id })}
               >

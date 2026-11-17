@@ -245,17 +245,28 @@ describe('DOC-002e1: фоновый текст и возврат дописок'
     const first = bind(a);
     const second = bind(b);
     try {
-      first.editor.update(() => {
-        $importMarkdown('# Заголовок\n- [x] Готово\n> Цитата\n```\nкод\n```');
-      }, { discrete: true });
+      first.editor.update(
+        () => {
+          $importMarkdown('# Заголовок\n- [x] Готово\n> Цитата\n```\nкод\n```');
+        },
+        { discrete: true },
+      );
       Y.applyUpdate(b, Y.encodeStateAsUpdate(a));
       await settle();
-      first.editor.update(() => {
-        $first().append($createTextNode(' · локально').toggleFormat('bold'));
-      }, { discrete: true });
-      second.editor.update(() => {
-        $getRoot().append($createBlockNode('ul').setIndent(1).append($createTextNode('Другая копия')));
-      }, { discrete: true });
+      first.editor.update(
+        () => {
+          $first().append($createTextNode(' · локально').toggleFormat('bold'));
+        },
+        { discrete: true },
+      );
+      second.editor.update(
+        () => {
+          $getRoot().append(
+            $createBlockNode('ul').setIndent(1).append($createTextNode('Другая копия')),
+          );
+        },
+        { discrete: true },
+      );
       Y.applyUpdate(a, Y.encodeStateAsUpdate(b));
       await settle();
       const before = Y.encodeStateAsUpdate(a);
@@ -277,17 +288,20 @@ describe('DOC-002e1: фоновый текст и возврат дописок'
 
   it.each([null, 'Перед'])('несколько блоков после %j возвращаются в исходном порядке', (after) => {
     const e = editor();
-    e.update(() => {
-      $getRoot().append(
-        $createBlockNode().append($createTextNode('Перед')),
-        $createBlockNode().append($createTextNode('После')),
-      );
-      $restoreLost([
-        { text: 'Первая', kind: 'h2', after },
-        { text: 'Вторая', kind: 'quote', after },
-        { text: 'Третья', kind: 'unknown', after },
-      ]);
-    }, { discrete: true });
+    e.update(
+      () => {
+        $getRoot().append(
+          $createBlockNode().append($createTextNode('Перед')),
+          $createBlockNode().append($createTextNode('После')),
+        );
+        $restoreLost([
+          { text: 'Первая', kind: 'h2', after },
+          { text: 'Вторая', kind: 'quote', after },
+          { text: 'Третья', kind: 'unknown', after },
+        ]);
+      },
+      { discrete: true },
+    );
     expect(blocks(e).map((node) => node.text)).toEqual(
       after === null
         ? ['Первая', 'Вторая', 'Третья', 'Перед', 'После']
@@ -298,30 +312,47 @@ describe('DOC-002e1: фоновый текст и возврат дописок'
 
   it('разные якоря сохраняют положение, отсутствующий якорь вставляет в конец', () => {
     const e = editor();
-    e.update(() => {
-      $importMarkdown('A\nB\nC');
-      $restoreLost([
-        { text: 'a1', kind: 'p', after: 'A' },
-        { text: 'a2', kind: 'p', after: 'A' },
-        { text: 'b1', kind: 'p', after: 'B' },
-        { text: 'b2', kind: 'p', after: 'B' },
-        { text: 'tail1', kind: 'p', after: 'gone' },
-        { text: 'tail2', kind: 'p', after: 'gone' },
-      ]);
-    }, { discrete: true });
+    e.update(
+      () => {
+        $importMarkdown('A\nB\nC');
+        $restoreLost([
+          { text: 'a1', kind: 'p', after: 'A' },
+          { text: 'a2', kind: 'p', after: 'A' },
+          { text: 'b1', kind: 'p', after: 'B' },
+          { text: 'b2', kind: 'p', after: 'B' },
+          { text: 'tail1', kind: 'p', after: 'gone' },
+          { text: 'tail2', kind: 'p', after: 'gone' },
+        ]);
+      },
+      { discrete: true },
+    );
     expect(blocks(e).map((node) => node.text)).toEqual([
-      'A', 'a1', 'a2', 'B', 'b1', 'b2', 'C', 'tail1', 'tail2',
+      'A',
+      'a1',
+      'a2',
+      'B',
+      'b1',
+      'b2',
+      'C',
+      'tail1',
+      'tail2',
     ]);
   });
 
   it('запасной Markdown вставляется после существующих блоков с сохранением оформления', () => {
     const e = editor();
-    e.update(() => {
-      $importMarkdown('Принятый текст\n- первый');
-      $appendRecovered('# Свой вариант\n**важно**');
-    }, { discrete: true });
+    e.update(
+      () => {
+        $importMarkdown('Принятый текст\n- первый');
+        $appendRecovered('# Свой вариант\n**важно**');
+      },
+      { discrete: true },
+    );
     expect(blocks(e).map((node) => node.text)).toEqual([
-      'Принятый текст', 'первый', 'Свой вариант', 'важно',
+      'Принятый текст',
+      'первый',
+      'Свой вариант',
+      'важно',
     ]);
     const markdown = e.getEditorState().read($exportMarkdown);
     expect(markdown).toContain('# Свой вариант');

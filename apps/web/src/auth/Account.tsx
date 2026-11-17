@@ -180,6 +180,7 @@ export function AccountContent() {
             </span>
             {!s.current && (
               <Button
+                variant="quiet"
                 size="sm"
                 onClick={() => void revoke(s.id)}
                 aria-label={`Закрыть: ${deviceName(s)}`}
@@ -359,7 +360,7 @@ function Confirm({
             <Button type="submit" variant="fill" disabled={busy || !password}>
               {busy ? 'Проверяем…' : 'Подтвердить'}
             </Button>
-            <Button size="sm" onClick={onClose}>
+            <Button variant="quiet" size="sm" onClick={onClose}>
               Отмена
             </Button>
           </div>

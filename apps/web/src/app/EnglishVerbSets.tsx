@@ -101,7 +101,7 @@ export function AddWords({
             >
               {busy === 'save' ? 'Сохраняю…' : 'Сохранить набор'}
             </Button>
-            <Button dot={false} disabled={busy !== null} onClick={() => setFound(null)}>
+            <Button variant="quiet" disabled={busy !== null} onClick={() => setFound(null)}>
               Назад
             </Button>
           </div>

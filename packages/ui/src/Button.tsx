@@ -4,10 +4,16 @@ import { feelOf } from './feel';
 import { useSpring } from './useSpring';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  /** fill — оранжевая заливка (главное действие), outline — рамка */
-  variant?: 'fill' | 'outline';
+  /**
+   * fill — оранжевая заливка (главное действие, одно на экран или окно), outline — рамка,
+   * quiet — без рамки, для вторых действий («Позже», «Отмена»).
+   */
+  variant?: 'fill' | 'outline' | 'quiet';
   size?: 'md' | 'sm';
-  /** точка перед текстом */
+  /**
+   * Точка перед текстом: у главной и обычной есть всегда, у тихой — никогда (DS v2).
+   * `false` — только когда вместо точки стоит значок или кнопка служит строкой со своим видом.
+   */
   dot?: boolean;
   children: ReactNode;
 }
@@ -107,7 +113,13 @@ export function Button({
       type="button"
       disabled={disabled}
       aria-disabled={ariaDisabled}
-      className={['q-btn', variant === 'fill' && 'q-fill', size === 'sm' && 'q-sm', className]
+      className={[
+        'q-btn',
+        variant === 'fill' && 'q-fill',
+        variant === 'quiet' && 'q-quiet',
+        size === 'sm' && 'q-sm',
+        className,
+      ]
         .filter(Boolean)
         .join(' ')}
       onClickCapture={(e) => {
@@ -127,7 +139,7 @@ export function Button({
       }}
       {...rest}
     >
-      {dot && <span className="q-dot" aria-hidden="true" />}
+      {dot && variant !== 'quiet' && <span className="q-dot" aria-hidden="true" />}
       {children}
     </button>
   );

@@ -178,7 +178,7 @@ function SkillButtons({ skill }: { skill: AgentSkill }) {
           <>
             <Button
               size="sm"
-              dot={false}
+              variant="quiet"
               disabled={change.isPending}
               onClick={() => act(skill.pinned ? 'unpin' : 'pin')}
             >
@@ -187,7 +187,7 @@ function SkillButtons({ skill }: { skill: AgentSkill }) {
             {!skill.pinned && (
               <Button
                 size="sm"
-                dot={false}
+                variant="quiet"
                 disabled={change.isPending}
                 onClick={() => act('archive')}
               >
@@ -333,7 +333,7 @@ function FileBody({ file }: { file: AgentFile }) {
         </div>
         <div className="act-btns">
           {!editing && (
-            <Button size="sm" dot={false} onClick={() => setEditing(true)}>
+            <Button size="sm" variant="quiet" onClick={() => setEditing(true)}>
               Править
             </Button>
           )}
@@ -375,7 +375,7 @@ function FileBody({ file }: { file: AgentFile }) {
             </Button>
             <Button
               size="sm"
-              dot={false}
+              variant="quiet"
               type="button"
               onClick={() => {
                 setText(file.body);
@@ -593,7 +593,7 @@ function NewFile({ onDone }: { onDone: (id: string | null) => void }) {
         <Button size="sm" variant="fill" type="submit" disabled={create.isPending || !name.trim()}>
           Завести
         </Button>
-        <Button size="sm" dot={false} type="button" onClick={() => onDone(null)}>
+        <Button size="sm" variant="quiet" type="button" onClick={() => onDone(null)}>
           Отмена
         </Button>
       </div>
@@ -641,7 +641,7 @@ function QuestionRow({ q }: { q: AgentQuestion }) {
           <Button
             key={o}
             size="sm"
-            dot={false}
+            variant="quiet"
             type="button"
             disabled={answer.isPending}
             onClick={() => send(o)}
@@ -660,7 +660,7 @@ function QuestionRow({ q }: { q: AgentQuestion }) {
         </Button>
         <Button
           size="sm"
-          dot={false}
+          variant="quiet"
           type="button"
           disabled={answer.isPending}
           onClick={() => send('')}

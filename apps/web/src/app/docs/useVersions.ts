@@ -12,7 +12,11 @@ function subscribeOnline(change: () => void) {
 
 /** Историю не кэшируем: при каждом открытии и возвращении сети запрашиваем сервер. */
 export function useVersions(id: string, enabled: boolean, transport: DocsVersionsTransport) {
-  const online = useSyncExternalStore(subscribeOnline, () => navigator.onLine, () => false);
+  const online = useSyncExternalStore(
+    subscribeOnline,
+    () => navigator.onLine,
+    () => false,
+  );
   const [state, setState] = useState<{
     versions: DocVersionItem[];
     loading: boolean;
@@ -40,7 +44,11 @@ export function useVersions(id: string, enabled: boolean, transport: DocsVersion
         cursor.current = page.at(-1)?.created_at;
         setState((old) => ({
           versions: append
-            ? [...new Map([...old.versions, ...page].map((version) => [version.id, version])).values()]
+            ? [
+                ...new Map(
+                  [...old.versions, ...page].map((version) => [version.id, version]),
+                ).values(),
+              ]
             : page,
           loading: false,
           more: page.length === 50,

@@ -93,6 +93,7 @@ function setup(method: VoiceMethod = 'cloud') {
     sync: { status: 'synced', pending: 0, problems: 0 },
     capture: vi.fn(),
     done: vi.fn(),
+    back: vi.fn(),
     later: vi.fn(),
     voice,
     dropVoice: vi.fn(),
