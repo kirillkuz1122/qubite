@@ -20,8 +20,15 @@ import {
   type MindNode,
 } from './model';
 import { layoutTree, neighbour } from './layout';
-import { collocationsTemplate, mindmapMarkdown, outlineRoot, parseOutline, treeMarkdown } from './text';
+import {
+  collocationsTemplate,
+  mindmapMarkdown,
+  outlineRoot,
+  parseOutline,
+  treeMarkdown,
+} from './text';
 import { renderDocText, extractDocLinks } from '../render';
+import { blocksFromDoc } from '../versions-diff';
 
 const labels = (node: MindNode): unknown => ({
   t: node.text,
@@ -148,6 +155,48 @@ describe('mind map: модель в Yjs', () => {
     expect(mindmapMarkdown(left)).toBe(mindmapMarkdown(right));
   });
 
+  it('осиротевшая ветка уходит к центру целиком: ребёнок и внук сохраняют связь', () => {
+    const left = fresh();
+    const right = new Y.Doc();
+    const a = addChild(left, ROOT, 'a');
+    sync(left, right);
+    removeNode(left, a);
+    const child = addChild(right, a, 'ребёнок');
+    const grandchild = addChild(right, child, 'внук');
+    sync(left, right);
+    const tree = readTree(left);
+    expect(findNode(tree, child)?.depth).toBe(1);
+    expect(findNode(tree, grandchild)?.parent).toBe(child);
+    expect(findNode(tree, grandchild)?.depth).toBe(2);
+  });
+
+  it('равный порядок после офлайн-вставок: соседний узел встаёт ровно после выбранного', () => {
+    const left = fresh();
+    const right = new Y.Doc();
+    sync(left, right);
+    const a = addChild(left, ROOT, 'a');
+    const b = addChild(right, ROOT, 'b');
+    sync(left, right);
+    const order = readTree(left).children.map((n) => n.id);
+    expect(order).toHaveLength(2);
+    const first = order[0]!;
+    const c = addSibling(left, first, 'c');
+    expect(readTree(left).children.map((n) => n.id)).toEqual([first, c, order[1]]);
+    expect([a, b]).toContain(first);
+    moveNode(left, c, ROOT, 0);
+    expect(readTree(left).children[0]!.id).toBe(c);
+  });
+
+  it('массовое добавление больше лимита сервера отклоняется до записи', () => {
+    const doc = fresh();
+    const items = Array.from({ length: 1800 }, (_, i) => ({
+      text: `${i}`.padEnd(300, 'x'),
+      children: [],
+    }));
+    expect(() => appendOutline(doc, ROOT, items)).toThrow(/частями/);
+    expect(readTree(doc).children).toHaveLength(0);
+  });
+
   it('подпись — одна строка до 300 знаков', () => {
     const doc = fresh();
     const id = addChild(doc, ROOT, 'a\nb');
@@ -199,10 +248,19 @@ describe('mind map ↔ Markdown', () => {
     const doc = fresh('центр');
     const a = addChild(doc, ROOT, 'ветка');
     appendOutline(doc, a, [
-      { text: '', link: { target: '0199a1b2-c3d4-7e5f-8a9b-0123456789ab', kind: 'calendar.event' }, children: [] },
+      {
+        text: '',
+        link: { target: '0199a1b2-c3d4-7e5f-8a9b-0123456789ab', kind: 'calendar.event' },
+        children: [],
+      },
     ]);
     const links = [
-      { id: '0199a1b2-c3d4-7e5f-8a9b-0123456789ab', type: 'calendar.event' as const, title: 'Урок [18.11]', deleted: false },
+      {
+        id: '0199a1b2-c3d4-7e5f-8a9b-0123456789ab',
+        type: 'calendar.event' as const,
+        title: 'Урок [18.11]',
+        deleted: false,
+      },
     ];
     const md = mindmapMarkdown(doc, links);
     expect(md).toContain('[@Урок \\[18.11\\]](qubite://0199a1b2-c3d4-7e5f-8a9b-0123456789ab)');
@@ -215,8 +273,38 @@ describe('mind map ↔ Markdown', () => {
   });
 });
 
+describe('mind map: пустые узлы и ссылки', () => {
+  it('пустой узел переживает экспорт и импорт: центр → пустой → лист', () => {
+    const doc = fresh('центр');
+    const empty = addChild(doc, ROOT);
+    addChild(doc, empty, 'лист');
+    const md = mindmapMarkdown(doc);
+    const { root, branches } = outlineRoot(md, 'x');
+    expect(branches).toEqual([{ text: '', children: [{ text: 'лист', children: [] }] }]);
+    const copy = new Y.Doc();
+    Y.applyUpdate(copy, mindmapUpdate(root, branches));
+    expect(mindmapMarkdown(copy)).toBe(md);
+    expect(parseOutline('- a\n  -\n    - b').items[0]!.children[0]!.text).toBe('');
+  });
+
+  it('сравнение версий видит замену цели у ссылки с той же подписью', () => {
+    const one = fresh();
+    const two = fresh();
+    appendOutline(one, ROOT, [
+      { text: '', link: { target: 'aaaa', kind: 'docs.page' }, children: [] },
+    ]);
+    appendOutline(two, ROOT, [
+      { text: '', link: { target: 'bbbb', kind: 'docs.page' }, children: [] },
+    ]);
+    expect(blocksFromDoc(one)).not.toEqual(blocksFromDoc(two));
+  });
+});
+
 describe('mind map: раскладка', () => {
-  const size = (node: MindNode) => ({ w: node.text.length * 8 + 24, h: node.depth === 0 ? 46 : 32 });
+  const size = (node: MindNode) => ({
+    w: node.text.length * 8 + 24,
+    h: node.depth === 0 ? 46 : 32,
+  });
 
   it('центр в нуле, ветки по сторонам по балансу, закреплённая сторона соблюдается', () => {
     const doc = fresh();
