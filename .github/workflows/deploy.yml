@@ -1,4 +1,4 @@
-# Скрипты деплоя на Pi (OPS-009, D-962): shellcheck и проверка, что обновление и откат
+# Скрипты деплоя на Pi (OPS-009, D-970): shellcheck и проверка, что обновление и откат
 # не теряют записей. Настоящий Pi не трогается — PostgreSQL в контейнере, systemctl,
 # runuser и curl — заглушки (deploy/pi/test-update.sh).
 name: deploy

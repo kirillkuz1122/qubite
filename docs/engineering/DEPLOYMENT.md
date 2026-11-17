@@ -111,7 +111,7 @@ Pi 5, 4 ГБ, Debian 13. Рядом работают сервисы владел
 1. Pi нагружена (load average > 2,5 или свободно < 400 МБ) — откладывает до следующего раза.
 2. Берёт `edge.json`; коммит уже стоит или эта сборка уже падала — ничего не делает.
 3. Ждёт, пока **все** проверки коммита в GitHub закончатся зелёными (публичный API, токен не нужен).
-4. Скачивает архив `aarch64`, проверяет сумму, **останавливает бота и сервер**, бэкап базы (`pg_dump`), переключает `current`, `qubite migrate`, запускает сервер ([D-962](../product/DECISIONS.md)).
+4. Скачивает архив `aarch64`, проверяет сумму, **останавливает бота и сервер**, бэкап базы (`pg_dump`), переключает `current`, `qubite migrate`, запускает сервер ([D-970](../product/DECISIONS.md)).
 5. Ждёт `/api/ready` до 90 секунд, потом запускает бота. Нет — откат: прошлая версия и база из бэкапа; текущая база перед этим — в `/var/backups/qubite/before-restore/`.
 6. Сообщение в Telegram через нового бота (`qubite notify deploy …`).
 
@@ -122,7 +122,7 @@ Pi 5, 4 ГБ, Debian 13. Рядом работают сервисы владел
 ```bash
 sudo /opt/qubite/bin/qubite-update --status     # что стоит
 sudo /opt/qubite/bin/qubite-update --force      # обновиться сейчас (не ждать, даже если Pi нагружена)
-sudo /opt/qubite/bin/qubite-update --rollback   # вернуть прошлую версию; база как есть (D-963)
+sudo /opt/qubite/bin/qubite-update --rollback   # вернуть прошлую версию; база как есть (D-971)
 sudo /opt/qubite/bin/qubite-update --rollback --with-db   # и базу до обновления (текущая — в before-restore/)
 sudo systemctl stop qubite-update.timer         # выключить автодеплой (включить — start)
 journalctl -u qubite-serve -u qubite-bot -u qubite-update -f   # логи

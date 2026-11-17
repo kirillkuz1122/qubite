@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Проверка deploy/pi/update.sh без Pi (OPS-009, D-962): обновление и откат не теряют записей.
+# Проверка deploy/pi/update.sh без Pi (OPS-009, D-970): обновление и откат не теряют записей.
 #
 #   UPDATE_TEST_DATABASE_URL=postgres://qubite:qubite@127.0.0.1:5432/postgres deploy/pi/test-update.sh
 #
