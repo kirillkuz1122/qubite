@@ -6,6 +6,7 @@ import {
   addSibling,
   appendOutline,
   findNode,
+  MAX_NODE_TEXT,
   initMindmap,
   isMindmap,
   mindmapLinks,
@@ -396,5 +397,20 @@ describe('mind map: история версий (DOC-004)', () => {
     // После восстановления правка продолжает работать.
     setText(doc, readTree(doc).children[0]!.id, 'снова');
     expect(readTree(doc).children[0]!.text).toBe('снова');
+  });
+  it('обрезка по лимиту не режет эмодзи пополам', () => {
+    const doc = fresh();
+    const id = addChild(doc, ROOT, 'x'.repeat(MAX_NODE_TEXT - 1) + '😀');
+    const text = findNode(readTree(doc), id)!.text;
+    expect(text).toBe('x'.repeat(MAX_NODE_TEXT - 1));
+    expect(text.length).toBeLessThanOrEqual(MAX_NODE_TEXT);
+  });
+
+  it('импорт Markdown берёт тип ссылки из кэша целей', () => {
+    const target = '0199a1b2-c3d4-7e5f-8a9b-0123456789ab';
+    const links = [{ id: target, type: 'calendar.event' as const, title: 'Урок', deleted: false }];
+    const md = `- центр\n  - [@Урок](qubite://${target})\n  - [@Док](qubite://0199a1b2-c3d4-7e5f-8a9b-0123456789ac)`;
+    const { branches } = outlineRoot(md, 'x', links);
+    expect(branches.map((b) => b.link?.kind)).toEqual(['calendar.event', 'docs.page']);
   });
 });
