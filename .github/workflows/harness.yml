@@ -18,3 +18,5 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       # В CI нет origin/main, поэтому check.sh проверяет только харнес
       - run: scripts/check.sh
+      # Сборщик Пульта (HAR-002, AOS-5): только стандартная библиотека Python
+      - run: python3 -m unittest discover -s scripts -p 'test_*.py'
