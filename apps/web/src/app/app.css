@@ -2918,7 +2918,7 @@ html[data-motion='less'] .rec-dot {
   border-radius: calc(var(--q-round) * 24px);
   background: var(--q-panel-2);
   color: var(--q-mute);
-  font-size: 12px;
+  font-size: 13px;
 }
 .more-tile.q-btn[aria-current='page'] {
   color: var(--q-ink);
