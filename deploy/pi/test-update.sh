@@ -78,6 +78,10 @@ start() {
     local role
     [[ -f $P/run/$1.pid ]] && return 0
     case "$1" in qubite-serve.service) role=serve ;; qubite-bot.service) role=bot ;; *) return 0 ;; esac
+    if [[ -f $P/opt/qubite/current/BROKEN_START ]]; then
+        echo "служба $1 не запустилась" >&2
+        return 1
+    fi
     (
         exec 9>&- # замок update.sh не должен достаться «службе», как и у настоящего systemd
         set -a
@@ -125,7 +129,8 @@ SH
     chmod +x "$bin"/*
 }
 
-# Поддельный qubite. Что делать — по файлам в папке релиза: migrate.sql, BROKEN_MIGRATE, BROKEN_READY.
+# Поддельный qubite. Что делать — по файлам в папке релиза: migrate.sql, BROKEN_MIGRATE, BROKEN_READY
+# (BROKEN_START читает заглушка systemctl).
 FAKE_QUBITE='#!/usr/bin/env bash
 set -uo pipefail
 here="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
@@ -178,7 +183,8 @@ make_edge() {
         {name: ($n + ".sha256"), browser_download_url: ("https://fake/" + $n + ".sha256")}]}' >"$F/release.json"
 }
 
-# Стенд: стоит версия A, сервер и бот пишут в базу. $1 — имя сценария, $2 — поломка B.
+# Стенд: стоит версия A, сервер и бот пишут в базу. $1 — имя сценария, $2 — поломка B
+# (BROKEN_MIGRATE, BROKEN_READY, BROKEN_START или пусто).
 setup() {
     local name="$1" broken="$2"
     P="$WORK/$name"
@@ -295,6 +301,16 @@ check "все записи старого сервера на месте" 'all_k
 check "все записи старого бота на месте" 'all_kept ${A:0:12}-bot'
 sleep 0.5
 check "сервер снова работает" '[[ -f $P/run/ready ]]'
+
+echo "4. Служба новой версии не запускается → автоматический откат"
+setup start_fail BROKEN_START
+if update; then bad "update.sh должен завершиться ошибкой"; else ok "update.sh сообщил об ошибке"; fi
+check "стоит A" '[[ $(current) == ${A:0:12} ]]'
+check "все записи старого сервера на месте" 'all_kept ${A:0:12}-serve'
+check "все записи старого бота на месте" 'all_kept ${A:0:12}-bot'
+sleep 0.5
+check "сервер снова работает" '[[ -f $P/run/ready ]]'
+check "бот снова работает" '[[ -f $P/run/qubite-bot.service.pid ]]'
 
 if [[ $FAILS -gt 0 ]]; then
     echo "Провалено проверок: $FAILS. Логи:"

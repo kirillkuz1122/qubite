@@ -106,9 +106,10 @@ stop_writers() {
     systemctl stop qubite-bot.service qubite-serve.service
 }
 
+# Признак «остановлены» снимается, только когда сервер правда запустился.
 start_serve() {
+    systemctl restart qubite-serve.service || return 1
     WRITERS_STOPPED=0
-    systemctl restart qubite-serve.service
 }
 
 start_bot() {
@@ -116,8 +117,10 @@ start_bot() {
 }
 
 restart_services() {
-    start_serve
+    local status=0
+    start_serve || { log "сервер не запустился"; status=1; }
     start_bot
+    return "$status"
 }
 
 # Скрипт упал, пока сервер и бот остановлены, — запустить то, что стоит, а не оставить сайт лежать.
@@ -175,7 +178,7 @@ rollback() {
     else
         switch_to "$prev"
     fi
-    restart_services
+    restart_services || true
     echo "$bad" >"$STATE/failed"
     local good
     good="$(current_commit)"
@@ -274,7 +277,7 @@ deploy() {
         dump="$BACKUPS/$(date +%Y%m%d-%H%M%S)-$(basename "$prev").dump"
         if ! dump_db "$dump"; then
             rm -f "$dump"
-            restart_services
+            restart_services || true
             die "бэкап базы не получился — не обновляю, старая версия запущена"
         fi
     fi
@@ -287,10 +290,9 @@ deploy() {
         die "миграции упали"
     fi
     # Бот — только когда сервер готов: до этого новая версия ничего не пишет.
-    start_serve
-    if ! wait_ready; then
-        [[ -n $prev ]] && rollback "сервер не ответил /api/ready" 1
-        die "сервер не ответил /api/ready"
+    if ! start_serve || ! wait_ready; then
+        [[ -n $prev ]] && rollback "сервер не запустился или не ответил /api/ready" 1
+        die "сервер не запустился или не ответил /api/ready"
     fi
     start_bot
 
