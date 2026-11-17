@@ -28,6 +28,9 @@ import * as Y from 'yjs';
 import { downloadMarkdown, readMarkdownFile } from '../docs/markdown-file';
 import { extractDocLinks, markdownToYUpdate, renderDocText } from '../docs/render';
 import { DocEditor } from '../docs/Editor';
+import { MindMap } from '../docs/mindmap/MindMap';
+import { isMindmap, mindmapUpdate } from '../docs/mindmap/model';
+import { collocationsTemplate, COLLOCATIONS_TITLE } from '../docs/mindmap/text';
 import { History } from '../docs/History';
 import { Trash } from '../docs/Trash';
 import { DocumentBacklinks } from '../docs/Backlinks';
@@ -65,6 +68,16 @@ function readPreviews(key: string): Previews {
     ) as Previews;
   } catch {
     return {};
+  }
+}
+
+/** Какие документы — mind map (D-1003): значок в списке и холст на всю ширину без ожидания. */
+function readMaps(key: string): ReadonlySet<string> {
+  try {
+    const value: unknown = JSON.parse(localStorage.getItem(key) ?? '[]');
+    return new Set(Array.isArray(value) ? value.filter((id) => typeof id === 'string') : []);
+  } catch {
+    return new Set();
   }
 }
 
@@ -128,6 +141,24 @@ export function DocsScreen() {
   const [loaded, setLoaded] = useState(false);
   const previewKey = `qubite.docs.previews.${rememberedAccount() ?? 'unknown'}`;
   const [previews, setPreviews] = useState<Previews>(() => readPreviews(previewKey));
+  const mapsKey = `qubite.docs.maps.${rememberedAccount() ?? 'unknown'}`;
+  const [maps, setMaps] = useState<ReadonlySet<string>>(() => readMaps(mapsKey));
+  const onKind = useCallback(
+    (docId: string, map: boolean) =>
+      setMaps((current) => {
+        if (current.has(docId) === map) return current;
+        const next = new Set(current);
+        if (map) next.add(docId);
+        else next.delete(docId);
+        try {
+          localStorage.setItem(mapsKey, JSON.stringify([...next]));
+        } catch {
+          /* Вид всё равно хранится в самом документе. */
+        }
+        return next;
+      }),
+    [mapsKey],
+  );
   const slide = useSlide(88);
   const list = useRef<HTMLDivElement>(null);
 
@@ -330,6 +361,41 @@ export function DocsScreen() {
     }
   }
 
+  /** Новая карта создаётся без сети, как импорт .md: объект, затем её Yjs (D-1003). */
+  async function createMindmap(template: boolean) {
+    setCreating(true);
+    setError(null);
+    try {
+      const client = await sync.ready();
+      const store = sync.docs;
+      if (!store) throw new Error('store');
+      const sample = collocationsTemplate();
+      const update = template ? mindmapUpdate(sample.root, sample.branches) : mindmapUpdate('');
+      const doc = await createDoc(client, template ? COLLOCATIONS_TITLE : 'Новая mind map');
+      const handle = await store.open(doc.id);
+      let text = '';
+      try {
+        Y.applyUpdate(handle.doc, update);
+        await handle.markSeeded();
+        text = handle.text();
+      } finally {
+        await handle.close();
+      }
+      onKind(doc.id, true);
+      onText(doc.id, text);
+      setObjects(await client.all());
+      void client
+        .sync()
+        .then(() => store.syncAll())
+        .catch(() => {});
+      await navigate({ to: '/docs/$id', params: { id: doc.id } });
+    } catch {
+      setError('Не удалось создать mind map на устройстве. Попробуйте ещё раз.');
+    } finally {
+      setCreating(false);
+    }
+  }
+
   async function importFiles(files: File[]) {
     if (!files.length || importingNow.current) return;
     setImportErrors([]);
@@ -402,7 +468,9 @@ export function DocsScreen() {
   const pickFiles = () => fileInput.current?.click();
 
   return (
-    <div className={`docs-workspace${id ? ' docs-open' : ''}`}>
+    <div
+      className={`docs-workspace${id ? ' docs-open' : ''}${id && maps.has(id) ? ' docs-mindmap' : ''}`}
+    >
       <aside ref={index} className="docs-index" aria-label="Список документов">
         <Segmented<'docs' | 'trash'>
           label="Раздел документов"
@@ -480,6 +548,18 @@ export function DocsScreen() {
                   label="Ещё"
                   items={[
                     {
+                      label: 'Mind map',
+                      icon: 'mindmap',
+                      onPick: () => void createMindmap(false),
+                      disabled: creating || importing || !sync.client,
+                    },
+                    {
+                      label: 'Mind map: collocations',
+                      icon: 'mindmap',
+                      onPick: () => void createMindmap(true),
+                      disabled: creating || importing || !sync.client,
+                    },
+                    {
                       label: 'Импорт .md',
                       icon: 'upload',
                       onPick: pickFiles,
@@ -502,7 +582,14 @@ export function DocsScreen() {
                     aria-current={id === doc.id ? 'page' : undefined}
                     onClick={() => void navigate({ to: '/docs/$id', params: { id: doc.id } })}
                   >
-                    <span className="docs-row-title">{doc.title}</span>
+                    <span className="docs-row-title">
+                      {maps.has(doc.id) && (
+                        <span className="docs-row-kind" title="Mind map">
+                          <DotIcon name="mindmap" size={16} />
+                        </span>
+                      )}
+                      {doc.title}
+                    </span>
                     <span className="docs-row-preview">{doc.preview || 'Пустой документ'}</span>
                     <time dateTime={new Date(doc.updated).toISOString()}>
                       {new Date(doc.updated).toLocaleDateString('ru', {
@@ -561,6 +648,7 @@ export function DocsScreen() {
             id={id}
             item={all.find((doc) => doc.id === id) ?? null}
             onText={onText}
+            onKind={onKind}
             onDelete={remove}
           />
         ) : (
@@ -582,11 +670,13 @@ function Document({
   id,
   item,
   onText,
+  onKind,
   onDelete,
 }: {
   id: string;
   item: DocListItem | null;
   onText: (id: string, text: string) => void;
+  onKind: (id: string, map: boolean) => void;
   onDelete: (id: string) => Promise<void>;
 }) {
   const sync = useSync();
@@ -616,6 +706,18 @@ function Document({
     (missing && !item ? 'Документ недоступен. Проверьте сеть или вернитесь к списку.' : null);
   const hasTitle = !!title;
   const titleValue = useRef('');
+  // Вид документа живёт в его Yjs (D-1001): может прийти с другого устройства после открытия.
+  const [map, setMap] = useState(false);
+  useEffect(() => {
+    if (!handle) return;
+    const check = () => setMap(isMindmap(handle.doc));
+    check();
+    handle.doc.on('update', check);
+    return () => handle.doc.off('update', check);
+  }, [handle]);
+  useEffect(() => {
+    if (handle) onKind(id, map);
+  }, [handle, id, map, onKind]);
 
   useEffect(() => {
     const box = editorBox.current;
@@ -845,7 +947,9 @@ function Document({
             }}
           />
         )}
-        {handle ? (
+        {handle && map ? (
+          <MindMap key={handle.doc.guid} handle={handle} title={title ?? ''} />
+        ) : handle ? (
           <>
             <div
               ref={editorBox}
