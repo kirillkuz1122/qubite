@@ -3,28 +3,53 @@ import { mockAuth, OWNER } from './auth-mock';
 import { mockSync } from './sync-mock';
 
 /* DS-013: внутренние прокрутки — одна тонкая полоса из токенов, без системных стрелок (D-912). */
-test('шкала Календаря прокручивается тонкой полосой, у страницы полосы нет', async ({ page }) => {
+test('шкала Календаря прокручивается тонкой полосой, у страницы полосы нет', async ({
+  page,
+  browserName,
+}) => {
   await mockAuth(page, { me: OWNER });
   await mockSync(page);
   await page.goto('/calendar');
   const scroll = page.locator('.calendar-scroll').first();
   await expect(scroll).toBeVisible();
   const look = await scroll.evaluate((el) => {
+    // правила сайта с шириной полосы, которые подходят элементу (по порядку в каскаде)
+    const authored = (target: Element) => {
+      const out: string[] = [];
+      for (const sheet of document.styleSheets) {
+        let rules: CSSRuleList;
+        try {
+          rules = sheet.cssRules;
+        } catch {
+          continue;
+        }
+        for (const rule of rules)
+          if (rule instanceof CSSStyleRule && rule.style.scrollbarWidth)
+            if (target.matches(rule.selectorText)) out.push(rule.style.scrollbarWidth);
+      }
+      return out;
+    };
     const css = getComputedStyle(el);
-    const line = getComputedStyle(document.documentElement).getPropertyValue('--q-line-2').trim();
     return {
       width: css.scrollbarWidth,
       color: css.scrollbarColor,
-      line,
+      authored: authored(el),
+      rootAuthored: authored(document.documentElement),
+      rootWidth: getComputedStyle(document.documentElement).scrollbarWidth,
       scrolls: el.scrollHeight > el.clientHeight,
     };
   });
   expect(look.scrolls).toBe(true);
-  expect(look.width).toBe('thin');
+  // шкале достаётся только «тонкая» полоса, у страницы — «без полосы»
+  expect(look.authored).toEqual(['thin']);
+  expect(look.rootAuthored.at(-1)).toBe('none');
   expect(look.color).not.toBe('auto');
-  expect(await page.evaluate(() => getComputedStyle(document.documentElement).scrollbarWidth)).toBe(
-    'none',
-  );
+  // Firefox у Playwright сам прячет все полосы (даже style="scrollbar-width: thin" читается как
+  // none), поэтому вычисленную ширину сверяем в Chromium; правила выше проверены в обоих.
+  if (browserName === 'chromium') {
+    expect(look.width).toBe('thin');
+    expect(look.rootWidth).toBe('none');
+  }
 });
 
 /* DS-013: своя 404 по макету «Экраны → 404» (D-911). */
