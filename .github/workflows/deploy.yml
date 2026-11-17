@@ -1,0 +1,51 @@
+# Скрипты деплоя на Pi (OPS-009, D-970): shellcheck и проверка, что обновление и откат
+# не теряют записей. Настоящий Pi не трогается — PostgreSQL в контейнере, systemctl,
+# runuser и curl — заглушки (deploy/pi/test-update.sh).
+name: deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'deploy/pi/**'
+      - '.github/workflows/deploy.yml'
+  pull_request:
+    paths:
+      - 'deploy/pi/**'
+      - '.github/workflows/deploy.yml'
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+# Токену CI — только чтение кода (SEC-001).
+permissions:
+  contents: read
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Тот же образ, что у базы: pg_dump той же версии, что сервер.
+    container: pgvector/pgvector:0.8.7-pg18-trixie
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.7-pg18-trixie
+        env:
+          POSTGRES_USER: qubite
+          POSTGRES_PASSWORD: qubite
+        options: >-
+          --health-cmd "pg_isready -U qubite"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 30
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: jq и shellcheck
+        run: apt-get update -qq && apt-get install -y -qq --no-install-recommends jq shellcheck >/dev/null
+      - name: shellcheck
+        run: shellcheck deploy/pi/update.sh deploy/pi/test-update.sh deploy/pi/install.sh
+      - name: Обновление и откат не теряют записей
+        env:
+          UPDATE_TEST_DATABASE_URL: postgres://qubite:qubite@postgres:5432/postgres
+        run: bash deploy/pi/test-update.sh
