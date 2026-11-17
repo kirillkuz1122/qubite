@@ -197,6 +197,16 @@ describe('mind map: модель в Yjs', () => {
     expect(readTree(doc).children).toHaveLength(0);
   });
 
+  it('замена эмодзи не режет суррогатную пару', () => {
+    const doc = fresh();
+    const id = addChild(doc, ROOT, 'a 😀 b');
+    setText(doc, id, 'a 😁 b');
+    expect(findNode(readTree(doc), id)?.text).toBe('a 😁 b');
+    setText(doc, id, '😁😀');
+    setText(doc, id, '😀😀');
+    expect(findNode(readTree(doc), id)?.text).toBe('😀😀');
+  });
+
   it('подпись — одна строка до 300 знаков', () => {
     const doc = fresh();
     const id = addChild(doc, ROOT, 'a\nb');
@@ -285,6 +295,23 @@ describe('mind map: пустые узлы и ссылки', () => {
     Y.applyUpdate(copy, mindmapUpdate(root, branches));
     expect(mindmapMarkdown(copy)).toBe(md);
     expect(parseOutline('- a\n  -\n    - b').items[0]!.children[0]!.text).toBe('');
+  });
+
+  it('подписи «[x] done», «[ ]» и похожая на ссылку переживают экспорт и импорт', () => {
+    const doc = fresh('центр');
+    const labels = [
+      '[x] done',
+      '[X]',
+      '[ ] todo',
+      '[@Урок](qubite://0199a1b2-c3d4-7e5f-8a9b-0123456789ab)',
+    ];
+    for (const text of labels) addChild(doc, ROOT, text);
+    const { root, branches } = outlineRoot(mindmapMarkdown(doc), 'x');
+    const copy = new Y.Doc();
+    Y.applyUpdate(copy, mindmapUpdate(root, branches));
+    expect(readTree(copy).children.map((n) => [n.text, !!n.link])).toEqual(
+      labels.map((text) => [text, false]),
+    );
   });
 
   it('сравнение версий видит замену цели у ссылки с той же подписью', () => {
