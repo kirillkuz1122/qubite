@@ -37,6 +37,7 @@ import os
 import socket
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.request
@@ -159,9 +160,15 @@ def extract_limits(data: Any, now: dt.datetime | None = None) -> dict[str, Any] 
 def save_limits(limits: dict[str, Any], path: Path | None = None) -> None:
     path = path or LIMITS_CACHE
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(limits), encoding="utf-8")
-    tmp.replace(path)
+    # у каждого вызова свой временный файл: строки состояния двух сессий не мешают друг другу
+    fd, tmp = tempfile.mkstemp(prefix=".pult-limits-", suffix=".tmp", dir=path.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(json.dumps(limits))
+        os.replace(tmp, path)
+    except BaseException:
+        Path(tmp).unlink(missing_ok=True)
+        raise
 
 
 def read_limits(path: Path | None = None) -> dict[str, Any] | None:
@@ -260,6 +267,7 @@ class Session:
         self.main_last: tuple[dt.datetime, str, str] | None = None  # время, тип, stop_reason
         self.context = 0
         self.context_at: dt.datetime | None = None
+        self.meta_at: dt.datetime | None = None
         self.ttl = 300
         self.usage: dict[str, dict[str, Any]] = {}
 
@@ -323,11 +331,13 @@ def collect(
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[str]]:
     """Сессии за 7 дней, расход по дням (по часам машины) и папки проектов."""
     since = now - dt.timedelta(days=DAYS)
+    # расход по дням берёт и день до начала недели — файлы читаем с того же края
+    days_from = since - dt.timedelta(days=1)
     tz = tz or dt.datetime.now().astimezone().tzinfo
     sessions: dict[str, Session] = {}
     days: dict[str, dict[str, dict[str, Any]]] = defaultdict(dict)
     seen_messages: set[str] = set()
-    for path in journal_files(root, since):
+    for path in journal_files(root, days_from):
         for r in read_records(path):
             sid = r.get("sessionId")
             if not isinstance(sid, str) or not sid:
@@ -347,15 +357,19 @@ def collect(
                 s.started = t
             if s.last is None or t > s.last:
                 s.last = t
-            if isinstance(r.get("cwd"), str) and r["cwd"]:
-                s.cwd = r["cwd"]
-                s.project = Path(r["cwd"]).name
-            if isinstance(r.get("gitBranch"), str) and r["gitBranch"]:
-                s.branch = r["gitBranch"]
-            if isinstance(r.get("effort"), str) and r["effort"]:
-                s.effort = r["effort"]
             message = r.get("message") if isinstance(r.get("message"), dict) else {}
             sidechain = bool(r.get("isSidechain"))
+            # папка, ветка и усилие — только по своим записям основной сессии, самым свежим;
+            # помощник может работать в другой папке (worktree)
+            if not sidechain and (s.meta_at is None or t >= s.meta_at):
+                s.meta_at = t
+                if isinstance(r.get("cwd"), str) and r["cwd"]:
+                    s.cwd = r["cwd"]
+                    s.project = Path(r["cwd"]).name
+                if isinstance(r.get("gitBranch"), str) and r["gitBranch"]:
+                    s.branch = r["gitBranch"]
+                if isinstance(r.get("effort"), str) and r["effort"]:
+                    s.effort = r["effort"]
             if kind == "user" and not s.title and not sidechain and not r.get("isMeta"):
                 s.title = _user_text(message)
             if not sidechain and (s.main_last is None or t >= s.main_last[0]):
@@ -391,7 +405,7 @@ def collect(
                         s.ttl = 300
             row = s.usage.setdefault(model, _usage_row(model))
             _add_usage(row, usage)
-            if t >= since - dt.timedelta(days=1):
+            if t >= days_from:
                 date = t.astimezone(tz).date().isoformat()
                 day_row = days[date].setdefault(model, _usage_row(model))
                 _add_usage(day_row, usage)
@@ -496,7 +510,10 @@ def run_statusline(env: dict[str, str], raw: str) -> str:
         data = {}
     limits = extract_limits(data)
     if limits:
-        save_limits(limits)
+        try:
+            save_limits(limits)
+        except OSError:
+            pass  # кэш не записался — строка состояния всё равно печатается
     chained = env.get("QUBITE_PULT_STATUSLINE_NEXT", "").strip()
     if chained:
         try:

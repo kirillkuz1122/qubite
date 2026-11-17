@@ -135,6 +135,39 @@ class CollectTest(unittest.TestCase):
         self.assertEqual(sessions, [])
         self.assertEqual(days, [])
 
+    def test_sidechain_does_not_move_project_and_old_day_is_read(self):
+        main = assistant("s3", 5, "a", {"output_tokens": 1}, stop="end_turn")
+        helper = assistant(
+            "s3",
+            2,
+            "b",
+            {"output_tokens": 2},
+            cwd="/tmp/worktree",
+            gitBranch="helper",
+            isSidechain=True,
+        )
+        self.write("s3.jsonl", [main])
+        self.write("s3-helper.jsonl", [helper])
+        sessions, _, _ = pc.collect(self.home / ".claude" / "projects", NOW, UTC)
+        self.assertEqual(sessions[0]["project"], "qubite")
+        self.assertEqual(sessions[0]["branch"], "task/AOS-5")
+        # файл с записью 7,5 дня назад (до начала недели, но в первом дне расхода)
+        old = self.write("old.jsonl", [assistant("s4", 7.5 * 24 * 60, "c", {"output_tokens": 7})])
+        stamp = (NOW - dt.timedelta(days=7, hours=12)).timestamp()
+        import os
+
+        os.utime(old, (stamp, stamp))
+        _, days, _ = pc.collect(self.home / ".claude" / "projects", NOW, UTC)
+        self.assertIn("2026-11-10", [d["date"] for d in days])
+
+    def test_limits_file_written_atomically_twice(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "limits.json"
+            pc.save_limits({"at": "x", "five_hour": {"used": 1.0}}, path)
+            pc.save_limits({"at": "y", "five_hour": {"used": 2.0}}, path)
+            self.assertEqual(pc.read_limits(path)["at"], "y")
+            self.assertEqual(sorted(p.name for p in Path(tmp).iterdir()), ["limits.json"])
+
     def test_report_and_skills(self):
         skill = self.home / ".claude" / "skills" / "note"
         skill.mkdir(parents=True)
