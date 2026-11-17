@@ -413,7 +413,8 @@ for (const width of [1440, 360]) {
     expect(server.targetQueries).toContain('');
     if (width === 360) {
       const box = await menu.boundingBox();
-      expect(box!.width).toBeLessThanOrEqual(325);
+      // поля экрана телефона — 16 px с каждой стороны (шкала отступов, DS-013); +1 — пружина появления
+      expect(box!.width).toBeLessThanOrEqual(360 - 2 * 16 + 1);
       expect(box!.y + box!.height).toBeLessThanOrEqual(780 - 88);
       const row = await menu.getByRole('option', { name: /Графы/ }).boundingBox();
       expect(row!.height).toBeGreaterThanOrEqual(44);

@@ -82,7 +82,7 @@ export {
   type ParsedCommand,
   type CommandKind,
 } from './command';
-export { DotIcon, ICON_NAMES, type IconName } from './icons';
+export { DotIcon, ICON_NAMES, iconDots, type IconName } from './icons';
 export { DotText, type DotTextProps } from './DotText';
 export { Companion, type CompanionHandle, type CompanionProps } from './Companion';
 export { Gang, type GangHandle, type GangProps } from './Gang';
@@ -92,6 +92,7 @@ export { Note, type NoteProps } from './Note';
 export { ListRow, type ListRowProps } from './ListRow';
 export { EmptyState, type EmptyStateProps } from './EmptyState';
 export { IconButton, type IconButtonProps } from './IconButton';
+export { Menu, type MenuItem, type MenuProps } from './Menu';
 export { ToastHost, useToast, type ToastApi, type ToastOptions } from './Toast';
 export { MicButton, type MicButtonProps } from './MicButton';
 export { VoicePlayer, clock, type VoicePlayerProps } from './VoicePlayer';

@@ -11,6 +11,9 @@ import {
 import {
   Button,
   DotIcon,
+  EmptyState,
+  IconButton,
+  Menu,
   Field,
   Note,
   Presence,
@@ -395,15 +398,8 @@ export function DocsScreen() {
     }
   }
 
-  const importButton = (
-    <Button
-      size="sm"
-      disabled={importing || creating || !sync.client || !sync.docs}
-      onClick={() => fileInput.current?.click()}
-    >
-      Импорт .md
-    </Button>
-  );
+  const cantImport = importing || creating || !sync.client || !sync.docs;
+  const pickFiles = () => fileInput.current?.click();
 
   return (
     <div className={`docs-workspace${id ? ' docs-open' : ''}`}>
@@ -472,14 +468,25 @@ export function DocsScreen() {
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                 />
-                <Button
-                  size="sm"
+                {/* Одна главная «+»; редкое (импорт) — в меню «Ещё» (DS-013, D-910). */}
+                <IconButton
+                  icon="plus"
+                  label="Новый документ"
+                  variant="fill"
                   onClick={() => void create()}
                   disabled={creating || importing || !sync.client}
-                >
-                  Новый документ
-                </Button>
-                {importButton}
+                />
+                <Menu
+                  label="Ещё"
+                  items={[
+                    {
+                      label: 'Импорт .md',
+                      icon: 'upload',
+                      onPick: pickFiles,
+                      disabled: cantImport,
+                    },
+                  ]}
+                />
               </div>
               {searchError && (
                 <Note>Поиск на сервере недоступен. Показаны документы с этого устройства.</Note>
@@ -507,8 +514,12 @@ export function DocsScreen() {
                 ))}
               </div>
               {loaded && !all.length && !q && (
-                <div className="docs-empty">
-                  <p>Здесь будут ваши заметки и документы.</p>
+                <EmptyState
+                  className="docs-empty"
+                  kind="neit"
+                  title="Здесь будут ваши заметки и документы."
+                  hint="Нейт помнит всё, что сюда попадёт, — и без сети тоже."
+                >
                   <Button
                     variant="fill"
                     disabled={creating || importing}
@@ -516,8 +527,10 @@ export function DocsScreen() {
                   >
                     Создать первый документ
                   </Button>
-                  {importButton}
-                </div>
+                  <Button variant="quiet" disabled={cantImport} onClick={pickFiles}>
+                    Импорт .md
+                  </Button>
+                </EmptyState>
               )}
               {loaded && !rows.length && q && <p className="later">Ничего не найдено.</p>}
               {!loaded && <p className="later">Открываю документы…</p>}
@@ -732,41 +745,53 @@ function Document({
       }}
     >
       <div className="docs-page-head">
-        <Button size="sm" dot={false} onClick={() => void navigate({ to: '/docs' })}>
+        {/* У документа три кнопки-значка: история, скачать, «Ещё» с удалением (DS-013, D-910). */}
+        <Button
+          size="sm"
+          variant="quiet"
+          className="docs-back"
+          onClick={() => void navigate({ to: '/docs' })}
+        >
           <DotIcon name="back" /> К документам
         </Button>
-        <Button
-          size="sm"
-          dot={false}
-          disabled={!handle}
-          onClick={() => {
-            if (handle) downloadMarkdown(titleValue.current || title || 'Документ', handle.text());
-          }}
-        >
-          <DotIcon name="docs" /> Скачать .md
-        </Button>
-        <Button
-          size="sm"
-          dot={false}
-          aria-expanded={historyOpen}
-          onClick={() => {
-            setRestored(false);
-            setHistoryOpen(true);
-          }}
-        >
-          <DotIcon name="history" /> История
-        </Button>
-        <Button
-          size="sm"
-          dot={false}
-          disabled={!title || deleting}
-          onClick={() => {
-            setDeleteError(null);
-            setConfirmDelete(true);
-          }}
-        >
-          <DotIcon name="trash" /> Удалить
-        </Button>
+        <span className="docs-break" aria-hidden="true" />
+        <span className="docs-page-tools">
+          <IconButton
+            icon="history"
+            label="История"
+            variant="frame"
+            aria-expanded={historyOpen}
+            onClick={() => {
+              setRestored(false);
+              setHistoryOpen(true);
+            }}
+          />
+          <IconButton
+            icon="download"
+            label="Скачать .md"
+            variant="frame"
+            disabled={!handle}
+            onClick={() => {
+              if (handle)
+                downloadMarkdown(titleValue.current || title || 'Документ', handle.text());
+            }}
+          />
+          <Menu
+            label="Ещё"
+            items={[
+              {
+                label: 'Удалить',
+                icon: 'trash',
+                tone: 'bad',
+                disabled: !title || deleting,
+                onPick: () => {
+                  setDeleteError(null);
+                  setConfirmDelete(true);
+                },
+              },
+            ]}
+          />
+        </span>
         <span role="status" className="docs-save">
           {STATUS[displayed]}
         </span>

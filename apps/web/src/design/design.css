@@ -6,7 +6,7 @@
 }
 .ds-head {
   display: grid;
-  gap: 18px;
+  gap: 16px;
   justify-items: start;
   padding-bottom: 12px;
 }
@@ -19,7 +19,7 @@
 .ds-sec {
   padding: 34px 0 30px;
   border-top: 1px solid var(--q-line);
-  margin-top: 26px;
+  margin-top: 24px;
 }
 .ds-note {
   margin: 8px 0 22px;
@@ -155,7 +155,7 @@
 .ds-morph {
   display: flex;
   flex-wrap: wrap;
-  gap: 18px;
+  gap: 16px;
   align-items: center;
   margin-top: 30px;
   min-height: 60px;
@@ -168,7 +168,7 @@
 .ds-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px 18px;
+  gap: 12px 16px;
   align-items: center;
 }
 .ds-switch {
@@ -185,7 +185,7 @@
 }
 .ds-tasks li {
   display: flex;
-  gap: 14px;
+  gap: 12px;
   align-items: center;
   min-height: 56px;
   border-bottom: 1px solid var(--q-line);
@@ -208,7 +208,7 @@
 .ds-icons {
   display: flex;
   flex-wrap: wrap;
-  gap: 18px;
+  gap: 16px;
   color: var(--q-ink);
 }
 .ds-icons span {
@@ -229,7 +229,7 @@
 .ds-crew-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 18px 28px;
+  gap: 16px 28px;
   align-items: flex-end;
 }
 .ds-crew figure {
@@ -255,7 +255,7 @@
   display: grid;
   gap: 10px;
   max-width: 640px;
-  margin-top: 26px;
+  margin-top: 24px;
   font-size: 13px;
 }
 .ds-throw small {
@@ -299,9 +299,9 @@
 .ds-char {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 14px;
+  gap: 12px;
   align-content: start;
-  padding: 18px;
+  padding: 16px;
   border: 1px solid var(--q-line);
   border-radius: calc(var(--q-round) * 24px);
   background: var(--q-panel);
@@ -330,9 +330,9 @@
 }
 .ds-feel {
   display: grid;
-  gap: 18px;
+  gap: 16px;
   max-width: 640px;
-  margin-top: 26px;
+  margin-top: 24px;
   font-size: 14px;
 }
 .ds-feel-row {
@@ -347,12 +347,12 @@
   }
   /* телефон 360 px: ряд «Раздел» помещается в карточку целиком */
   .ds-char {
-    padding: 14px 10px;
+    padding: 16px 10px;
   }
 }
 .ds-lab {
   display: inline-block;
-  padding: 12px 18px;
+  padding: 12px 16px;
   border: 1px solid var(--q-line);
   border-radius: 14px;
   color: var(--q-ink);

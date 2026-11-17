@@ -8,7 +8,7 @@
 }
 .lab-head {
   display: grid;
-  gap: 14px;
+  gap: 12px;
   justify-items: start;
   padding-bottom: 20px;
 }
@@ -44,7 +44,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 12px 18px;
+  gap: 12px 16px;
 }
 .lab-state {
   font-size: 13px;
@@ -59,7 +59,7 @@
 .lab-copies {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 18px;
+  gap: 16px;
 }
 .lab-copy {
   min-width: 0;
@@ -103,7 +103,7 @@
   position: relative;
 }
 .lab-box {
-  padding: 6px 16px 18px;
+  padding: 6px 16px 16px;
 }
 .lab-doc {
   min-height: 260px;

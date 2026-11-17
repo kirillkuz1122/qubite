@@ -3,10 +3,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Button } from './Button';
 import { EmptyState } from './EmptyState';
 import { IconButton } from './IconButton';
+import { ICON_NAMES, iconDots } from './icons';
 import { LookProvider } from './look';
+import { Menu } from './Menu';
 import { ToastHost, useToast } from './Toast';
 
 /* Дизайн-система v2 (DS-013): три вида кнопки, кнопка-значок, пустой раздел, подтверждение. */
+
+afterEach(cleanup);
 
 describe('кнопки v2', () => {
   it('у главной и обычной точка есть, у тихой — никогда', () => {
@@ -101,5 +105,81 @@ describe('подтверждение (Toast)', () => {
     expect(shown()).toBe(true);
     act(() => void vi.advanceTimersByTime(200));
     expect(shown()).toBe(false);
+  });
+});
+
+describe('значки v2', () => {
+  it('63 значка, как в Figma; новые — закрыть, стрелки, человек, замок, модули', () => {
+    expect(ICON_NAMES).toHaveLength(63);
+    for (const name of ['close', 'forward', 'down', 'user', 'lock', 'undo', 'apps'] as const)
+      expect(ICON_NAMES).toContain(name);
+  });
+
+  it('каждый значок — 3–13 точек внутри сетки 20×20, радиус 0,9–2,7', () => {
+    for (const name of ICON_NAMES) {
+      const dots = iconDots(name);
+      expect(dots.length, name).toBeGreaterThanOrEqual(3);
+      expect(dots.length, name).toBeLessThanOrEqual(13);
+      for (const [x, y, r] of dots) {
+        expect(x - r, name).toBeGreaterThanOrEqual(0);
+        expect(x + r, name).toBeLessThanOrEqual(20);
+        expect(y - r, name).toBeGreaterThanOrEqual(0);
+        expect(y + r, name).toBeLessThanOrEqual(20);
+        expect(r, name).toBeGreaterThanOrEqual(0.9);
+        expect(r, name).toBeLessThanOrEqual(2.7);
+      }
+    }
+  });
+});
+
+describe('Menu', () => {
+  it('открывается под кнопкой, выбор закрывает и возвращает фокус на кнопку', () => {
+    const pick = vi.fn();
+    render(
+      <Menu
+        label="Ещё"
+        items={[
+          { label: 'Импорт .md', onPick: pick },
+          { label: 'Удалить', onPick: vi.fn(), tone: 'bad', disabled: true },
+        ]}
+      />,
+    );
+    const button = screen.getByRole('button', { name: 'Ещё' });
+    expect(button.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByRole('menu')).toBeNull();
+
+    fireEvent.click(button);
+    expect(button.getAttribute('aria-expanded')).toBe('true');
+    const item = screen.getByRole('menuitem', { name: 'Импорт .md' });
+    expect(document.activeElement).toBe(item);
+    expect(screen.getByRole('menuitem', { name: 'Удалить' })).toHaveProperty('disabled', true);
+
+    fireEvent.click(item);
+    expect(pick).toHaveBeenCalledOnce();
+    expect(button.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(button);
+  });
+
+  it('Escape закрывает, стрелки ходят по доступным пунктам по кругу', () => {
+    render(
+      <Menu
+        label="Ещё"
+        items={[
+          { label: 'Первый', onPick: vi.fn() },
+          { label: 'Второй', onPick: vi.fn() },
+        ]}
+      />,
+    );
+    const button = screen.getByRole('button', { name: 'Ещё' });
+    fireEvent.click(button);
+    const first = screen.getByRole('menuitem', { name: 'Первый' });
+    const second = screen.getByRole('menuitem', { name: 'Второй' });
+    fireEvent.keyDown(first, { key: 'ArrowDown' });
+    expect(document.activeElement).toBe(second);
+    fireEvent.keyDown(second, { key: 'ArrowDown' });
+    expect(document.activeElement).toBe(first);
+    fireEvent.keyDown(first, { key: 'Escape' });
+    expect(button.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(button);
   });
 });

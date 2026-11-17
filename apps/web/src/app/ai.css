@@ -228,7 +228,7 @@
 .ai-form {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 14px;
+  gap: 12px;
 }
 .ai-form .ai-sel {
   display: grid;
@@ -270,13 +270,13 @@
 .ai-page {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 14px;
+  gap: 12px;
 }
 .ai-pad {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 12px;
-  padding: 16px 14px;
+  padding: 16px 16px;
 }
 @media (min-width: 700px) {
   .ai-pad {
