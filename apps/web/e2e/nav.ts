@@ -13,5 +13,7 @@ export async function goSection(page: Page, name: string) {
     return;
   }
   await nav.getByRole('button', { name: 'Ещё', exact: true }).click();
-  await page.getByRole('dialog', { name: 'Ещё' }).getByRole('button', { name }).click();
+  const sheet = page.getByRole('dialog', { name: 'Ещё' });
+  await sheet.getByRole('button', { name }).click();
+  await sheet.waitFor({ state: 'hidden' });
 }
