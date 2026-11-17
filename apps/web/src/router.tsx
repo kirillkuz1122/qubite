@@ -99,6 +99,12 @@ const sectionRoutes = [
     path: '/english',
     component: () => null,
   }),
+  // Пульт агентов (HAR-002, AOS-5): экран рисует оболочка, данные — только owner
+  createRoute({
+    getParentRoute: () => appRoute,
+    path: '/pult',
+    component: () => null,
+  }),
   createRoute({
     getParentRoute: () => appRoute,
     path: '/docs/$id',

@@ -3596,6 +3596,199 @@
         }
       }
     },
+    "/api/owner/pult": {
+      "get": {
+        "tags": ["owner"],
+        "summary": "Светофор: лимиты, «работает · ждёт тебя · готово», что ждёт, расход, агенты.",
+        "operationId": "pult_board",
+        "parameters": [
+          {
+            "name": "fresh",
+            "in": "query",
+            "description": "Перечитать GitHub, если снимку больше 20 секунд.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Светофор Пульта",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PultBoard"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/owner/pult/agents/{key}": {
+      "get": {
+        "tags": ["owner"],
+        "summary": "Карточка агента и его история (последние 50 событий).",
+        "operationId": "pult_agent",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "description": "Ключ агента: gh-N или pc-<сессия>",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Карточка агента",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PultAgentCard"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не owner или агента нет",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/owner/pult/collectors": {
+      "get": {
+        "tags": ["owner"],
+        "summary": "Сборщики владельца.",
+        "operationId": "list_collectors",
+        "responses": {
+          "200": {
+            "description": "Сборщики",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PultCollector"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["owner"],
+        "summary": "Подключить сборщик: выпустить токен (хранится только хеш).",
+        "operationId": "create_collector",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewCollector"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Токен выпущен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectorToken"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Пустое имя или сборщиков уже 10",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Не owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/owner/pult/collectors/{id}": {
+      "delete": {
+        "tags": ["owner"],
+        "summary": "Отключить сборщик: токен перестаёт работать, его сводка удаляется.",
+        "operationId": "delete_collector",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Сборщик",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Отключён"
+          },
+          "404": {
+            "description": "Не owner или сборщика нет",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/owner/server": {
       "get": {
         "tags": ["owner"],
@@ -3769,6 +3962,48 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PlatformStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pult/report": {
+      "post": {
+        "tags": ["pult"],
+        "summary": "Принять сводку сборщика (токен `Authorization: Bearer qpult_…`, не сессия).",
+        "operationId": "receive_report",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Report"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Сводка принята"
+          },
+          "400": {
+            "description": "Сводка не подходит",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет токена или он отключён",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
                 }
               }
             }
@@ -10488,6 +10723,10 @@
         },
         "additionalProperties": false
       },
+      "AgentPlace": {
+        "type": "string",
+        "enum": ["cloud", "pc"]
+      },
       "AgentQuestion": {
         "type": "object",
         "description": "Вопрос «Агент хочет знать».",
@@ -10756,6 +10995,10 @@
             "minimum": 0
           }
         }
+      },
+      "AgentStatus": {
+        "type": "string",
+        "enum": ["running", "waiting", "done", "idle"]
       },
       "AgentTimelinePage": {
         "type": "object",
@@ -11679,6 +11922,28 @@
           "url": {
             "type": "string",
             "description": "Страница входа OpenAI — открыть в браузере."
+          }
+        }
+      },
+      "Ci": {
+        "type": "string",
+        "enum": ["running", "green", "red"]
+      },
+      "CollectorToken": {
+        "type": "object",
+        "description": "Новый сборщик: токен показывается один раз.",
+        "required": ["id", "name", "token"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string",
+            "description": "Положить в `~/.config/qubite/pult.env` как `QUBITE_PULT_TOKEN=…`. Больше не покажем."
           }
         }
       },
@@ -14257,6 +14522,16 @@
           }
         }
       },
+      "NewCollector": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Как назвать машину: «ПК», «ноутбук». 1–40 знаков."
+          }
+        }
+      },
       "NewProjectDoc": {
         "type": "object",
         "description": "Новый документ в проекте.",
@@ -15151,6 +15426,449 @@
           }
         }
       },
+      "PultAgent": {
+        "type": "object",
+        "description": "Агент в списке: задача из GitHub и/или сессия с ПК.",
+        "required": ["key", "title", "status", "place", "source", "updated_at"],
+        "properties": {
+          "cache": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PultCache"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "context": {
+            "type": ["number", "null"],
+            "format": "double",
+            "description": "Заполненность контекста, %."
+          },
+          "effort": {
+            "type": ["string", "null"]
+          },
+          "key": {
+            "type": "string",
+            "description": "`gh-245` или `pc-<сессия>`."
+          },
+          "minutes": {
+            "type": ["integer", "null"],
+            "format": "int64",
+            "description": "Сколько минут идёт."
+          },
+          "model": {
+            "type": ["string", "null"],
+            "description": "«Opus 5.5»."
+          },
+          "place": {
+            "$ref": "#/components/schemas/AgentPlace"
+          },
+          "pr": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PultPr"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source": {
+            "type": "string",
+            "description": "Где: «облако», «ПК arch»."
+          },
+          "status": {
+            "$ref": "#/components/schemas/AgentStatus"
+          },
+          "task": {
+            "type": ["string", "null"],
+            "description": "Что делает: начало описания задачи или «проект · ветка»."
+          },
+          "title": {
+            "type": "string"
+          },
+          "tokens": {
+            "type": ["integer", "null"],
+            "format": "int64",
+            "minimum": 0
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "url": {
+            "type": ["string", "null"],
+            "description": "Issue в GitHub."
+          },
+          "usd": {
+            "type": ["number", "null"],
+            "format": "double"
+          }
+        }
+      },
+      "PultAgentCard": {
+        "type": "object",
+        "description": "Карточка агента: он сам и история событий (новые сверху — нет, по времени).",
+        "required": ["agent", "events"],
+        "properties": {
+          "agent": {
+            "$ref": "#/components/schemas/PultAgent"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PultEvent"
+            }
+          }
+        }
+      },
+      "PultBoard": {
+        "type": "object",
+        "description": "Светофор целиком.",
+        "required": ["limits", "counts", "waiting", "agents", "skills", "sources", "now"],
+        "properties": {
+          "agents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PultAgent"
+            }
+          },
+          "counts": {
+            "$ref": "#/components/schemas/PultCounts"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/PultLimits"
+          },
+          "now": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "skills": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PultSource"
+            }
+          },
+          "spend": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PultSpend"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "waiting": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PultWaiting"
+            }
+          }
+        }
+      },
+      "PultCache": {
+        "type": "object",
+        "required": ["warm", "minutes_left"],
+        "properties": {
+          "minutes_left": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Тёплый — через сколько минут остынет."
+          },
+          "warm": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PultCollector": {
+        "type": "object",
+        "description": "Сборщик в списке.",
+        "required": ["id", "name", "created_at"],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "last_seen_at": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "PultCounts": {
+        "type": "object",
+        "required": ["running", "waiting", "done"],
+        "properties": {
+          "done": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "running": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "waiting": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "PultDay": {
+        "type": "object",
+        "required": ["date", "tokens"],
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "`ГГГГ-ММ-ДД`."
+          },
+          "tokens": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "usd": {
+            "type": ["number", "null"],
+            "format": "double"
+          }
+        }
+      },
+      "PultEvent": {
+        "type": "object",
+        "required": ["at", "kind", "text"],
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "kind": {
+            "type": "string",
+            "description": "`start`, `pr`, `ci_red`, `ci_green`, `wait`, `done`, `info`."
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      },
+      "PultLimits": {
+        "type": "object",
+        "description": "Лимиты подписки. Нет данных — оба окна `null`.",
+        "properties": {
+          "at": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "Когда Claude Code сообщил эти числа."
+          },
+          "five_hour": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PultWindow"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "host": {
+            "type": ["string", "null"],
+            "description": "С какой машины."
+          },
+          "seven_day": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PultWindow"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "PultPr": {
+        "type": "object",
+        "required": ["number", "url"],
+        "properties": {
+          "ci": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Ci"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "number": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "url": {
+            "type": "string"
+          }
+        }
+      },
+      "PultSource": {
+        "type": "object",
+        "description": "Источник данных и его состояние — чтобы «нет данных» было честным и понятным.",
+        "required": ["id", "name", "ok", "note"],
+        "properties": {
+          "at": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "description": "`github` или `pc`."
+          },
+          "name": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "ok": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PultSpend": {
+        "type": "object",
+        "description": "Расход за 7 дней с ПК. Главное — % недельного лимита, ≈ $ мелко (D-963).",
+        "required": ["days", "tokens"],
+        "properties": {
+          "cache_saved": {
+            "type": ["number", "null"],
+            "format": "double",
+            "description": "Сколько сэкономил кэш, ≈ $."
+          },
+          "days": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PultDay"
+            }
+          },
+          "tokens": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "top": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PultTop"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "usd": {
+            "type": ["number", "null"],
+            "format": "double"
+          },
+          "week_used": {
+            "type": ["number", "null"],
+            "format": "double",
+            "description": "Израсходовано недельного лимита, % (из лимитов; нет — `null`)."
+          }
+        }
+      },
+      "PultTop": {
+        "type": "object",
+        "required": ["title", "tokens"],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "tokens": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "PultWaiting": {
+        "type": "object",
+        "description": "Решение, которого ждёт агент (вопрос в issue).",
+        "required": ["key", "number", "title", "text", "options", "url", "updated_at"],
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "Ключ агента — открыть карточку."
+          },
+          "number": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Номер issue — ответить кнопкой (`/api/owner/work/questions/{n}/answer`).",
+            "minimum": 0
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Варианты ответа, первый — рекомендация."
+          },
+          "text": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "url": {
+            "type": "string"
+          }
+        }
+      },
+      "PultWindow": {
+        "type": "object",
+        "description": "Окно лимита на Светофоре.",
+        "required": ["left", "low"],
+        "properties": {
+          "left": {
+            "type": "number",
+            "format": "double",
+            "description": "Сколько процентов осталось."
+          },
+          "low": {
+            "type": "boolean",
+            "description": "Осталось меньше 15% (D-953)."
+          },
+          "resets_at": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "runs_out_at": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "При нынешнем темпе кончится раньше сброса — примерно тогда."
+          }
+        }
+      },
       "PushDevice": {
         "type": "object",
         "description": "Браузер, подписанный на push.",
@@ -15314,6 +16032,187 @@
           "mode": {
             "type": "string",
             "description": "`closed`, `invite_only` или `open`."
+          }
+        }
+      },
+      "Report": {
+        "type": "object",
+        "description": "Сводка сборщика с ПК (`scripts/pult-collect.py`). Версия формата — 1.",
+        "required": ["version", "host", "at"],
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Когда собрано (часы сборщика)."
+          },
+          "days": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReportDay"
+            },
+            "description": "Расход по дням (до 8), дата — по часам машины."
+          },
+          "host": {
+            "type": "string",
+            "description": "Имя машины, как его показывать («arch»). До 64 знаков."
+          },
+          "limits": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ReportLimits",
+                "description": "Лимиты подписки из строки состояния Claude Code; нет — `null`."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sessions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReportSession"
+            },
+            "description": "Сессии за последние 7 дней (до 100)."
+          },
+          "skills": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Имена навыков (до 100) — для карты."
+          },
+          "version": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Версия формата, сейчас 1.",
+            "minimum": 0
+          }
+        }
+      },
+      "ReportDay": {
+        "type": "object",
+        "required": ["date"],
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "`ГГГГ-ММ-ДД`."
+          },
+          "usage": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Usage"
+            }
+          }
+        }
+      },
+      "ReportLimits": {
+        "type": "object",
+        "required": ["at"],
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Когда Claude Code сообщил эти числа."
+          },
+          "five_hour": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ReportWindow"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "seven_day": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ReportWindow"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "ReportSession": {
+        "type": "object",
+        "required": ["id", "started_at", "last_at"],
+        "properties": {
+          "branch": {
+            "type": "string"
+          },
+          "cache_ttl_s": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Время жизни кэша последнего запроса: 300 или 3600 секунд.",
+            "minimum": 0
+          },
+          "context_tokens": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Сколько токенов в контексте сейчас (вход последнего запроса с кэшем).",
+            "minimum": 0
+          },
+          "effort": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "description": "Номер сессии Claude Code."
+          },
+          "last_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "model": {
+            "type": "string",
+            "description": "Модель последнего ответа (`claude-opus-5-5`)."
+          },
+          "model_at": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "Последнее обращение к модели — от него считается срок кэша (результат инструмента\nмодель не трогает). Нет — берём `last_at`."
+          },
+          "project": {
+            "type": "string",
+            "description": "Папка проекта (последняя часть пути)."
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "title": {
+            "type": "string",
+            "description": "Название: своё имя сессии или начало первого запроса (до 120 знаков)."
+          },
+          "usage": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Usage"
+            },
+            "description": "Токены по моделям за всю сессию."
+          },
+          "waiting": {
+            "type": "boolean",
+            "description": "Последний ход закончен — сессия ждёт человека."
+          }
+        }
+      },
+      "ReportWindow": {
+        "type": "object",
+        "required": ["used"],
+        "properties": {
+          "resets_at": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "Когда окно сбросится."
+          },
+          "used": {
+            "type": "number",
+            "format": "double",
+            "description": "Сколько процентов окна израсходовано, 0…100."
           }
         }
       },
@@ -15732,6 +16631,41 @@
         "type": "string",
         "enum": ["restore"]
       },
+      "Usage": {
+        "type": "object",
+        "description": "Токены одной модели.",
+        "required": ["model"],
+        "properties": {
+          "cache_read": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "cache_write_1h": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "cache_write_5m": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "input": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "model": {
+            "type": "string"
+          },
+          "output": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
       "UsageRow": {
         "type": "object",
         "description": "Расход за группу: $, вызовы, токены.",
@@ -16146,6 +17080,10 @@
     {
       "name": "english",
       "description": "Английский: разговор с AI-репетитором голосом и текстом (голос — через AI-шлюз)"
+    },
+    {
+      "name": "pult",
+      "description": "Пульт владельца: приём сводки сборщика с ПК по его токену (не сессия)"
     },
     {
       "name": "ai",

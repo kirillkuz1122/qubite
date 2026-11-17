@@ -1142,6 +1142,16 @@ button.proj {
   cursor: pointer;
 }
 
+/* группа «Модули» в боковой панели ПК (D-955): Пульт — первый */
+.side-group {
+  margin: 24px 12px 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--q-dim);
+}
+
 /* ---------- колокольчик (PLAN-004, D-421): на ПК — в левой панели, на телефоне — у заголовка ---------- */
 .side-foot {
   display: flex;

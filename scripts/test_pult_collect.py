@@ -103,6 +103,7 @@ class CollectTest(unittest.TestCase):
         self.assertTrue(s["waiting"], "последний ход закончен — ждёт человека")
         self.assertEqual(s["context_tokens"], 10 + 9000 + 300)
         self.assertEqual(s["cache_ttl_s"], 3600)
+        self.assertEqual(s["model_at"], ts(5), "срок кэша — от последнего ответа модели")
         opus = next(u for u in s["usage"] if u["model"] == "claude-opus-5-5")
         self.assertEqual(opus["output"], 200, "m1 посчитан один раз")
         self.assertEqual(opus["cache_read"], 14000)

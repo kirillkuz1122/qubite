@@ -109,8 +109,8 @@ describe('подтверждение (Toast)', () => {
 });
 
 describe('значки v2', () => {
-  it('66 значков, как в Figma; новые — закрыть, стрелки, человек, замок, модули, mind map', () => {
-    expect(ICON_NAMES).toHaveLength(66);
+  it('67 значков, как в Figma; новые — закрыть, стрелки, человек, замок, модули, пульт, mind map', () => {
+    expect(ICON_NAMES).toHaveLength(67);
     for (const name of [
       'close',
       'forward',
@@ -119,6 +119,7 @@ describe('значки v2', () => {
       'lock',
       'undo',
       'apps',
+      'pult',
       'minus',
       'fit',
       'mindmap',
