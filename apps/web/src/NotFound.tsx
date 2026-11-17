@@ -1,6 +1,7 @@
-import { Button, Companion, DotText, useMedia, WIDE } from '@qubite/ui';
+import { loop, MASS } from '@qubite/motion';
+import { Button, Companion, DotText, useMedia, useSpring, WIDE } from '@qubite/ui';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type Ref } from 'react';
 import './notfound.css';
 
 /*
@@ -56,31 +57,24 @@ const TEXT = {
 function Digit({
   dots,
   tone,
-  shown = true,
+  svgRef,
 }: {
   dots: readonly Dot[];
   tone: 'ink' | 'orange';
-  shown?: boolean;
+  svgRef?: Ref<SVGSVGElement>;
 }) {
   return (
-    <svg
-      className={`nf-digit nf-${tone}`}
-      viewBox="0 0 5 7"
-      aria-hidden="true"
-      data-shown={shown || undefined}
-    >
-      {dots.map(([x, y], i) => (
-        <circle
-          key={`${x}-${y}`}
-          cx={x + 0.5}
-          cy={y + 0.5}
-          r={0.36}
-          style={{ transitionDelay: `${shown ? i * 18 : 0}ms` }}
-        />
+    <svg ref={svgRef} className={`nf-digit nf-${tone}`} viewBox="0 0 5 7" aria-hidden="true">
+      {dots.map(([x, y]) => (
+        <circle key={`${x}-${y}`} cx={x + 0.5} cy={y + 0.5} r={0.36} />
       ))}
     </svg>
   );
 }
+
+/** Доля общей пружины, с которой точки нуля появляются по очереди, а не все сразу. */
+const STAGGER = 0.6;
+const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
 /**
  * «Такой страницы нет» — одна и та же на неизвестный адрес и на Owner Console для не-owner
@@ -91,6 +85,32 @@ export function NotFound() {
   const navigate = useNavigate();
   const [back, setBack] = useState(false);
   const t = back ? TEXT.back : TEXT.away;
+  /* Ноль приходит и уходит общей пружиной (@qubite/motion): «Меньше движения» в Qubite
+     и в системе — сразу на месте. Двигаются только transform и opacity. */
+  const zero = useRef<SVGSVGElement>(null);
+  const away = useRef<HTMLDivElement>(null);
+  const k = useSpring(0, MASS.sheet, (x) => {
+    const dots = zero.current?.children;
+    if (dots) {
+      const n = Math.max(1, dots.length - 1);
+      for (let i = 0; i < dots.length; i++) {
+        const v = clamp01(x * (1 + STAGGER) - (STAGGER * i) / n);
+        const d = dots[i] as SVGCircleElement;
+        d.style.opacity = v.toFixed(3);
+        d.style.transform = `scale(${(0.2 + 0.8 * v).toFixed(3)})`;
+      }
+    }
+    const a = away.current;
+    if (a) {
+      const v = clamp01(x);
+      a.style.opacity = (1 - v).toFixed(3);
+      a.style.transform = `translateY(${(16 * v).toFixed(2)}px) scale(${(1 - 0.08 * v).toFixed(4)})`;
+      a.style.pointerEvents = v > 0.5 ? 'none' : '';
+    }
+  });
+  useEffect(() => {
+    loop().to(k, back ? 1 : 0);
+  }, [back, k]);
   useEffect(() => {
     document.title = 'Страницы нет · Qubite';
   }, []);
@@ -110,9 +130,9 @@ export function NotFound() {
         </p>
         <div className="nf-art">
           <Digit dots={FOUR_DOTS} tone="ink" />
-          <div className="nf-zero" data-back={back || undefined}>
-            <Digit dots={ZERO_DOTS} tone="orange" shown={back} />
-            <div className="nf-away" aria-hidden={back}>
+          <div className="nf-zero">
+            <Digit dots={ZERO_DOTS} tone="orange" svgRef={zero} />
+            <div ref={away} className="nf-away" aria-hidden={back}>
               <span className="nf-away-note">{wide ? 'ушёл за кофе' : 'за кофе'} — ноль</span>
               <span className="nf-elik">
                 <Companion kind="elik" pitch={wide ? 8 : 4.4} assemble={false} label="Элик" />

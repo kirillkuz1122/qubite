@@ -70,6 +70,34 @@ test('404: ноль ушёл за кофе, кнопка зовёт его об�
   await expect(page).toHaveURL(/\/$/);
 });
 
+/* 404 двигается общей пружиной: при «Меньше движения» в Qubite ноль на месте сразу (§0.4). */
+test('404: «Меньше движения» — ноль появляется без анимации', async ({ page }) => {
+  await page.addInitScript(() =>
+    localStorage.setItem('qubite.look.v1', JSON.stringify({ motion: 'less' })),
+  );
+  await page.goto('/takoy-stranitsy-net');
+  await expect(page.locator('html')).toHaveAttribute('data-motion', 'less');
+  const shown = await page.evaluate(
+    () =>
+      new Promise<string[]>((done) => {
+        [...document.querySelectorAll('button')]
+          .find((b) => b.textContent === 'Позвать ноль')!
+          .click();
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() =>
+            done(
+              [...document.querySelectorAll('.nf-orange circle')].map(
+                (c) => (c as SVGElement).style.opacity,
+              ),
+            ),
+          ),
+        );
+      }),
+  );
+  expect(shown.length).toBe(26);
+  expect(new Set(shown.map(Number))).toEqual(new Set([1]));
+});
+
 /* DS-013: «Английский» — свой раздел (D-914); старые ссылки на вкладку Агента ведут туда. */
 test('Английский — отдельный раздел, старая ссылка из Агента перенаправляет', async ({ page }) => {
   await mockAuth(page, { me: OWNER });

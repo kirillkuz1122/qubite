@@ -59,9 +59,7 @@
   overflow: visible;
 }
 .nf-digit circle {
-  transition:
-    transform 0.32s cubic-bezier(0.2, 1.4, 0.4, 1),
-    opacity 0.2s;
+  /* масштаб точки — от её центра; анимацию ведёт общая пружина в NotFound.tsx */
   transform-box: fill-box;
   transform-origin: center;
 }
@@ -70,10 +68,6 @@
 }
 .nf-orange circle {
   fill: var(--q-orange);
-}
-.nf-digit:not([data-shown]) circle {
-  opacity: 0;
-  transform: scale(0.2);
 }
 .nf-zero {
   position: relative;
@@ -92,14 +86,6 @@
   padding: 24px 8px 0;
   border: 2px dashed var(--q-line-2);
   border-radius: 90px;
-  transition:
-    opacity 0.2s,
-    transform 0.32s;
-}
-.nf-zero[data-back] .nf-away {
-  opacity: 0;
-  transform: translateY(16px) scale(0.92);
-  pointer-events: none;
 }
 .nf-away-note {
   font-size: 13px;
@@ -171,11 +157,5 @@
   .nf-foot {
     max-width: 30ch;
     margin: 0 auto;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .nf-digit circle,
-  .nf-away {
-    transition: none;
   }
 }
