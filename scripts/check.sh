@@ -97,6 +97,10 @@ if touched '^(content/english/|scripts/check-english)'; then
   step "английский" node scripts/check-english.mjs
 fi
 
+if touched '^scripts/(pult_collect|test_)'; then
+  step "сборщик Пульта" python3 -m unittest discover -s scripts -p 'test_*.py'
+fi
+
 if touched '^\.github/'; then
   step "формат CI" pnpm -s exec prettier --check .github
 fi

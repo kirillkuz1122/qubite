@@ -4,12 +4,19 @@
 #
 #   qubite-update             — обновиться, если в CI есть новая зелёная сборка main
 #   qubite-update --force     — то же, даже если Pi нагружена или сборка уже падала
-#   qubite-update --rollback  — вернуть прошлую версию и базу из бэкапа перед последним обновлением
+#   qubite-update --rollback  — вернуть прошлую версию; база остаётся как есть (D-970)
+#   qubite-update --rollback --with-db — то же и база из бэкапа перед последним обновлением;
+#                             текущая база сначала сохраняется в $BACKUPS/before-restore/
 #   qubite-update --status    — что стоит сейчас
 #
 # Порядок: сборка `edge` из CI → все проверки этого коммита зелёные → сумма архива →
-# бэкап базы → новая версия → миграции → перезапуск → /api/ready → сообщение в Telegram.
-# Не дождались /api/ready — откат: прошлая версия и база из бэкапа.
+# остановка сервера и бота → бэкап базы → новая версия → миграции → сервер → /api/ready →
+# бот → сообщение в Telegram. Не дождались /api/ready — откат: прошлая версия и база из бэкапа.
+#
+# Записи не теряются (D-970): бэкап снимается, когда сервер и бот уже остановлены, поэтому
+# в нём всё, что приняла старая версия, а после него до отката никто ничего не пишет.
+# Любое восстановление сначала сохраняет текущую базу в отдельный файл. Ручной --rollback
+# базу не трогает: миграции только добавляют (D-970), прошлая версия работает и на новой схеме.
 #
 # После выкладки и отката пишет /opt/qubite/deploy.json — его читает `qubite serve` и показывает
 # на сайте номер версии, коммит, время выкладки и «откат с X на Y» (OPS-007, D-574).
@@ -19,10 +26,15 @@ set -euo pipefail
 
 REPO="${QUBITE_REPO:-kirillkuz1122/qubite}"
 TARGET="${QUBITE_TARGET:-aarch64-unknown-linux-gnu}"
-ROOT=/opt/qubite
-ETC=/etc/qubite
-STATE=/var/lib/qubite-update
-BACKUPS=/var/backups/qubite
+# QUBITE_UPDATE_PREFIX — только для теста deploy/pi/test-update.sh: все пути внутри временной
+# папки, без root. На Pi не задаётся.
+PREFIX="${QUBITE_UPDATE_PREFIX:-}"
+ROOT="$PREFIX/opt/qubite"
+ETC="$PREFIX/etc/qubite"
+STATE="$PREFIX/var/lib/qubite-update"
+BACKUPS="$PREFIX/var/backups/qubite"
+READY_SECS="${QUBITE_UPDATE_READY_SECS:-90}"   # сколько ждать /api/ready после запуска
+DB_OWNER="${QUBITE_DB_OWNER:-qubite}"          # владелец базы (в тесте — роль тестовой базы)
 MAX_LOAD="${QUBITE_UPDATE_MAX_LOAD:-2.5}"      # load average за минуту (у Pi 5 четыре ядра)
 MIN_MEM_MB="${QUBITE_UPDATE_MIN_MEM_MB:-400}"  # MemAvailable
 KEEP_RELEASES=3
@@ -32,9 +44,9 @@ API="https://api.github.com/repos/${REPO}"
 log() { echo "qubite-update: $*"; }
 die() { log "$*"; exit 1; }
 
-[[ $EUID -eq 0 ]] || die "запускать от root (sudo)"
-mkdir -p "$STATE" "$BACKUPS" "$ROOT/releases"
-chmod 700 "$STATE" "$BACKUPS"
+[[ -n $PREFIX || $EUID -eq 0 ]] || die "запускать от root (sudo)"
+mkdir -p "$STATE" "$BACKUPS/before-restore" "$ROOT/releases"
+chmod 700 "$STATE" "$BACKUPS" "$BACKUPS/before-restore"
 exec 9>"$STATE/lock"
 flock -n 9 || { log "уже идёт другое обновление"; exit 0; }
 
@@ -77,8 +89,7 @@ notify() {
 }
 
 wait_ready() {
-    local i
-    for i in $(seq 1 90); do
+    for _ in $(seq 1 "$READY_SECS"); do
         if curl -fsS --noproxy '*' -m 3 "http://${BIND}/api/ready" 2>/dev/null | grep -q '"status":"ready"'; then
             return 0
         fi
@@ -87,38 +98,87 @@ wait_ready() {
     return 1
 }
 
-restart_services() {
-    systemctl restart qubite-serve.service
+# Всё, что пишет в базу. `systemctl stop` ждёт, пока процесс выйдет: сервер доотвечает
+# на начатые запросы (TimeoutStopSec=30), бот допишет начатое.
+WRITERS_STOPPED=0
+stop_writers() {
+    WRITERS_STOPPED=1
+    systemctl stop qubite-bot.service qubite-serve.service
+}
+
+# Признак «остановлены» снимается, только когда сервер правда запустился.
+start_serve() {
+    systemctl restart qubite-serve.service || return 1
+    WRITERS_STOPPED=0
+}
+
+start_bot() {
     systemctl restart qubite-bot.service || log "бот не запустился (нет токена?) — сайт это не ломает"
 }
+
+restart_services() {
+    local status=0
+    start_serve || { log "сервер не запустился"; status=1; }
+    start_bot
+    return "$status"
+}
+
+# Скрипт упал, пока сервер и бот остановлены, — запустить то, что стоит, а не оставить сайт лежать.
+on_exit() {
+    rm -rf "${tmp:-}"
+    if [[ $WRITERS_STOPPED == 1 ]]; then
+        log "выход при остановленном сервере — запускаю то, что стоит"
+        restart_services || true
+    fi
+}
+trap on_exit EXIT
 
 switch_to() {
     ln -sfn "$1" "$ROOT/current.new"
     mv -T "$ROOT/current.new" "$ROOT/current"
 }
 
-# База из бэкапа: пересоздать (новые таблицы миграции тоже уходят) и восстановить.
-restore_db() {
-    local dump="$1"
-    log "восстанавливаю базу из $(basename "$dump")"
-    systemctl stop qubite-bot.service qubite-serve.service || true
-    runuser -u postgres -- dropdb --if-exists --force "$DB_NAME"
-    runuser -u postgres -- createdb -O qubite "$DB_NAME"
-    runuser -u postgres -- pg_restore --no-owner --role=qubite -d "$DB_NAME" "$dump"
+# Снимок базы в файл (права 600). $1 — куда.
+dump_db() {
+    runuser -u postgres -- pg_dump -Fc "$DB_NAME" >"$1" && chmod 600 "$1"
 }
 
-# Вернуть прошлую версию и базу. $1 — причина (для сообщения).
+# База из бэкапа: пересоздать (новые таблицы миграции тоже уходят) и восстановить.
+# Сначала текущая база — в отдельный файл: всё записанное после бэкапа остаётся в нём,
+# эти файлы скрипт сам не удаляет (удалить данные решает владелец).
+restore_db() {
+    local dump="$1" keep
+    stop_writers || true
+    keep="$BACKUPS/before-restore/$(date +%Y%m%d-%H%M%S)-$(current_commit | cut -c1-12).dump"
+    if ! dump_db "$keep"; then
+        rm -f "$keep"
+        die "не сохранил текущую базу перед восстановлением — базу не трогаю"
+    fi
+    log "текущая база сохранена в $keep"
+    log "восстанавливаю базу из $(basename "$dump")"
+    runuser -u postgres -- dropdb --if-exists --force "$DB_NAME"
+    runuser -u postgres -- createdb -O "$DB_OWNER" "$DB_NAME"
+    runuser -u postgres -- pg_restore --no-owner --role="$DB_OWNER" -d "$DB_NAME" "$dump"
+}
+
+# Вернуть прошлую версию. $1 — причина (для сообщения), $2 — 1: и базу из бэкапа.
 rollback() {
-    local reason="$1" prev dump bad
+    local reason="$1" with_db="$2" prev dump bad base
     prev="$(cat "$STATE/previous" 2>/dev/null || true)"
     dump="$(cat "$STATE/last-backup" 2>/dev/null || true)"
     bad="$(current_commit)"
     [[ -n $prev && -d $prev ]] || die "откатываться некуда: прошлой версии нет"
-    switch_to "$prev"
-    if [[ -n $dump && -f $dump ]]; then
+    base="база не тронута"
+    if [[ $with_db == 1 ]]; then
+        [[ -n $dump && -f $dump ]] || die "бэкапа базы перед последним обновлением нет — версию не меняю"
+        stop_writers
+        switch_to "$prev"
         restore_db "$dump"
+        base="база из бэкапа, всё записанное после — в $BACKUPS/before-restore/"
+    else
+        switch_to "$prev"
     fi
-    restart_services
+    restart_services || true
     echo "$bad" >"$STATE/failed"
     local good
     good="$(current_commit)"
@@ -126,10 +186,11 @@ rollback() {
         --arg reason "$reason" '{from: $from, to: $to, at: $at, reason: $reason}')"
     if wait_ready; then
         log "откат на ${good:0:12} готов"
-        notify deploy "Обновление до ${bad:0:12} не прошло (${reason}). Вернул прошлую версию ${good:0:12}, база из бэкапа." "deploy-fail-${bad}"
+        notify deploy "Обновление до ${bad:0:12} не прошло (${reason}). Вернул прошлую версию ${good:0:12}, ${base}." "deploy-fail-${bad}"
     else
         log "после отката сервер тоже не готов"
-        notify server_down "Обновление до ${bad:0:12} не прошло (${reason}), и после отката сервер не отвечает. Смотри: journalctl -u qubite-serve" "deploy-fail-${bad}"
+        [[ $with_db == 1 ]] || log "если старая версия не работает на новой схеме: qubite-update --rollback --with-db"
+        notify server_down "Обновление до ${bad:0:12} не прошло (${reason}), и после отката сервер не отвечает (${base}). Смотри: journalctl -u qubite-serve" "deploy-fail-${bad}"
         exit 1
     fi
 }
@@ -193,7 +254,6 @@ deploy() {
 
     log "ставлю ${commit:0:12} ($tar_name)"
     tmp="$(mktemp -d)"
-    trap 'rm -rf "${tmp:-}"' EXIT
     curl -fsSL -m 600 -o "$tmp/$tar_name" "$tar_url"
     curl -fsSL -m 60 -o "$tmp/$tar_name.sha256" "$sum_url"
     (cd "$tmp" && sha256sum -c --quiet "$tar_name.sha256") || die "контрольная сумма не сошлась"
@@ -206,27 +266,35 @@ deploy() {
     chmod -R a+rX "$dir"
     "$dir/bin/qubite" version >/dev/null || die "новый бинарник не запускается"
 
-    # Бэкап перед миграциями. Первая установка — базы ещё может не быть, это не страшно.
+    # Бэкап перед миграциями — когда сервер и бот уже остановлены (D-970): в нём всё, что они
+    # успели принять, и после него до конца обновления никто не пишет. Сайт лежит с этой
+    # минуты до /api/ready новой версии — обычно секунды. Первая установка — базы ещё может
+    # не быть, это не страшно.
     prev="$(readlink -e "$ROOT/current" 2>/dev/null || true)"
     dump=""
     if [[ -n $prev && -d $prev ]]; then
+        stop_writers
         dump="$BACKUPS/$(date +%Y%m%d-%H%M%S)-$(basename "$prev").dump"
-        runuser -u postgres -- pg_dump -Fc "$DB_NAME" >"$dump" || die "бэкап базы не получился — не обновляю"
-        chmod 600 "$dump"
+        if ! dump_db "$dump"; then
+            rm -f "$dump"
+            restart_services || true
+            die "бэкап базы не получился — не обновляю, старая версия запущена"
+        fi
     fi
     echo "$prev" >"$STATE/previous"
     echo "$dump" >"$STATE/last-backup"
 
     switch_to "$dir"
     if ! q "$ROOT/current/bin/qubite" migrate; then
-        [[ -n $prev ]] && rollback "миграции упали"
+        [[ -n $prev ]] && rollback "миграции упали" 1
         die "миграции упали"
     fi
-    restart_services
-    if ! wait_ready; then
-        [[ -n $prev ]] && rollback "сервер не ответил /api/ready"
-        die "сервер не ответил /api/ready"
+    # Бот — только когда сервер готов: до этого новая версия ничего не пишет.
+    if ! start_serve || ! wait_ready; then
+        [[ -n $prev ]] && rollback "сервер не запустился или не ответил /api/ready" 1
+        die "сервер не запустился или не ответил /api/ready"
     fi
+    start_bot
 
     rm -f "$STATE/failed"
     write_info "$commit" "$dir"
@@ -256,14 +324,21 @@ cleanup() {
 case "${1:-}" in
     "") deploy 0 ;;
     --force) deploy 1 ;;
-    --rollback) rollback "откат вручную" ;;
+    --rollback)
+        case "${2:-}" in
+            "") rollback "откат вручную" 0 ;;
+            --with-db) rollback "откат вручную с базой" 1 ;;
+            *) die "непонятный ключ: $2 (есть --with-db)" ;;
+        esac
+        ;;
     --status)
         echo "версия: $(current_commit)"
         echo "папка:  $(readlink -f "$ROOT/current" 2>/dev/null || echo нет)"
         echo "прошлая: $(cat "$STATE/previous" 2>/dev/null || echo нет)"
         echo "бэкап:  $(cat "$STATE/last-backup" 2>/dev/null || echo нет)"
         echo "не прошла: $(cat "$STATE/failed" 2>/dev/null || echo нет)"
+        echo "сохранено перед восстановлением: $(find "$BACKUPS/before-restore" -name '*.dump' 2>/dev/null | wc -l) файл(ов) в $BACKUPS/before-restore"
         echo "для сайта: $(jq -c . "$ROOT/deploy.json" 2>/dev/null || echo нет)"
         ;;
-    *) die "непонятный ключ: $1 (есть --force, --rollback, --status)" ;;
+    *) die "непонятный ключ: $1 (есть --force, --rollback [--with-db], --status)" ;;
 esac
