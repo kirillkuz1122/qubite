@@ -111,8 +111,8 @@ Pi 5, 4 ГБ, Debian 13. Рядом работают сервисы владел
 1. Pi нагружена (load average > 2,5 или свободно < 400 МБ) — откладывает до следующего раза.
 2. Берёт `edge.json`; коммит уже стоит или эта сборка уже падала — ничего не делает.
 3. Ждёт, пока **все** проверки коммита в GitHub закончатся зелёными (публичный API, токен не нужен).
-4. Скачивает архив `aarch64`, проверяет сумму, бэкап базы (`pg_dump`), переключает `current`, `qubite migrate`, перезапускает службы.
-5. Ждёт `/api/ready` до 90 секунд. Нет — откат: прошлая версия и база из бэкапа.
+4. Скачивает архив `aarch64`, проверяет сумму, **останавливает бота и сервер**, бэкап базы (`pg_dump`), переключает `current`, `qubite migrate`, запускает сервер ([D-962](../product/DECISIONS.md)).
+5. Ждёт `/api/ready` до 90 секунд, потом запускает бота. Нет — откат: прошлая версия и база из бэкапа; текущая база перед этим — в `/var/backups/qubite/before-restore/`.
 6. Сообщение в Telegram через нового бота (`qubite notify deploy …`).
 
 **Версия на сайте (OPS-007, D-574, [D-660…D-662](../product/DECISIONS.md)).** После выкладки и после отката `qubite-update` пишет `/opt/qubite/deploy.json`: коммит, когда собрано в CI (строка «Собрано» из `RELEASE.txt`), когда стало рабочим и, если был откат, `rollback` — с какого коммита на какой, когда и почему. `qubite serve` читает файл при каждом запросе (перезапуск не нужен) и отдаёт блок `deploy` в `/api/health` и `/api/ready` (виден и при 503 — база не нужна), в Настройках и в Owner Console → «Сервер». Пометка об откате держится, пока не выложена следующая версия. Другой путь к файлу — `QUBITE_DEPLOY_FILE`. Проверить без браузера: `curl -s https://qubiteapp.online/api/health | jq .deploy`.
@@ -122,7 +122,8 @@ Pi 5, 4 ГБ, Debian 13. Рядом работают сервисы владел
 ```bash
 sudo /opt/qubite/bin/qubite-update --status     # что стоит
 sudo /opt/qubite/bin/qubite-update --force      # обновиться сейчас (не ждать, даже если Pi нагружена)
-sudo /opt/qubite/bin/qubite-update --rollback   # вернуть прошлую версию и базу до последнего обновления
+sudo /opt/qubite/bin/qubite-update --rollback   # вернуть прошлую версию; база как есть (D-963)
+sudo /opt/qubite/bin/qubite-update --rollback --with-db   # и базу до обновления (текущая — в before-restore/)
 sudo systemctl stop qubite-update.timer         # выключить автодеплой (включить — start)
 journalctl -u qubite-serve -u qubite-bot -u qubite-update -f   # логи
 ```
