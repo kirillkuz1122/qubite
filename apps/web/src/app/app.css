@@ -280,9 +280,23 @@ a {
   font-size: 13px;
   color: var(--q-dim);
 }
+.strip .lbl {
+  position: relative;
+  min-height: 1.45em;
+}
+/* подпись стоит под меткой: у левого края прижата влево, у правого — вправо, в середине — по центру */
 .strip .lbl b {
+  position: absolute;
+  top: 0;
+  left: calc(var(--at, 0.5) * 100%);
+  transform: translateX(calc(var(--at, 0.5) * -100%));
   color: var(--q-orange-ink);
   font-weight: 500;
+  white-space: nowrap;
+}
+.strip .lbl [hidden] {
+  display: block;
+  visibility: hidden;
 }
 .tip {
   display: flex;
@@ -2883,4 +2897,42 @@ html[data-motion='less'] .rec-dot {
 }
 .voice-word {
   white-space: nowrap;
+}
+
+/* лист «Ещё» нижней панели телефона: плитки «значок + подпись» на общем Button (DS-013, D-913) */
+.more-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.more-tile.q-btn {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 8px;
+  min-height: 76px;
+  height: auto;
+  padding: 12px 4px;
+  border-color: var(--q-line);
+  border-radius: calc(var(--q-round) * 24px);
+  background: var(--q-panel-2);
+  color: var(--q-mute);
+  font-size: 13px;
+}
+.more-tile.q-btn[aria-current='page'] {
+  color: var(--q-ink);
+  border-color: var(--q-line-2);
+}
+@media (hover: hover) {
+  .more-tile.q-btn:hover {
+    color: var(--q-ink);
+  }
+}
+.more-count {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 12px;
+  color: var(--q-orange-ink);
 }

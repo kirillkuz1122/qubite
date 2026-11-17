@@ -116,7 +116,7 @@ function open(task: Task, rest: Task[] = []) {
     data: { lesson, level: { tutor_mode: 'ru_heavy' } },
     isError: false,
   });
-  history.replaceState(null, '', '/agent?tab=english&lesson=one');
+  history.replaceState(null, '', '/english?lesson=one');
   render(
     <QueryClientProvider client={new QueryClient()}>
       <EnglishModule />

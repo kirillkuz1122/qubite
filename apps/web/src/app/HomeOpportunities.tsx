@@ -49,7 +49,11 @@ export function Opportunities({
   const query = useOpportunities();
   const refresh = useRefreshOpportunities();
   const picked = query.data?.picked ?? false;
-  const cards = (query.data?.items ?? []).slice(0, MAX_CARDS);
+  /* На Главной одна карточка (D-867): принятую «Интересно» можно пролистать к следующей. */
+  const [seen, setSeen] = useState<ReadonlySet<string>>(() => new Set());
+  const queue = (query.data?.items ?? []).filter((c) => !seen.has(c.id));
+  const cards = queue.slice(0, MAX_CARDS);
+  const next = (id: string) => setSeen((s) => new Set([...s, id]));
   const [rows, gone] = useLeaving(cards, (c) => c.id);
   const guest = query.error instanceof Fail && query.error.status === 401;
   // убрали последнюю карточку — список перезапрашивается: «Ищу…», а не мелькание «ничего нет»
@@ -122,6 +126,7 @@ export function Opportunities({
                 onGone={gone}
                 onLayout={onLayout}
                 undoMs={undoMs}
+                {...(queue.length > MAX_CARDS ? { onNext: () => next(item.id) } : {})}
               />
             </div>
           ))}
@@ -139,12 +144,15 @@ function OpportunityRow({
   onGone,
   onLayout,
   undoMs,
+  onNext,
 }: {
   item: OpportunityCard;
   leaving: boolean;
   onGone: (id: string) => void;
   onLayout: () => void;
   undoMs: number;
+  /** есть ещё карточки — после «Интересно» показать следующую */
+  onNext?: () => void;
 }) {
   const qc = useQueryClient();
   const key = useOpportunitiesKey();
@@ -261,6 +269,7 @@ function OpportunityRow({
             setAway('undo');
           }}
           onLayout={onLayout}
+          {...(onNext ? { onNext } : {})}
         />
       )}
     </Presence>
@@ -275,6 +284,7 @@ function Card({
   onYes,
   onNo,
   onLayout,
+  onNext,
 }: {
   item: OpportunityCard;
   done: boolean;
@@ -283,6 +293,7 @@ function Card({
   onYes: () => void;
   onNo: () => void;
   onLayout: () => void;
+  onNext?: () => void;
 }) {
   const id = useId();
   const when = opportunityWhen(item, new Date());
@@ -328,6 +339,11 @@ function Card({
               <Link className="home-link" to="/agent">
                 Что сделал агент →
               </Link>
+              {onNext && (
+                <Button size="sm" variant="quiet" onClick={onNext}>
+                  Следующая
+                </Button>
+              )}
             </div>
           ) : (
             <div className="opp-btns">

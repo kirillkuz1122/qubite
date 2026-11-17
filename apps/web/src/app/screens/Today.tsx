@@ -1,5 +1,5 @@
 import { Button, ListRow, Presence, useFlip } from '@qubite/ui';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useShell } from '../context';
 import type { Task } from '../data';
 import { SecHead, TaskList } from '../parts';
@@ -9,6 +9,8 @@ import { usePlanner } from '../planner-context';
 /** Шкала дня: точка на каждые полчаса с 7:00 до 23:00, дела — цветные, «сейчас» — оранжевая. */
 const FROM = 7;
 const SLOTS = 33;
+/** доля шкалы у края, где подпись «сейчас» занимает место «7:00» / «23:00» */
+const EDGE = 0.2;
 
 function slotOf(time: string): number | null {
   const m = time.match(/^(\d{1,2})[:.](\d{2})$/);
@@ -38,6 +40,7 @@ function Strip({ tasks }: { tasks: Task[] }) {
     if (s !== null) marks.set(s, t.done ? 'green' : t.color);
   });
   const hm = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+  const at = cur / (SLOTS - 1);
   return (
     <div className="strip">
       <div className="days" aria-hidden="true">
@@ -55,10 +58,11 @@ function Strip({ tasks }: { tasks: Task[] }) {
           );
         })}
       </div>
-      <div className="lbl">
-        <span>{FROM}:00</span>
+      {/* «сейчас» — под своей меткой (находка 8); у края подпись встаёт вместо «7:00» или «23:00» */}
+      <div className="lbl" style={{ '--at': at } as CSSProperties}>
+        <span hidden={at < EDGE}>{FROM}:00</span>
         <b>сейчас {hm}</b>
-        <span>23:00</span>
+        <span hidden={at > 1 - EDGE}>23:00</span>
       </div>
     </div>
   );

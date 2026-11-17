@@ -140,6 +140,90 @@ export function periodLabel(mode: CalendarMode, anchor: string, days: string[]):
   return `${dateLabel(first, options)} — ${end}`;
 }
 
+const SHORT_MONTH = [
+  'янв',
+  'фев',
+  'мар',
+  'апр',
+  'мая',
+  'июн',
+  'июл',
+  'авг',
+  'сен',
+  'окт',
+  'ноя',
+  'дек',
+];
+
+function shortDate(day: string, withYear = false): string {
+  const [y, m, d] = day.split('-').map(Number);
+  return `${d} ${SHORT_MONTH[m! - 1]}${withYear ? ` ${y}` : ''}`;
+}
+
+/** Короткая подпись периода для телефона (DS-013, находка 7): «16–22 ноя», «30 ноя – 6 дек». */
+export function shortPeriodLabel(mode: CalendarMode, anchor: string, days: string[]): string {
+  if (mode === 'month')
+    return dateLabel(anchor, { month: 'long', year: 'numeric' }).replace(' г.', '');
+  if (mode === 'day') return `${dateLabel(anchor, { weekday: 'short' })}, ${shortDate(anchor)}`;
+  const first = days[0]!;
+  const last = days.at(-1)!;
+  if (first.slice(0, 7) === last.slice(0, 7)) return `${Number(first.slice(8))}–${shortDate(last)}`;
+  const years = first.slice(0, 4) !== last.slice(0, 4);
+  return `${shortDate(first, years)} – ${shortDate(last, years)}`;
+}
+
+/** Города России и соседей по-русски: Intl называет пояс по «метазоне» (Новосибирск → Красноярск). */
+const ZONE_CITY: Record<string, string> = {
+  'Europe/Kaliningrad': 'Калининград',
+  'Europe/Moscow': 'Москва',
+  'Europe/Kirov': 'Киров',
+  'Europe/Volgograd': 'Волгоград',
+  'Europe/Samara': 'Самара',
+  'Europe/Saratov': 'Саратов',
+  'Europe/Ulyanovsk': 'Ульяновск',
+  'Europe/Astrakhan': 'Астрахань',
+  'Asia/Yekaterinburg': 'Екатеринбург',
+  'Asia/Omsk': 'Омск',
+  'Asia/Novosibirsk': 'Новосибирск',
+  'Asia/Barnaul': 'Барнаул',
+  'Asia/Tomsk': 'Томск',
+  'Asia/Novokuznetsk': 'Новокузнецк',
+  'Asia/Krasnoyarsk': 'Красноярск',
+  'Asia/Irkutsk': 'Иркутск',
+  'Asia/Chita': 'Чита',
+  'Asia/Yakutsk': 'Якутск',
+  'Asia/Vladivostok': 'Владивосток',
+  'Asia/Magadan': 'Магадан',
+  'Asia/Sakhalin': 'Сахалин',
+  'Asia/Kamchatka': 'Камчатка',
+  'Asia/Anadyr': 'Анадырь',
+  'Europe/Minsk': 'Минск',
+  'Europe/Kyiv': 'Киев',
+  'Europe/Kiev': 'Киев',
+  'Asia/Almaty': 'Алматы',
+  'Asia/Tashkent': 'Ташкент',
+  'Asia/Tbilisi': 'Тбилиси',
+  'Asia/Yerevan': 'Ереван',
+  'Asia/Baku': 'Баку',
+};
+
+/** Пояс по-человечески (DS-013, находка 22, D-916): «Екатеринбург, UTC+5» вместо `Asia/Yekaterinburg`. */
+export function zoneLabel(timeZone: string, at: number = Date.now()): string {
+  let part: string | undefined;
+  try {
+    part = new Intl.DateTimeFormat('en-US', { timeZone, timeZoneName: 'shortOffset' })
+      .formatToParts(at)
+      .find((p) => p.type === 'timeZoneName')?.value;
+  } catch {
+    return timeZone;
+  }
+  const raw = (part ?? '').replace(/^GMT/, 'UTC');
+  const offset = raw === 'UTC' ? 'UTC+0' : raw;
+  if (timeZone === 'UTC' || timeZone === 'Etc/UTC') return 'UTC';
+  const city = ZONE_CITY[timeZone] ?? timeZone.split('/').at(-1)!.replaceAll('_', ' ');
+  return `${city}, ${offset}`;
+}
+
 export function shortDayLabel(day: string): string {
   return dateLabel(day, { weekday: 'short', day: 'numeric' });
 }

@@ -14,7 +14,7 @@ const screens = [
   '/planner',
   '/calendar',
   '/docs',
-  '/agent?tab=english&view=talk',
+  '/english?view=talk',
   '/console/platform',
   '/auth',
 ];

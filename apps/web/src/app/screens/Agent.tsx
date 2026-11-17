@@ -4,13 +4,12 @@ import { AgentChat } from '../AgentChat';
 import { AgentPaceView } from '../AgentPace';
 import { AgentRecords } from '../AgentRecords';
 import { AgentTimeline } from '../AgentTimeline';
-import { EnglishModule } from '../EnglishLessons';
 
-type Tab = 'feed' | 'records' | 'talk' | 'english' | 'pace';
+type Tab = 'feed' | 'records' | 'talk' | 'pace';
 
-const TABS: readonly Tab[] = ['feed', 'records', 'talk', 'english', 'pace'];
+const TABS: readonly Tab[] = ['feed', 'records', 'talk', 'pace'];
 
-/** Открыть сразу вкладку по ссылке: `/agent?tab=english`. */
+/** Открыть сразу вкладку по ссылке: `/agent?tab=records`. */
 function firstTab(): Tab {
   const asked = new URLSearchParams(globalThis.location?.search ?? '').get('tab');
   return TABS.find((t) => t === asked) ?? 'feed';
@@ -21,16 +20,13 @@ const LEAD: Record<Tab, string> = {
   records:
     'Записи агента: что он знает о тебе, проектах и расписании. Правь руками или напиши внизу файла «Поправить» — агент исправит сам.',
   talk: 'Расскажи агенту о себе — он запомнит в записях и спросит непонятное. Всё, что он сделал, — в «Ленте».',
-  english:
-    'Уроки с Нейтом по программе с нуля до A2: теория, задания, голос, огонёк. Нейт строгий: найдёт ошибку, объяснит и заставит повторить. Можно спросить по-русски.',
   pace: 'Агент сам пишет первым, когда у тебя есть свободное время: спрашивает «есть 30 минут?» и предлагает ДЗ до урока, важное или давнюю идею. Здесь — как часто.',
 };
 
 /**
  * Раздел «Агент»: «Лента» (AGT-002) — что сделал агент, с откатом; «Записи» (AGT-001) — его папка;
- * «Разговор» — чат с агентом (то же — в Telegram-боте); «Английский» (ENG-001) — разговор с
- * репетитором голосом и текстом; «Когда писать» (AGT-004) — как часто агент
- * пишет первым, тишина и свободные окна.
+ * «Разговор» — чат с агентом (то же — в Telegram-боте); «Когда писать» (AGT-004) — как часто агент
+ * пишет первым, тишина и свободные окна. «Английский» — свой раздел `/english` (D-914).
  */
 export function AgentScreen() {
   const [tab, setTab] = useState<Tab>(firstTab);
@@ -44,7 +40,6 @@ export function AgentScreen() {
           { value: 'feed', label: 'Лента' },
           { value: 'records', label: 'Записи' },
           { value: 'talk', label: 'Разговор' },
-          { value: 'english', label: 'Английский' },
           { value: 'pace', label: 'Когда писать' },
         ]}
       />
@@ -53,7 +48,6 @@ export function AgentScreen() {
         {tab === 'feed' && <AgentTimeline trail={null} />}
         {tab === 'records' && <AgentRecords />}
         {tab === 'talk' && <AgentChat />}
-        {tab === 'english' && <EnglishModule />}
         {tab === 'pace' && <AgentPaceView />}
       </Swap>
     </>
