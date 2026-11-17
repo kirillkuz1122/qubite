@@ -149,6 +149,11 @@ pub struct ReportSession {
     #[serde(with = "time::serde::rfc3339")]
     #[schema(value_type = String, format = DateTime)]
     last_at: OffsetDateTime,
+    /// Последнее обращение к модели — от него считается срок кэша (результат инструмента
+    /// модель не трогает). Нет — берём `last_at`.
+    #[serde(default, with = "time::serde::rfc3339::option")]
+    #[schema(value_type = Option<String>, format = DateTime)]
+    model_at: Option<OffsetDateTime>,
     /// Последний ход закончен — сессия ждёт человека.
     #[serde(default)]
     waiting: bool,
@@ -823,7 +828,7 @@ fn fill_from_pc(agent: &mut PultAgent, s: &ReportSession, host: &str, now: Offse
     } else {
         s.cache_ttl_s
     });
-    let age = (now - s.last_at).whole_seconds();
+    let age = (now - s.model_at.unwrap_or(s.last_at)).whole_seconds();
     agent.cache = Some(PultCache {
         warm: age < ttl,
         minutes_left: ((ttl - age).max(0) + 59) / 60,
@@ -965,7 +970,6 @@ fn agents(g: &Gathered, now: OffsetDateTime) -> (Vec<PultAgent>, Vec<PultWaiting
         waiting: waiting.len() as u32,
         done: count(AgentStatus::Done),
     };
-    out.truncate(AGENTS_MAX);
     waiting.sort_by_key(|w| std::cmp::Reverse(w.updated_at));
     (out, waiting, counts)
 }
@@ -1033,7 +1037,9 @@ fn spend(g: &Gathered, limits: &PultLimits, now: OffsetDateTime) -> Option<PultS
     // больше всего — по задаче (ветке) или сессии
     let mut per: HashMap<String, u64> = HashMap::new();
     for (_, _, r) in &g.reports {
-        for s in r.sessions.iter().filter(|s| s.last_at >= week_ago) {
+        // токены сессии — за всю её жизнь, поэтому в «больше всего за неделю» — только
+        // начатые на этой неделе: иначе старый расход долгой сессии выдавался бы за недельный
+        for s in r.sessions.iter().filter(|s| s.started_at >= week_ago) {
             let name = task_id(&s.branch).map(str::to_owned).unwrap_or_else(|| {
                 if s.title.is_empty() {
                     s.project.clone()
@@ -1111,9 +1117,11 @@ fn sources(g: &Gathered, configured: bool, now: OffsetDateTime) -> Vec<PultSourc
     out
 }
 
-fn board(state: &AppState, g: &Gathered, now: OffsetDateTime) -> PultBoard {
+/// Светофор и полный список агентов (в ответе — первые 40, история — по всем).
+fn board(state: &AppState, g: &Gathered, now: OffsetDateTime) -> (PultBoard, Vec<PultAgent>) {
     let limits = limits(&g.reports, now);
-    let (agents, waiting, counts) = agents(g, now);
+    let (all, waiting, counts) = agents(g, now);
+    let agents: Vec<PultAgent> = all.iter().take(AGENTS_MAX).cloned().collect();
     let mut skills: Vec<String> = g
         .reports
         .iter()
@@ -1121,7 +1129,7 @@ fn board(state: &AppState, g: &Gathered, now: OffsetDateTime) -> PultBoard {
         .collect();
     skills.sort();
     skills.dedup();
-    PultBoard {
+    let board = PultBoard {
         counts,
         spend: spend(g, &limits, now),
         limits,
@@ -1130,7 +1138,8 @@ fn board(state: &AppState, g: &Gathered, now: OffsetDateTime) -> PultBoard {
         skills,
         sources: sources(g, state.work.configured(), now),
         now,
-    }
+    };
+    (board, all)
 }
 
 // ---------------------------------------------------------------- история
@@ -1286,14 +1295,15 @@ async fn record(
 }
 
 /// Собрать Светофор и записать события; ошибка записи истории Светофор не ломает.
-async fn refresh(state: &AppState, fresh: bool) -> Result<(PultBoard, Arc<Vec<PrInfo>>), ApiError> {
+async fn refresh(state: &AppState, fresh: bool) -> Result<(PultBoard, Vec<PultAgent>), ApiError> {
     let g = gather(state, fresh).await?;
     let now = OffsetDateTime::now_utc();
-    let board = board(state, &g, now);
-    if let Err(error) = record(state, &board.agents, &g.prs, g.prs_ok).await {
+    let (board, all) = board(state, &g, now);
+    // история — по всем агентам, а не только по 40 показанным
+    if let Err(error) = record(state, &all, &g.prs, g.prs_ok).await {
         tracing::warn!(%error, "история Пульта не записана");
     }
-    Ok((board, g.prs))
+    Ok((board, all))
 }
 
 // ---------------------------------------------------------------- адреса: owner
@@ -1324,8 +1334,8 @@ pub async fn pult_agent(
     _owner: Owner,
     Path(key): Path<String>,
 ) -> Result<Json<PultAgentCard>, ApiError> {
-    let (board, _) = refresh(&state, false).await?;
-    let Some(agent) = board.agents.into_iter().find(|a| a.key == key) else {
+    let (_, all) = refresh(&state, false).await?;
+    let Some(agent) = all.into_iter().find(|a| a.key == key) else {
         return Err(ApiError::new(
             StatusCode::NOT_FOUND,
             "agent_not_found",
@@ -1699,6 +1709,7 @@ mod tests {
             started_at: now - Duration::minutes(10),
             // готовая — давнее работающих, при сортировке уходит в конец списка
             last_at: now - Duration::minutes(if waiting { 30 } else { 1 }),
+            model_at: None,
             waiting,
             context_tokens: 0,
             cache_ttl_s: 300,
@@ -1724,7 +1735,17 @@ mod tests {
             collectors: 1,
         };
         let (list, _, counts) = agents(&g, now);
-        assert_eq!(list.len(), AGENTS_MAX);
+        // список целый — в ответе его обрежет board(), история пишется по всем
+        assert_eq!(list.len(), 46);
+        // срок кэша — от ответа модели: результат инструмента кэш не греет
+        let mut s = ReportSession {
+            model_at: Some(now - Duration::minutes(10)),
+            ..session(7, false)
+        };
+        s.last_at = now;
+        let mut agent = list[0].clone();
+        fill_from_pc(&mut agent, &s, "arch", now);
+        assert!(!agent.cache.unwrap().warm);
         assert_eq!(counts.running, 45);
         assert_eq!(counts.done, 1);
     }
