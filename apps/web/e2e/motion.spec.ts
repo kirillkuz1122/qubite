@@ -132,15 +132,40 @@ test('капля: подсветку можно перетащить, а быс�
   await page.waitForTimeout(150);
   await page.mouse.up();
   await expect(page).toHaveURL(/\/planner$/);
-  // быстрый короткий свайп влево — соседний раздел
+  // быстрый короткий свайп влево (меньше половины доли раздела) — всё равно соседний раздел.
+  // Скорость считается по точкам за последние 100 мс, включая отпускание; события идут внутри
+  // страницы через 16 мс, как кадры настоящего пальца, — задержки связи с браузером в CI
+  // не превращают быстрый свайп в «палец остановился».
   const pb = (await dock.getByRole('button', { name: 'Planner' }).boundingBox())!;
-  await page.mouse.move(pb.x + pb.width / 2, y);
-  await page.mouse.down();
-  for (const dx of [10, 20, 30]) {
-    await page.waitForTimeout(16); // как кадры настоящего пальца: скорость считается по времени
-    await page.mouse.move(pb.x + pb.width / 2 - dx, y);
-  }
-  await page.mouse.up();
+  await page.evaluate(
+    async ({ x, y }) => {
+      const target = document.elementFromPoint(x, y)!;
+      const fire = (type: string, cx: number) =>
+        target.dispatchEvent(
+          new PointerEvent(type, {
+            bubbles: true,
+            cancelable: true,
+            composed: true,
+            pointerId: 1,
+            pointerType: 'touch',
+            isPrimary: true,
+            button: 0,
+            buttons: type === 'pointerup' ? 0 : 1,
+            clientX: cx,
+            clientY: y,
+          }),
+        );
+      const frame = () => new Promise((done) => setTimeout(done, 16));
+      fire('pointerdown', x);
+      for (const dx of [10, 20, 30]) {
+        await frame();
+        fire('pointermove', x - dx);
+      }
+      await frame();
+      fire('pointerup', x - 30);
+    },
+    { x: pb.x + pb.width / 2, y },
+  );
   // слева от Planner в панели — «Сегодня» (D-945: «Входящие» ушли в «Ещё»)
   await expect(page).toHaveURL(/\/today$/);
 });
