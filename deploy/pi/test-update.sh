@@ -32,7 +32,7 @@ B=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
 cleanup() {
     local pidfile
     for pidfile in "$WORK"/*/run/*.pid; do
-        [[ -f $pidfile ]] && kill "$(cat "$pidfile")" 2>/dev/null || true
+        if [[ -f $pidfile ]]; then kill "$(cat "$pidfile")" 2>/dev/null || true; fi
     done
     psql -qAt -c "SELECT datname FROM pg_database WHERE datname LIKE 'qubite_update_test_%'" 2>/dev/null |
         while read -r db; do dropdb --if-exists --force "$db" 2>/dev/null || true; done
