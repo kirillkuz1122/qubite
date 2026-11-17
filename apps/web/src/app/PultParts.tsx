@@ -294,8 +294,9 @@ function useAnswer(w: PultWaiting) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
-  const send = async (answer: string) => {
-    if (busy || !answer.trim()) return;
+  /** `true` — ответ дошёл; при ошибке окно не закрывается, ошибка видна в нём. */
+  const send = async (answer: string): Promise<boolean> => {
+    if (busy || !answer.trim()) return false;
     setBusy(true);
     setError(null);
     try {
@@ -311,8 +312,10 @@ function useAnswer(w: PultWaiting) {
         void qc.invalidateQueries({ queryKey: PULT });
         void qc.invalidateQueries({ queryKey: PULT_AGENT });
       }, 900);
+      return true;
     } catch (err) {
       setError(say(err));
+      return false;
     } finally {
       setBusy(false);
     }
@@ -397,7 +400,7 @@ export function AnswerSheet({
   const [own, setOwn] = useState('');
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    void a.send(own).then(onClose);
+    void a.send(own).then((ok) => ok && onClose());
   };
   return (
     <Sheet open={open} onClose={onClose} title="Ответить агенту">
@@ -411,7 +414,7 @@ export function AnswerSheet({
                 size="sm"
                 variant={i === 0 ? 'fill' : 'outline'}
                 disabled={a.busy}
-                onClick={() => void a.send(o).then(onClose)}
+                onClick={() => void a.send(o).then((ok) => ok && onClose())}
               >
                 {o}
               </Button>
