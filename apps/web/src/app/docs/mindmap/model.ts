@@ -14,6 +14,8 @@ export type Side = 'l' | 'r';
 export const MAX_NODE_TEXT = 300;
 /** С запасом под лимит обновления Yjs на сервере (512 КиБ, D-751). */
 export const MAX_NODES = 2000;
+/** Одно обновление Yjs — с запасом под лимит сервера 512 КиБ (D-751). */
+export const MAX_UPDATE_BYTES = 480 * 1024;
 
 export interface MindLink {
   target: string;
@@ -80,7 +82,8 @@ function makeNode(fields: {
 export function initMindmap(doc: Y.Doc, rootText: string, origin?: unknown): void {
   doc.transact(() => {
     meta(doc).set('kind', MINDMAP_KIND);
-    if (!nodes(doc).has(ROOT)) nodes(doc).set(ROOT, makeNode({ text: rootText, parent: null, order: 0 }));
+    if (!nodes(doc).has(ROOT))
+      nodes(doc).set(ROOT, makeNode({ text: rootText, parent: null, order: 0 }));
   }, origin);
 }
 
@@ -129,17 +132,23 @@ export function readTree(doc: Y.Doc): MindNode {
     if (node instanceof Y.Map) raw.set(id, readRaw(id, node));
   });
   if (!raw.has(ROOT)) raw.set(ROOT, { id: ROOT, text: '', parent: null, order: 0, folded: false });
+  // К центру уходит только сам осиротевший узел (родителя нет) или узел из цикла;
+  // его живое поддерево сохраняет свои связи.
   const parentOf = (item: Raw): string => {
-    if (item.id === ROOT) return '';
-    const seen = new Set<string>([item.id]);
-    let at = item.parent ?? ROOT;
-    for (;;) {
-      if (at === ROOT) return item.parent ?? ROOT;
-      const next = raw.get(at);
-      if (!next || seen.has(at)) return ROOT;
+    const direct = item.parent ?? ROOT;
+    if (direct === ROOT) return ROOT;
+    if (!raw.has(direct)) return ROOT;
+    const seen = new Set<string>();
+    let at: string = direct;
+    while (at !== ROOT) {
+      if (at === item.id) return ROOT;
+      if (seen.has(at)) return direct;
       seen.add(at);
+      const next = raw.get(at);
+      if (!next) return direct;
       at = next.parent ?? ROOT;
     }
+    return direct;
   };
   const children = new Map<string, Raw[]>();
   for (const item of raw.values()) {
@@ -151,7 +160,9 @@ export function readTree(doc: Y.Doc): MindNode {
   }
   const build = (item: Raw, depth: number, tone: BranchColor, index: number): MindNode => {
     const own =
-      depth === 1 ? (item.color ?? BRANCH_COLORS[index % BRANCH_COLORS.length]!) : (item.color ?? tone);
+      depth === 1
+        ? (item.color ?? BRANCH_COLORS[index % BRANCH_COLORS.length]!)
+        : (item.color ?? tone);
     const kids = (children.get(item.id) ?? []).sort(byOrder);
     return {
       ...item,
@@ -202,6 +213,21 @@ function orderAt(siblings: readonly MindNode[], index: number): number {
   return 0;
 }
 
+/**
+ * Место для узла на позиции index. Если соседи с равным порядком (офлайн-вставки двух
+ * устройств) или середины между ними уже нет — сначала соседи перенумеровываются 0, 1, 2…
+ * Вызывать внутри транзакции.
+ */
+function slot(doc: Y.Doc, siblings: readonly MindNode[], index: number): number {
+  const before = siblings[index - 1];
+  const after = siblings[index];
+  const order = orderAt(siblings, index);
+  const tie = siblings.some((sib, i) => i > 0 && sib.order <= siblings[i - 1]!.order);
+  if (!tie && (!before || order > before.order) && (!after || order < after.order)) return order;
+  siblings.forEach((sib, i) => node(doc, sib.id).set('order', i));
+  return index - 0.5;
+}
+
 function ensureRoom(doc: Y.Doc): void {
   if (nodes(doc).size >= MAX_NODES) throw new Error('В карте уже 2000 узлов. Разделите её.');
 }
@@ -215,7 +241,11 @@ export function addChild(doc: Y.Doc, parentId: string, text = '', origin?: unkno
   doc.transact(() => {
     nodes(doc).set(
       id,
-      makeNode({ text, parent: parent.id, order: orderAt(parent.children, parent.children.length) }),
+      makeNode({
+        text,
+        parent: parent.id,
+        order: slot(doc, parent.children, parent.children.length),
+      }),
     );
     if (parent.folded) node(doc, parent.id).delete('folded');
   }, origin);
@@ -237,7 +267,7 @@ export function addSibling(doc: Y.Doc, id: string, text = '', origin?: unknown):
       makeNode({
         text,
         parent: parent.id,
-        order: orderAt(parent.children, index + 1),
+        order: slot(doc, parent.children, index + 1),
         // Соседняя ветка первого уровня встаёт на ту же сторону.
         side: parent.id === ROOT ? self.side : undefined,
       }),
@@ -295,7 +325,7 @@ export function moveNode(
   doc.transact(() => {
     const target = node(doc, id);
     target.set('parent', parent.id);
-    target.set('order', orderAt(siblings, at));
+    target.set('order', slot(doc, siblings, at));
     if (parent.id === ROOT && side) target.set('side', side);
     else if (parent.id !== ROOT) target.delete('side');
     if (parent.folded) node(doc, parent.id).delete('folded');
@@ -337,7 +367,12 @@ export function setLink(doc: Y.Doc, id: string, link: MindLink | null, origin?: 
 }
 
 /** Узел-ссылка без своего текста: подпись берётся из кэша названий документа. */
-export function addLinkChild(doc: Y.Doc, parentId: string, link: MindLink, origin?: unknown): string {
+export function addLinkChild(
+  doc: Y.Doc,
+  parentId: string,
+  link: MindLink,
+  origin?: unknown,
+): string {
   const id = addChild(doc, parentId, '', origin);
   setLink(doc, id, link, origin);
   return id;
@@ -364,7 +399,29 @@ export function appendOutline(
   const total = items.reduce(function count(sum, item): number {
     return sum + 1 + item.children.reduce(count, 0);
   }, 0);
-  if (nodes(doc).size + total > MAX_NODES) throw new Error('В карте будет больше 2000 узлов. Разделите её.');
+  if (nodes(doc).size + total > MAX_NODES)
+    throw new Error('В карте будет больше 2000 узлов. Разделите её.');
+  // Сервер принимает обновление до 512 КиБ (D-751): пробуем запись на копии и меряем.
+  const probe = new Y.Doc();
+  let size = 0;
+  try {
+    Y.applyUpdate(probe, Y.encodeStateAsUpdate(doc));
+    probe.on('update', (update: Uint8Array) => {
+      size += update.length;
+    });
+    writeOutline(probe, parent, items);
+  } finally {
+    probe.destroy();
+  }
+  if (size > MAX_UPDATE_BYTES) throw new Error('Слишком много текста за раз. Добавьте частями.');
+  let created: string[] = [];
+  doc.transact(() => {
+    created = writeOutline(doc, parent, items);
+  }, origin);
+  return created;
+}
+
+function writeOutline(doc: Y.Doc, parent: MindNode, items: readonly Outline[]): string[] {
   const created: string[] = [];
   doc.transact(() => {
     const write = (item: Outline, parent: string, order: number) => {
@@ -383,10 +440,10 @@ export function appendOutline(
       created.push(id);
       item.children.forEach((child, i) => write(child, id, i));
     };
-    const start = orderAt(parent.children, parent.children.length);
+    const start = slot(doc, parent.children, parent.children.length);
     items.forEach((item, i) => write(item, parent.id, start + i));
     if (parent.folded) node(doc, parent.id).delete('folded');
-  }, origin);
+  });
   return created;
 }
 

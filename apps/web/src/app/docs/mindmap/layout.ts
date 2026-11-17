@@ -43,10 +43,7 @@ export interface LayoutOptions {
 const visible = (node: MindNode) => (node.folded ? [] : node.children);
 
 /** Стороны веток: закреплённые — как есть, остальные — на более лёгкую сторону по порядку. */
-export function assignSides(
-  tree: MindNode,
-  weight: (node: MindNode) => number,
-): Map<string, Side> {
+export function assignSides(tree: MindNode, weight: (node: MindNode) => number): Map<string, Side> {
   const sides = new Map<string, Side>();
   const load = { l: 0, r: 0 };
   for (const child of tree.children) {
@@ -131,7 +128,8 @@ export function layoutTree(
     spacing: number,
   ) => {
     if (!kids.length) return;
-    const total = kids.reduce((sum, kid) => sum + heights.get(kid.id)!, 0) + spacing * (kids.length - 1);
+    const total =
+      kids.reduce((sum, kid) => sum + heights.get(kid.id)!, 0) + spacing * (kids.length - 1);
     let y = cy - total / 2;
     for (const kid of kids) {
       const h = heights.get(kid.id)!;
@@ -188,7 +186,8 @@ export function neighbour(
     if (box.id === from) continue;
     const dx = box.x + box.w / 2 - cx;
     const dy = box.y + box.h / 2 - cy;
-    const along = direction === 'left' ? -dx : direction === 'right' ? dx : direction === 'up' ? -dy : dy;
+    const along =
+      direction === 'left' ? -dx : direction === 'right' ? dx : direction === 'up' ? -dy : dy;
     const across = direction === 'left' || direction === 'right' ? Math.abs(dy) : Math.abs(dx);
     if (along <= 0) continue;
     // Поперечное смещение дороже: стрелка вправо идёт к ребёнку, а не к соседу ниже.

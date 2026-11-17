@@ -37,7 +37,8 @@ export function mindmapMarkdown(doc: Y.Doc, links: readonly DocLink[] = []): str
   return treeMarkdown(readTree(doc), links);
 }
 
-const ITEM = /^([ \t]*)(?:[-*+]|\d+[.)])(?:[ \t]+\[[ xX]\])?[ \t]+(.*)$/;
+// Пустой пункт («- » или «-») — пустой узел карты: экспорт и импорт обратимы.
+const ITEM = /^([ \t]*)(?:[-*+]|\d+[.)])(?:[ \t]+\[[ xX]\])?(?:[ \t]+(.*))?$/;
 
 /**
  * Вложенный список → дерево. Отступ — пробелы или табы (таб = 4); глубина считается по
@@ -56,8 +57,7 @@ export function parseOutline(markdown: string): { heading: string | null; items:
       continue;
     }
     const indent = match[1]!.replace(/\t/g, '    ').length;
-    const raw = match[2]!.trim();
-    if (!raw) continue;
+    const raw = (match[2] ?? '').trim();
     const mention = MENTION.exec(raw);
     const item: Outline = mention
       ? {
@@ -75,9 +75,13 @@ export function parseOutline(markdown: string): { heading: string | null; items:
 }
 
 /** Центр и ветки из Markdown: один пункт верхнего уровня — центр, иначе центр — заголовок/название. */
-export function outlineRoot(markdown: string, title: string): { root: string; branches: Outline[] } {
+export function outlineRoot(
+  markdown: string,
+  title: string,
+): { root: string; branches: Outline[] } {
   const { heading, items } = parseOutline(markdown);
-  if (items.length === 1 && !items[0]!.link) return { root: items[0]!.text, branches: items[0]!.children };
+  if (items.length === 1 && !items[0]!.link)
+    return { root: items[0]!.text, branches: items[0]!.children };
   return { root: heading ?? title, branches: items };
 }
 
