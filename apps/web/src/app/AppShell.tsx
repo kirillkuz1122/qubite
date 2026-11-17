@@ -574,7 +574,11 @@ export function AppShell() {
         <Dock
           items={dockItems}
           current={dockCurrent}
-          onGo={(to) => (to === 'more' ? setMoreOpen(true) : go(to))}
+          onGo={(to) => {
+            if (to !== 'more') return go(to);
+            setMoreOpen(true);
+            return false; // «Ещё» — окно, а не раздел: подсветка остаётся на текущем
+          }}
           open={open && !wide}
           onOpenChange={(o) => (o ? openCmd() : closeCmd())}
         >

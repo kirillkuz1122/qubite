@@ -170,6 +170,65 @@ test('капля: подсветку можно перетащить, а быс�
   await expect(page).toHaveURL(/\/today$/);
 });
 
+test('капля: свайп к «Ещё» открывает окно, а подсветка возвращается к разделу', async ({
+  page,
+}) => {
+  test.skip((page.viewportSize()?.width ?? 1280) >= 900, 'капля — только на телефоне');
+  await page.goto('/planner');
+  const dock = page.getByRole('navigation', { name: 'Разделы' });
+  const pb = (await dock.getByRole('button', { name: 'Planner' }).boundingBox())!;
+  const y = pb.y + pb.height / 2;
+  // быстрый свайп вправо, к «Ещё» (события внутри страницы, как кадры пальца)
+  await page.evaluate(
+    async ({ x, y }) => {
+      const target = document.elementFromPoint(x, y)!;
+      const fire = (type: string, cx: number) =>
+        target.dispatchEvent(
+          new PointerEvent(type, {
+            bubbles: true,
+            cancelable: true,
+            composed: true,
+            pointerId: 1,
+            pointerType: 'touch',
+            isPrimary: true,
+            button: 0,
+            buttons: type === 'pointerup' ? 0 : 1,
+            clientX: cx,
+            clientY: y,
+          }),
+        );
+      const frame = () => new Promise((done) => setTimeout(done, 16));
+      fire('pointerdown', x);
+      for (const dx of [10, 20, 30]) {
+        await frame();
+        fire('pointermove', x + dx);
+      }
+      await frame();
+      fire('pointerup', x + 30);
+    },
+    { x: pb.x + pb.width / 2, y },
+  );
+  const sheet = page.getByRole('dialog', { name: 'Ещё' });
+  await expect(sheet).toBeVisible();
+  await expect(page).toHaveURL(/\/planner$/);
+  await page.keyboard.press('Escape');
+  await expect(sheet).toBeHidden();
+  // подсветка доехала обратно к Planner, а не осталась у «Ещё»
+  await expect
+    .poll(async () =>
+      dock.evaluate((el) => {
+        const ind = [...el.querySelectorAll('i.q-dock-ind')].map((i) => i.getBoundingClientRect());
+        const b = el.querySelector('[aria-current="page"]')!.getBoundingClientRect();
+        return Math.abs((ind[0]!.left + ind[2]!.right) / 2 - (b.left + b.right) / 2);
+      }),
+    )
+    .toBeLessThan(4);
+  await expect(dock.getByRole('button', { name: 'Planner' })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
+});
+
 test.describe('капля на дробном масштабе экрана (ПК, 125 %)', () => {
   test.use({ deviceScaleFactor: 1.25 });
 

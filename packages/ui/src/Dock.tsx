@@ -26,7 +26,8 @@ export interface NavItem<T extends string = string> {
 export interface DockProps<T extends string> {
   items: NavItem<T>[];
   current: T;
-  onGo: (id: T) => void;
+  /** перейти в раздел; `false` — перехода не было (например, «Ещё» открыл окно) */
+  onGo: (id: T) => void | boolean;
   /** раскрыта ли строка Command */
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -220,7 +221,8 @@ export function Dock<T extends string>({
         if (i === now && Math.abs(vx) > 450) i = Math.min(n - 1, Math.max(0, now + Math.sign(vx)));
         ind.hold(c - HALF, c + HALF, vx);
         if (i === now) back();
-        else go(its[i]!.id);
+        // жест открыл окно, а раздел не сменился — подсветка возвращается к текущему
+        else if (go(its[i]!.id) === false) back();
       },
       onCancel: back,
     });
