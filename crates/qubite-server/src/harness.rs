@@ -69,23 +69,23 @@ impl Default for Work {
 }
 
 /// Что прочитано из GitHub за один раз.
-struct Snapshot {
-    at: OffsetDateTime,
-    issues: Vec<GhIssue>,
+pub(crate) struct Snapshot {
+    pub(crate) at: OffsetDateTime,
+    pub(crate) issues: Vec<GhIssue>,
     usage: Option<WorkUsage>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
-struct GhIssue {
-    number: u64,
-    title: String,
-    html_url: String,
+pub(crate) struct GhIssue {
+    pub(crate) number: u64,
+    pub(crate) title: String,
+    pub(crate) html_url: String,
     #[serde(default)]
-    body: Option<String>,
+    pub(crate) body: Option<String>,
     #[serde(default)]
     labels: Vec<GhLabel>,
     #[serde(with = "time::serde::rfc3339")]
-    updated_at: OffsetDateTime,
+    pub(crate) updated_at: OffsetDateTime,
     #[serde(default)]
     comments: u64,
     #[serde(default)]
@@ -110,10 +110,10 @@ struct GhComment {
 }
 
 impl GhIssue {
-    fn has(&self, label: &str) -> bool {
+    pub(crate) fn has(&self, label: &str) -> bool {
         self.labels.iter().any(|l| l.name == label)
     }
-    fn is_pr(&self) -> bool {
+    pub(crate) fn is_pr(&self) -> bool {
         self.pull_request.is_some()
     }
 }
@@ -168,7 +168,7 @@ impl Work {
         self.token().is_some() && valid_repo(&self.settings.repo)
     }
 
-    fn url(&self, tail: &str) -> String {
+    pub(crate) fn url(&self, tail: &str) -> String {
         format!(
             "{}/repos/{}{tail}",
             self.settings.api.trim_end_matches('/'),
@@ -176,7 +176,7 @@ impl Work {
         )
     }
 
-    fn request(&self, method: reqwest::Method, url: String) -> reqwest::RequestBuilder {
+    pub(crate) fn request(&self, method: reqwest::Method, url: String) -> reqwest::RequestBuilder {
         self.http
             .request(method, url)
             .bearer_auth(self.token().unwrap_or_default())
@@ -184,7 +184,7 @@ impl Work {
             .header("x-github-api-version", "2022-11-28")
     }
 
-    async fn send<T: serde::de::DeserializeOwned>(
+    pub(crate) async fn send<T: serde::de::DeserializeOwned>(
         &self,
         request: reqwest::RequestBuilder,
     ) -> Result<T, ApiError> {
@@ -213,7 +213,7 @@ impl Work {
     }
 
     /// Снимок: из кэша, если он моложе 3 минут (или 20 секунд при «обновить»).
-    async fn snapshot(&self, fresh: bool) -> Result<Arc<Snapshot>, ApiError> {
+    pub(crate) async fn snapshot(&self, fresh: bool) -> Result<Arc<Snapshot>, ApiError> {
         let keep = if fresh { FRESH_MIN } else { CACHE_TTL };
         if let Some((at, snap)) = self.cache.lock().expect("кэш").as_ref()
             && at.elapsed() < keep
@@ -301,7 +301,7 @@ fn valid_repo(repo: &str) -> bool {
     matches!(repo.split_once('/'), Some((owner, name)) if ok(owner) && ok(name))
 }
 
-fn clip(text: &str, max: usize) -> String {
+pub(crate) fn clip(text: &str, max: usize) -> String {
     if text.chars().count() <= max {
         return text.to_owned();
     }
@@ -326,7 +326,7 @@ fn percent_after(text: &str, stem: &str) -> Option<u8> {
 }
 
 /// Вопрос из тела issue: текст до списка и пункты списка (первый — рекомендация).
-fn parse_question(body: &str) -> (String, Vec<String>) {
+pub(crate) fn parse_question(body: &str) -> (String, Vec<String>) {
     let mut text = Vec::new();
     let mut options = Vec::new();
     for line in body.lines() {
@@ -396,17 +396,20 @@ fn links(issue: &GhIssue, prs: &[&GhIssue]) -> Vec<WorkLink> {
 }
 
 fn mentions(pr: &GhIssue, number: u64) -> bool {
-    let needle = format!("#{number}");
     [pr.title.as_str(), pr.body.as_deref().unwrap_or_default()]
         .iter()
-        .any(|text| {
-            text.match_indices(&needle).any(|(at, _)| {
-                !text[at + needle.len()..]
-                    .chars()
-                    .next()
-                    .is_some_and(|c| c.is_ascii_digit())
-            })
-        })
+        .any(|text| mentions_in(text, number))
+}
+
+/// В тексте есть ровно `#N` (не `#N0`).
+pub(crate) fn mentions_in(text: &str, number: u64) -> bool {
+    let needle = format!("#{number}");
+    text.match_indices(&needle).any(|(at, _)| {
+        !text[at + needle.len()..]
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_digit())
+    })
 }
 
 /// Адреса `https://…` из текста (до пробела, скобки или кавычки).

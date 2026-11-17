@@ -52,7 +52,10 @@ const ITEM = /^([ \t]*)(?:[-*+]|\d+[.)])(?:[ \t]+\[[ xX]\])?(?:[ \t]+(.*))?$/;
  * стеку отступов, поэтому подойдут и 2, и 4 пробела. Строки вне списка пропускаются,
  * кроме первого заголовка — он может стать центром.
  */
-export function parseOutline(markdown: string): { heading: string | null; items: Outline[] } {
+export function parseOutline(
+  markdown: string,
+  links: readonly DocLink[] = [],
+): { heading: string | null; items: Outline[] } {
   const top: Outline[] = [];
   const stack: { indent: number; item: Outline }[] = [];
   let heading: string | null = null;
@@ -69,7 +72,11 @@ export function parseOutline(markdown: string): { heading: string | null; items:
     const item: Outline = mention
       ? {
           text: mention[1]!.replace(/\\(.)/g, '$1'),
-          link: { target: mention[2]!.toLowerCase(), kind: 'docs.page' },
+          // Тип ссылки — из кэша целей, как в markdown.ts: событие остаётся событием.
+          link: {
+            target: mention[2]!.toLowerCase(),
+            kind: links.find((value) => value.id === mention[2]!.toLowerCase())?.type ?? 'docs.page',
+          },
           children: [],
         }
       : { text: raw.startsWith('\\[') ? raw.slice(1) : raw, children: [] };
@@ -85,8 +92,9 @@ export function parseOutline(markdown: string): { heading: string | null; items:
 export function outlineRoot(
   markdown: string,
   title: string,
+  links: readonly DocLink[] = [],
 ): { root: string; branches: Outline[] } {
-  const { heading, items } = parseOutline(markdown);
+  const { heading, items } = parseOutline(markdown, links);
   if (items.length === 1 && !items[0]!.link)
     return { root: items[0]!.text, branches: items[0]!.children };
   return { root: heading ?? title, branches: items };

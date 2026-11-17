@@ -55,7 +55,11 @@ function newId(): string {
 }
 
 function clip(text: string): string {
-  return text.replace(/[\r\n]+/g, ' ').slice(0, MAX_NODE_TEXT);
+  const flat = text.replace(/[\r\n]+/g, ' ');
+  if (flat.length <= MAX_NODE_TEXT) return flat;
+  // Граница не режет эмодзи пополам: одиночная половина суррогатной пары станет «�».
+  const high = flat.charCodeAt(MAX_NODE_TEXT - 1);
+  return flat.slice(0, high >= 0xd800 && high <= 0xdbff ? MAX_NODE_TEXT - 1 : MAX_NODE_TEXT);
 }
 
 function makeNode(fields: {
