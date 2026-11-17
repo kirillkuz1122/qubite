@@ -83,6 +83,10 @@ pub enum Error {
         "ChatGPT не подключён — «Настройки → AI и бюджет → Войти через ChatGPT» или голос ElevenLabs в настройках «Английского»"
     )]
     NoSubscription,
+    /// Ход с этим `key` ещё идёт (запрос оборвался по времени, работа доводится в фоне — D-904):
+    /// экран повторяет тот же `key` чуть позже и получает готовый ход.
+    #[error("Ещё думаю над прошлой репликой")]
+    InProgress,
     /// Отказ AI-шлюза. `heard` — что успели распознать (чтобы не пропало:
     /// экран кладёт это в поле, можно отправить текстом).
     #[error("{error}")]
@@ -104,6 +108,7 @@ impl Error {
             Self::NotFound => "not_found",
             Self::Invalid(_) => "invalid",
             Self::NoSubscription => "chatgpt_not_connected",
+            Self::InProgress => "in_progress",
             Self::Ai { error, .. } => error.code(),
             Self::Db(_) | Self::Policy(_) => "internal",
         }
@@ -774,8 +779,71 @@ pub(crate) fn with_heard(error: AiError, heard: Option<&str>) -> Error {
     }
 }
 
+/// Повтор хода с тем же `key` (OPS-009, D-972). Голосовой ход — два вызова подряд
+/// (до 60 с каждый), а HTTP-запрос ждёт 90 с: после 408 работа доводится в фоне
+/// (D-904), и экран спрашивает ещё раз с тем же ключом.
+/// - ответ сохранён → тот же ход, бесплатно;
+/// - вызов ещё идёт или ответ вот-вот сохранится → [`Error::InProgress`];
+/// - прошлый ход с этим ключом не удался или его не было → `None`, дальше как обычно.
+async fn replay(pool: &PgPool, account: Uuid, key: Uuid) -> Result<Option<Turn>> {
+    let tutor_request = format!("english:{key}:tutor");
+    let calls: Vec<(String, String, Uuid)> = sqlx::query_as(
+        "SELECT request_id, status, id FROM ai_calls \
+         WHERE account_id = $1 AND request_id = ANY($2)",
+    )
+    .bind(account)
+    .bind(vec![tutor_request.clone(), format!("english:{key}:stt")])
+    .fetch_all(pool)
+    .await?;
+    let tutor = calls.iter().find(|(request, ..)| *request == tutor_request);
+    let Some((_, status, call)) = tutor else {
+        // Ответа ещё не просили: распознавание идёт — ждать; иначе как обычно.
+        return if calls.iter().any(|(_, status, _)| status == "sending") {
+            Err(Error::InProgress)
+        } else {
+            Ok(None)
+        };
+    };
+    match status.as_str() {
+        "sending" => return Err(Error::InProgress),
+        "succeeded" => {}
+        _ => return Ok(None),
+    }
+    let mut conn = pool.acquire().await?;
+    let saved: Option<(Uuid, Uuid, i64)> = sqlx::query_as(
+        "SELECT id, session_id, seq FROM english_messages \
+         WHERE account_id = $1 AND role = 'tutor' AND ai_call = $2",
+    )
+    .bind(account)
+    .bind(call)
+    .fetch_optional(&mut *conn)
+    .await?;
+    // Вызов закончился, реплики сохраняются следующим шагом.
+    let Some((tutor_id, session_id, seq)) = saved else {
+        return Err(Error::InProgress);
+    };
+    let learner_id: Uuid = sqlx::query_scalar(
+        "SELECT id FROM english_messages WHERE session_id = $1 AND role = 'learner' AND seq < $2 \
+         ORDER BY seq DESC LIMIT 1",
+    )
+    .bind(session_id)
+    .bind(seq)
+    .fetch_one(&mut *conn)
+    .await?;
+    let session: Session = sqlx::query_as(sqlx::AssertSqlSafe(format!("{SESSION} WHERE id = $1")))
+        .bind(session_id)
+        .fetch_one(&mut *conn)
+        .await?;
+    Ok(Some(Turn {
+        session,
+        learner: message(&mut conn, learner_id).await?,
+        tutor: message(&mut conn, tutor_id).await?,
+        cost_usd_micros: 0,
+    }))
+}
+
 /// Сказать репетитору (`key` — ID действия от экрана: повтор с тем же ключом
-/// не платится дважды). Голос сначала распознаётся; ответ — с разбором ошибок.
+/// не платится дважды и отдаёт уже готовый ход — [`replay`]). Голос сначала распознаётся; ответ — с разбором ошибок.
 /// Ход целиком (без потока); разговор потоком — [`live`].
 pub async fn turn(
     pool: &PgPool,
@@ -789,6 +857,9 @@ pub async fn turn(
         check_text(text)?;
     }
     let (auth, session) = begin(pool, account).await?;
+    if let Some(done) = replay(pool, account, key).await? {
+        return Ok(done);
+    }
     // Распознавание и ответ — один ход для защиты от зацикливания.
     let ai = gateway.turn();
 

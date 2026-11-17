@@ -309,7 +309,11 @@ fn stops(error: &Error) -> bool {
                 // 302 из закрытой страны, неверный ключ: повтор не поможет (D-515).
                 | AiError::ProviderRefused { .. }
         ),
-        Error::NotFound | Error::Invalid(_) | Error::Db(_) | Error::Policy(_) => false,
+        Error::NotFound
+        | Error::Invalid(_)
+        | Error::InProgress
+        | Error::Db(_)
+        | Error::Policy(_) => false,
     }
 }
 

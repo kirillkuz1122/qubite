@@ -53,7 +53,23 @@ export class TurnFail extends Fail {
   }
 }
 
-export async function sendTurn(saying: Saying): Promise<EnglishTurn> {
+/** Повтор хода после обрыва (D-972): каждые 5 с, не дольше минуты. */
+export const TURN_RETRY_MS = 5_000;
+export const TURN_RETRY_FOR_MS = 60_000;
+
+const sleep = (ms: number) => new Promise<void>((done) => setTimeout(done, ms));
+
+/**
+ * Обрыв, после которого ход мог дойти до конца на сервере: 408 (голосовой ход — до двух
+ * вызовов AI по 60 с, а запрос ждёт 90 с), «ещё думаю» или сеть пропала по дороге.
+ * Повтор с тем же `key` бесплатный — сервер отдаёт уже сохранённый ход.
+ */
+function worthRetry(fail: TurnFail): boolean {
+  if (fail.code === 'network') return typeof navigator === 'undefined' || navigator.onLine;
+  return fail.status === 408 || fail.code === 'in_progress';
+}
+
+export async function sendTurn(saying: Saying, wait = sleep): Promise<EnglishTurn> {
   const key = crypto.randomUUID();
   const body =
     'text' in saying
@@ -64,22 +80,30 @@ export async function sendTurn(saying: Saying): Promise<EnglishTurn> {
           mime: saying.audio.type || 'audio/webm',
           duration_ms: Math.round(saying.ms),
         };
-  let r;
-  try {
-    r = await api.POST('/api/v1/english/turn', { body });
-  } catch {
-    throw new TurnFail('network', 'Нет связи с сервером', 0, null);
+  const send = async (): Promise<EnglishTurn | TurnFail> => {
+    let r;
+    try {
+      r = await api.POST('/api/v1/english/turn', { body });
+    } catch {
+      return new TurnFail('network', 'Нет связи с сервером', 0, null);
+    }
+    if (r.error !== undefined || !r.response.ok) {
+      const e = (r.error ?? {}) as { error?: string; message?: string; heard?: string | null };
+      return new TurnFail(
+        e.error ?? `http_${r.response.status}`,
+        e.message ?? 'Сервер сейчас не отвечает. Попробуйте чуть позже',
+        r.response.status,
+        e.heard ?? null,
+      );
+    }
+    return r.data as EnglishTurn;
+  };
+  for (let waited = 0; ; waited += TURN_RETRY_MS) {
+    const result = await send();
+    if (!(result instanceof TurnFail)) return result;
+    if (!worthRetry(result) || waited >= TURN_RETRY_FOR_MS) throw result;
+    await wait(TURN_RETRY_MS);
   }
-  if (r.error !== undefined || !r.response.ok) {
-    const e = (r.error ?? {}) as { error?: string; message?: string; heard?: string | null };
-    throw new TurnFail(
-      e.error ?? `http_${r.response.status}`,
-      e.message ?? 'Сервер сейчас не отвечает. Попробуйте чуть позже',
-      r.response.status,
-      e.heard ?? null,
-    );
-  }
-  return r.data as EnglishTurn;
 }
 
 /** Записанный ход — в экран без лишнего запроса. */
@@ -99,7 +123,7 @@ export function appendTurn(qc: QueryClient, t: EnglishTurn) {
 export function useTurn() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: sendTurn,
+    mutationFn: (saying: Saying) => sendTurn(saying),
     onSuccess: (t) => appendTurn(qc, t),
   });
 }

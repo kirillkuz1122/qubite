@@ -562,3 +562,62 @@ async fn idle_conversation_closes_and_notes_are_kept() {
     db.close().await;
     test_db.drop_db().await;
 }
+
+/// Повтор хода с тем же `key` (OPS-009, D-972): ответ после 408 доводится в фоне,
+/// экран спрашивает ещё раз — и получает тот же ход, без новых вызовов AI.
+#[tokio::test]
+async fn same_key_returns_saved_turn_or_in_progress() {
+    let (test_db, db) = TestDb::migrated().await;
+    let pool = db.pool();
+    let me = owner(pool).await;
+    let ai = ai(pool, me, vec![], vec![spoken("I like tea")]).await;
+    let settings = Settings::default();
+    qubite_english::start(pool, me).await.unwrap();
+    let key = Uuid::now_v7();
+
+    let first = qubite_english::turn(pool, &ai.gateway, &settings, me, key, voice_clip())
+        .await
+        .unwrap();
+    assert!(first.cost_usd_micros > 0);
+    let count = |sql: &'static str| async move {
+        sqlx::query_scalar::<_, i64>(sql)
+            .bind(me)
+            .fetch_one(pool)
+            .await
+            .unwrap()
+    };
+    let calls = count("SELECT count(*) FROM ai_calls WHERE account_id = $1").await;
+    let lines = count("SELECT count(*) FROM english_messages WHERE account_id = $1").await;
+
+    let again = qubite_english::turn(pool, &ai.gateway, &settings, me, key, voice_clip())
+        .await
+        .unwrap();
+    assert_eq!(again.learner.id, first.learner.id);
+    assert_eq!(again.tutor.id, first.tutor.id);
+    assert_eq!(again.learner.text, "I like tea");
+    assert_eq!(again.session.turns, first.session.turns);
+    assert_eq!(again.cost_usd_micros, 0, "повтор бесплатный");
+    assert_eq!(ai.model.calls(), 1, "модель не спрашивали второй раз");
+    assert_eq!(
+        count("SELECT count(*) FROM ai_calls WHERE account_id = $1").await,
+        calls
+    );
+    assert_eq!(
+        count("SELECT count(*) FROM english_messages WHERE account_id = $1").await,
+        lines,
+        "реплики не задвоились"
+    );
+
+    // Вызов ещё идёт — «ещё думаю», а не ошибка «повтор запроса».
+    sqlx::query("UPDATE ai_calls SET status = 'sending' WHERE request_id = $1")
+        .bind(format!("english:{key}:tutor"))
+        .execute(pool)
+        .await
+        .unwrap();
+    let busy = qubite_english::turn(pool, &ai.gateway, &settings, me, key, voice_clip()).await;
+    assert!(matches!(busy, Err(Error::InProgress)), "{busy:?}");
+    assert_eq!(Error::InProgress.code(), "in_progress");
+
+    db.close().await;
+    test_db.drop_db().await;
+}

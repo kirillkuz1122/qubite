@@ -282,7 +282,7 @@ pub(crate) fn english_error(error: Error) -> ApiError {
         Error::Denied(reason) => qubite_policy::Error::Denied(reason).into(),
         Error::NotFound => ApiError::new(StatusCode::NOT_FOUND, "not_found", "Не найдено"),
         Error::Invalid(message) => ApiError::new(StatusCode::BAD_REQUEST, "invalid", message),
-        error @ Error::NoSubscription => {
+        error @ (Error::NoSubscription | Error::InProgress) => {
             ApiError::new(StatusCode::CONFLICT, error.code(), error.to_string())
         }
         Error::Ai { error, .. } => error.into(),
