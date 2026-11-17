@@ -61,7 +61,7 @@ body {
   align-items: center;
   gap: 9px;
   min-height: 44px;
-  padding: 0 18px;
+  padding: 0 16px;
   border-radius: calc(var(--q-round) * 21px);
   border: 1px solid var(--q-line-2);
   background: none;
@@ -168,6 +168,62 @@ button.q-lrow {
   }
 }
 
+/* меню редких действий за кнопкой-значком («Ещё») */
+.q-pop-wrap {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+}
+.q-pop {
+  position: absolute;
+  top: calc(100% + 8px);
+  z-index: 30;
+  min-width: 200px;
+  max-width: min(280px, calc(100vw - 32px));
+}
+.q-pop-end {
+  right: 0;
+}
+.q-pop-start {
+  left: 0;
+}
+.q-pop-list {
+  display: grid;
+  padding: 4px;
+  border: 1px solid var(--q-line-2);
+  border-radius: calc(var(--q-round) * 24px);
+  background: var(--q-panel);
+  box-shadow: 0 16px 40px -16px var(--q-shadow);
+}
+.q-pop-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: calc(var(--q-round) * 20px);
+  background: none;
+  color: var(--q-ink);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+.q-pop-item:disabled {
+  color: var(--q-dim);
+  cursor: default;
+}
+.q-pop-bad {
+  color: var(--q-red-ink);
+}
+@media (hover: hover) {
+  .q-pop-item:where(:hover:not(:disabled)) {
+    background: var(--q-panel-2);
+  }
+}
+
 /* перетекающая подсветка */
 .q-flow {
   position: absolute;
@@ -205,7 +261,7 @@ button.q-lrow {
   position: relative;
   z-index: 1;
   min-height: 44px;
-  padding: 0 14px;
+  padding: 0 12px;
   border: 0;
   background: none;
   font: inherit;
@@ -219,7 +275,8 @@ button.q-lrow {
 }
 /* чуть не помещается по ширине — пункты плотнее (Segmented, DS-008) */
 .q-seg.q-tight button {
-  padding: 0 10px;
+  /* на 4 px с каждой стороны меньше обычного (12 px) — ровно столько, сколько учитывает TIGHT */
+  padding: 0 8px;
 }
 
 /* переключатель */
@@ -357,7 +414,7 @@ button.q-lrow {
   flex-wrap: wrap;
   align-items: center;
   gap: 4px 10px;
-  padding: 14px 18px;
+  padding: 16px 16px;
   font-size: 14px;
   color: var(--q-mute);
 }
@@ -405,7 +462,7 @@ button.q-lrow {
   width: 100%;
   min-width: 0;
   height: 100%;
-  padding: 0 18px;
+  padding: 0 16px;
   border: 0;
   background: none;
   color: var(--q-ink);
@@ -560,6 +617,10 @@ button.q-lrow {
   color: var(--q-dim);
 }
 .q-empty-act {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
   margin-top: 16px;
 }
 
@@ -729,7 +790,7 @@ kbd {
   z-index: 1;
   flex: none;
   min-height: 44px;
-  padding: 0 14px;
+  padding: 0 12px;
   border: 0;
   background: none;
   font: inherit;
@@ -1090,7 +1151,7 @@ kbd {
   align-items: start;
   width: 100%;
   min-height: 64px;
-  padding: 12px 14px;
+  padding: 12px 16px;
   border: 0;
   border-radius: calc(var(--q-round) * 20px);
   background: none;
@@ -1136,7 +1197,7 @@ kbd {
 /* настройки выбранного варианта — прямо под ним, по левому краю его кружка */
 .q-choice-detail {
   min-width: 0;
-  padding: 8px 14px 14px;
+  padding: 8px 16px 16px;
 }
 
 /* «+» и меню из него */
@@ -1357,7 +1418,7 @@ kbd {
   position: fixed;
   z-index: 61;
   overflow-y: auto;
-  padding: 18px 20px 120px;
+  padding: 16px 20px 120px;
   will-change: opacity, transform;
 }
 
@@ -1380,6 +1441,38 @@ html[data-motion='less'] .q-caret {
 /* облегчённый режим: фон без сетки точек */
 html[data-lite] .q-grid {
   display: none;
+}
+
+/* Внутренние прокрутки (шкала календаря, списки, окна): одна тонкая полоса из токенов, без
+   стрелок и серого жёлоба системы; над блоком ползунок ярче (DS-013, D-912). У страницы своя
+   прокрутка — точки у края (ниже), там полосы нет совсем. */
+:where(*) {
+  scrollbar-width: thin;
+  scrollbar-color: var(--q-line-2) transparent;
+}
+@media (hover: hover) {
+  :where(*):hover {
+    scrollbar-color: var(--q-dim) transparent;
+  }
+}
+/* Safari и старые Chromium: те же 6 px, без стрелок */
+:where(*)::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+  background: transparent;
+}
+:where(*)::-webkit-scrollbar-button {
+  display: none;
+}
+:where(*)::-webkit-scrollbar-thumb {
+  border-radius: 3px;
+  background: var(--q-line-2);
+}
+:where(*)::-webkit-scrollbar-thumb:hover {
+  background: var(--q-dim);
+}
+:where(*)::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 /* своя прокрутка: точки заголовков у правого края (EdgeScroll) */

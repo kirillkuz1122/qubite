@@ -7,6 +7,7 @@ import {
   Field,
   Presence,
   Segmented,
+  Sheet,
   Swap,
   useFlow,
   useSpring,
@@ -156,7 +157,7 @@ function Week() {
 }
 
 /**
- * Проекты (D-289): «Новый проект» прямо здесь, строка проекта раскрывается — видны его дела.
+ * Проекты (D-289): «Новый проект» — в окне, строка проекта раскрывается — видны его дела.
  * `data-obj` — чтобы Command мог показать и открыть проект («новый проект …»).
  */
 function Projects() {
@@ -189,14 +190,13 @@ function Projects() {
       <SecHead text="ПРОЕКТЫ" label="Проекты">
         <span className="sec-h-end">
           <span className="n">{planner.projects.length}</span>
-          {!adding && (
-            <Button className="proj-add" size="sm" onClick={() => setAdding(true)}>
-              Новый проект
-            </Button>
-          )}
+          <Button className="proj-add" size="sm" onClick={() => setAdding(true)}>
+            Новый проект
+          </Button>
         </span>
       </SecHead>
-      <Presence show={adding}>
+      {/* Как все формы — в окне (DS-013, находка 11): страница под ним не прыгает. */}
+      <Sheet open={adding} onClose={() => setAdding(false)} title="Новый проект">
         <form className="proj-new" onSubmit={create} aria-label="Новый проект">
           <Field
             label="Название проекта"
@@ -214,8 +214,8 @@ function Projects() {
             </Button>
           </div>
         </form>
-      </Presence>
-      {planner.loaded && planner.projects.length === 0 && !adding && (
+      </Sheet>
+      {planner.loaded && planner.projects.length === 0 && (
         <EmptyState
           kind="proto"
           label="Прото ждёт"

@@ -1,0 +1,161 @@
+/* 404 по макету «Экраны → 404» (DS-013): цифры из точек, на месте нуля — Элик за кофе */
+.nf {
+  position: relative;
+  min-height: 100svh;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  background: var(--q-bg);
+  color: var(--q-ink);
+  font-family: var(--q-text);
+  overflow-x: hidden;
+}
+.nf-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 24px 40px;
+}
+.nf-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--q-ink);
+}
+.nf-mark .q-dot {
+  background: var(--q-orange);
+}
+.nf-calm,
+.nf-foot {
+  font-size: 13px;
+  color: var(--q-mute);
+}
+.nf-main {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 16px;
+  padding: 24px 16px;
+  text-align: center;
+}
+.nf-eyebrow {
+  margin: 0 0 16px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--q-orange-ink);
+}
+.nf-art {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 64px;
+  margin-bottom: 16px;
+}
+.nf-digit {
+  display: block;
+  width: 170px;
+  height: 238px;
+  overflow: visible;
+}
+.nf-digit circle {
+  /* масштаб точки — от её центра; анимацию ведёт общая пружина в NotFound.tsx */
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.nf-ink circle {
+  fill: var(--q-ink);
+}
+.nf-orange circle {
+  fill: var(--q-orange);
+}
+.nf-zero {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+.nf-zero > * {
+  grid-area: 1 / 1;
+}
+.nf-away {
+  display: grid;
+  justify-items: center;
+  align-content: space-between;
+  width: 180px;
+  height: 238px;
+  padding: 24px 8px 0;
+  border: 2px dashed var(--q-line-2);
+  border-radius: 90px;
+}
+.nf-away-note {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--q-mute);
+  max-width: 12ch;
+}
+.nf-elik {
+  display: block;
+  margin: 0 0 -2px -24px;
+}
+.nf-title {
+  display: flex;
+  justify-content: center;
+  margin-top: 24px;
+}
+.nf-title canvas {
+  max-width: 100%;
+}
+.nf-accent {
+  margin: 0;
+  font-size: 18px;
+  color: var(--q-orange-ink);
+}
+.nf-text {
+  margin: 0;
+  max-width: 40ch;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--q-mute);
+}
+.nf-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 16px;
+  margin-top: 8px;
+}
+.nf-foot {
+  padding: 24px 16px 40px;
+  text-align: center;
+}
+@media (max-width: 899px) {
+  .nf-top {
+    padding: 16px;
+  }
+  .nf-calm {
+    display: none;
+  }
+  .nf-art {
+    gap: 24px;
+  }
+  .nf-digit {
+    width: 72px;
+    height: 100px;
+  }
+  .nf-away {
+    width: 100px;
+    height: 144px;
+    padding-top: 16px;
+    border-radius: 50px;
+  }
+  .nf-elik {
+    margin-left: -16px;
+  }
+  .nf-accent {
+    font-size: 16px;
+  }
+  .nf-foot {
+    max-width: 30ch;
+    margin: 0 auto;
+  }
+}
