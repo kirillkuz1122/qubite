@@ -443,6 +443,8 @@ async fn there_is_no_http_route_to_become_owner() {
         "/api/owner/ai/",
         // работа агентов (HAR-002): GitHub Issues, ответы на вопросы
         "/api/owner/work",
+        // Пульт (HAR-002, AOS-5): Светофор, карточка агента, токены сборщика
+        "/api/owner/pult",
     ];
     assert!(
         owner_paths

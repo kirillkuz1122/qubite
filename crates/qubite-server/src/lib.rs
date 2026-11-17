@@ -32,6 +32,7 @@ pub mod oauth;
 pub mod opportunities;
 pub mod platform;
 pub mod projects;
+pub mod pult;
 pub mod registration;
 pub mod routes;
 pub mod sync;
@@ -81,6 +82,8 @@ pub struct AppState {
     pub ai_panel: Arc<ai_console::AiPanel>,
     /// «Работа агентов» (HAR-002): GitHub Issues токеном сервера.
     pub work: Arc<harness::Work>,
+    /// «Пульт» (HAR-002, AOS-5): кэш PR с CI.
+    pub pult: Arc<pult::Pult>,
     /// Файл, где автодеплой пишет, какая версия стоит (OPS-007).
     pub deploy_file: Arc<std::path::PathBuf>,
 }
@@ -112,6 +115,7 @@ impl AppState {
             project_uploads: Arc::new(Semaphore::new(4)),
             ai_panel: Arc::new(ai_console::AiPanel::default()),
             work: Arc::new(harness::Work::default()),
+            pult: Arc::new(pult::Pult::default()),
             deploy_file: Arc::new(deploy::default_path()),
         }
     }
@@ -236,6 +240,12 @@ impl AppState {
         console::server_info,
         harness::work_board,
         harness::work_answer,
+        pult::pult_board,
+        pult::pult_agent,
+        pult::list_collectors,
+        pult::create_collector,
+        pult::delete_collector,
+        pult::receive_report,
         ai::owner_ai_models,
         ai::owner_ai_catalog,
         ai::owner_ai_update_model,
@@ -452,6 +462,32 @@ impl AppState {
         harness::WorkUsage,
         harness::AnswerRequest,
         harness::AnswerPosted,
+        pult::PultBoard,
+        pult::PultLimits,
+        pult::PultWindow,
+        pult::PultCounts,
+        pult::PultWaiting,
+        pult::PultSpend,
+        pult::PultDay,
+        pult::PultTop,
+        pult::PultAgent,
+        pult::PultCache,
+        pult::PultPr,
+        pult::PultSource,
+        pult::PultAgentCard,
+        pult::PultEvent,
+        pult::PultCollector,
+        pult::NewCollector,
+        pult::CollectorToken,
+        pult::AgentStatus,
+        pult::AgentPlace,
+        pult::Ci,
+        pult::Report,
+        pult::ReportLimits,
+        pult::ReportWindow,
+        pult::ReportSession,
+        pult::ReportDay,
+        pult::Usage,
         ai::AiModelItem,
         ai::AiCatalogItem,
         ai::AiModelChange,
@@ -649,6 +685,7 @@ impl AppState {
         (name = "calendar", description = "Календарь: события, дела и уроки"),
         (name = "planner", description = "Проект как папка: страница проекта, файлы, документы, лента (дела и проекты меняются синхронизацией)"),
         (name = "english", description = "Английский: разговор с AI-репетитором голосом и текстом (голос — через AI-шлюз)"),
+        (name = "pult", description = "Пульт владельца: приём сводки сборщика с ПК по его токену (не сессия)"),
         (name = "ai", description = "AI и бюджет человека: свой расход и лимиты, «Подключить AI» (своя подписка ChatGPT, свой ключ)")
     )
 )]
@@ -742,6 +779,20 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
         .route(
             "/api/owner/work/questions/{number}/answer",
             post(harness::work_answer),
+        )
+        .route("/api/owner/pult", get(pult::pult_board))
+        .route("/api/owner/pult/agents/{key}", get(pult::pult_agent))
+        .route(
+            "/api/owner/pult/collectors",
+            get(pult::list_collectors).post(pult::create_collector),
+        )
+        .route(
+            "/api/owner/pult/collectors/{id}",
+            axum::routing::delete(pult::delete_collector),
+        )
+        .route(
+            "/api/pult/report",
+            post(pult::receive_report).layer(DefaultBodyLimit::max(512 * 1024)),
         )
         .route(
             "/api/owner/accounts/{account_id}/grants",
