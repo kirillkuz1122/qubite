@@ -75,7 +75,8 @@ export function parseOutline(
           // Тип ссылки — из кэша целей, как в markdown.ts: событие остаётся событием.
           link: {
             target: mention[2]!.toLowerCase(),
-            kind: links.find((value) => value.id === mention[2]!.toLowerCase())?.type ?? 'docs.page',
+            kind:
+              links.find((value) => value.id === mention[2]!.toLowerCase())?.type ?? 'docs.page',
           },
           children: [],
         }

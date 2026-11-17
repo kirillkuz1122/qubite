@@ -6,6 +6,7 @@ import {
   addSibling,
   appendOutline,
   findNode,
+  MAX_MARKDOWN_CHARS,
   MAX_NODE_TEXT,
   initMindmap,
   isMindmap,
@@ -412,5 +413,17 @@ describe('mind map: история версий (DOC-004)', () => {
     const md = `- центр\n  - [@Урок](qubite://${target})\n  - [@Док](qubite://0199a1b2-c3d4-7e5f-8a9b-0123456789ac)`;
     const { branches } = outlineRoot(md, 'x', links);
     expect(branches.map((b) => b.link?.kind)).toEqual(['calendar.event', 'docs.page']);
+  });
+  it('массовое добавление не превышает лимит знаков текста сервера', () => {
+    const doc = fresh();
+    const many = Array.from({ length: 700 }, (_, i) => ({
+      text: `${i}`.padEnd(MAX_NODE_TEXT, 'x'),
+      children: [],
+    }));
+    expect(() => appendOutline(doc, ROOT, many)).toThrow(/частями/);
+    expect(readTree(doc).children).toHaveLength(0);
+    // Половина проходит, и текст карты действительно укладывается в лимит.
+    appendOutline(doc, ROOT, many.slice(0, 350));
+    expect([...mindmapMarkdown(doc)].length).toBeLessThan(MAX_MARKDOWN_CHARS);
   });
 });
