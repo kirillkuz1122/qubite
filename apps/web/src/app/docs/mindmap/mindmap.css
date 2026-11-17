@@ -1,0 +1,372 @@
+/* DOC-006: mind map. Размеры узлов совпадают с measure.ts; цвета — только токены. */
+.mm-tone-sky {
+  --mm-tone: var(--q-sky);
+  --mm-tone-ink: var(--q-sky-ink);
+}
+.mm-tone-green {
+  --mm-tone: var(--q-green);
+  --mm-tone-ink: var(--q-green-ink);
+}
+.mm-tone-orange {
+  --mm-tone: var(--q-orange);
+  --mm-tone-ink: var(--q-orange-ink);
+}
+.mm-tone-yellow {
+  --mm-tone: var(--q-yellow);
+  --mm-tone-ink: var(--q-yellow-ink);
+}
+.mm-tone-peach {
+  --mm-tone: var(--q-peach);
+  --mm-tone-ink: var(--q-mute);
+}
+
+/* Холст — на всю ширину рабочей области и до низа экрана: поля оболочки снимаются
+   по замеру (MindMap.tsx), Command и нижняя панель лежат поверх. */
+.mm-stage {
+  position: relative;
+  height: var(--mm-height, 70dvh);
+  margin: 16px calc(-1 * var(--mm-right, 0px)) calc(-1 * var(--mm-bottom, 0px))
+    calc(-1 * var(--mm-left, 0px));
+}
+.mm-probe {
+  position: absolute;
+  visibility: hidden;
+  white-space: pre;
+  font: 400 100px/1 var(--q-text);
+  font-variant-ligatures: none;
+}
+.mm-canvas {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  background: var(--q-bg);
+  border-top: 1px solid var(--q-line);
+  outline: none;
+  cursor: grab;
+}
+.mm-canvas:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--q-sky);
+}
+.mm-grid {
+  position: absolute;
+  inset: 0 -24px -24px 0;
+  width: calc(100% + 48px);
+  height: calc(100% + 48px);
+  background-image: radial-gradient(circle, var(--q-faint) 1px, transparent 1.5px);
+  background-size: 24px 24px;
+  pointer-events: none;
+}
+.mm-layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  transform-origin: 0 0;
+}
+.mm-edges {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  overflow: visible;
+  pointer-events: none;
+}
+.mm-edge {
+  fill: none;
+  stroke: var(--mm-tone);
+  stroke-linecap: round;
+}
+
+.mm-node {
+  position: absolute;
+  left: 0;
+  top: 0;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--q-bg);
+  color: var(--q-ink);
+  font: 400 14px/1.4 var(--q-text);
+  font-variant-ligatures: none;
+  transform-origin: 50% 50%;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+.mm-node:hover {
+  background: var(--q-panel-2);
+}
+.mm-d0 {
+  padding: 12px 20px;
+  border: 2px solid var(--q-orange);
+  border-radius: 12px;
+  background: var(--q-panel);
+  font: 600 16px/1.35 var(--q-text);
+}
+.mm-d1 {
+  padding: 8px 12px;
+  border: 1px solid var(--q-line-2);
+  border-radius: 10px;
+  background: var(--q-panel);
+  font-weight: 500;
+}
+.mm-d1:hover,
+.mm-d0:hover {
+  background: var(--q-panel-2);
+}
+/* Выделение и правка — обводка снаружи: размер узла и раскладка не меняются. */
+.mm-selected,
+.mm-editing {
+  outline: 2px solid var(--q-sky);
+  outline-offset: 0;
+  background: var(--q-panel-2);
+}
+.mm-drop {
+  outline: 2px dashed var(--mm-tone, var(--q-orange));
+  outline-offset: 2px;
+}
+.mm-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: calc(var(--q-round) * 4px);
+  background: var(--mm-tone);
+}
+.mm-label {
+  flex: none;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.mm-empty .mm-label {
+  color: var(--q-dim);
+}
+.mm-link {
+  flex: none;
+  box-sizing: border-box;
+  padding: 2px 8px;
+  border: 1px solid var(--q-line-2);
+  border-radius: 4px;
+  font-size: 13px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.mm-at {
+  color: var(--q-sky-ink);
+}
+.mm-fold {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 6px;
+  border: 1px solid var(--mm-tone);
+  border-radius: 4px;
+  color: var(--mm-tone-ink);
+  font-size: 12px;
+  line-height: 1;
+}
+.mm-input {
+  flex: none;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: none;
+  resize: none;
+  overflow: hidden;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-variant-ligatures: none;
+  caret-color: var(--q-orange);
+  field-sizing: content;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.mm-input::placeholder {
+  color: var(--q-dim);
+}
+
+/* Кнопка «Ещё» у выделенного узла (ПК): едет за узлом, двигает её scene.ts. */
+.mm-overlay {
+  position: absolute;
+  left: 0;
+  top: 0;
+  opacity: 0;
+  z-index: 2;
+}
+/* Телефон: «Вся карта» над нижней панелью; пока открыта панель узла — прячется. */
+.mm-corner {
+  position: absolute;
+  right: 16px;
+  bottom: 88px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--q-line);
+  border-radius: 12px;
+  background: var(--q-panel);
+  z-index: 2;
+}
+@media (min-width: 900px) {
+  .mm-corner {
+    right: 24px;
+    bottom: 24px;
+  }
+}
+/* Подсказка клавиш при правке (ПК): слева сверху — снизу её закрыла бы строка Command. */
+.mm-keys {
+  position: absolute;
+  left: 24px;
+  top: 12px;
+  display: flex;
+  gap: 16px;
+  padding: 8px 12px;
+  border: 1px solid var(--q-line);
+  border-radius: 10px;
+  background: var(--q-panel);
+  font-size: 13px;
+  color: var(--q-mute);
+  z-index: 2;
+}
+.mm-keys kbd {
+  margin-right: 8px;
+}
+.mm-zoom {
+  min-width: 48px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--q-mute);
+}
+
+/* Панель узла на телефоне — над нижней панелью, как в макете. Холст доходит до низа
+   экрана, поэтому отсчёт от него; fixed внутри анимированной оболочки съезжал бы. */
+.mm-bar {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 88px;
+  z-index: 3;
+}
+.mm-bar-in {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px;
+  border: 1px solid var(--q-line);
+  border-radius: 14px;
+  background: var(--q-panel);
+  box-shadow: 0 12px 32px var(--q-shadow);
+}
+.mm-bar-item.q-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 52px;
+  padding: 4px 0;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--q-mute);
+}
+.mm-bar-swatch {
+  width: 16px;
+  height: 16px;
+  margin: 2px;
+  border-radius: 4px;
+  background: var(--mm-tone);
+}
+
+.mm-sheet {
+  display: flex;
+  flex-direction: column;
+}
+.mm-sheet-row.q-btn {
+  justify-content: flex-start;
+  gap: 12px;
+  min-height: 48px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--q-line);
+  border-radius: 0;
+  color: var(--q-ink);
+}
+.mm-sheet-row.mm-bad {
+  color: var(--q-red-ink);
+}
+.mm-colors {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--q-line);
+}
+.mm-colors-label {
+  font-size: 13px;
+  color: var(--q-mute);
+}
+.mm-swatches {
+  display: flex;
+  gap: 8px;
+}
+.mm-swatch {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.mm-swatch:hover {
+  border-color: var(--q-line-2);
+}
+.mm-swatch:focus-visible {
+  outline: 2px solid var(--q-sky);
+  outline-offset: 2px;
+}
+.mm-swatch[aria-pressed='true'] {
+  border-color: var(--q-ink);
+}
+.mm-swatch span {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  background: var(--mm-tone);
+}
+.mm-swatch:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Карта открыта: список документов и заголовок раздела уступают место холсту. */
+.docs-mindmap {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+.docs-mindmap .docs-index {
+  display: none;
+}
+.main:has(.docs-mindmap) .main-in {
+  max-width: none;
+}
+.main:has(.docs-mindmap) .head {
+  display: none;
+}
+.docs-mindmap .docs-title {
+  margin: 16px 0 0;
+}
+.docs-row-kind {
+  display: inline-flex;
+  vertical-align: -4px;
+  margin-right: 8px;
+  color: var(--q-mute);
+}
