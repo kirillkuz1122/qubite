@@ -465,12 +465,20 @@ export function MindMap({ handle, title }: { handle: DocHandle; title: string })
   const addSuggested = useCallback(() => {
     if (!ai || ai.status !== 'ready') return;
     const items = ai.items.filter((_, i) => ai.picked[i]);
-    if (items.length && findNode(readTree(doc), ai.id))
-      appendOutline(
-        doc,
-        ai.id,
-        items.map((text) => ({ text, children: [] })),
-      );
+    if (items.length && findNode(readTree(doc), ai.id)) {
+      try {
+        appendOutline(
+          doc,
+          ai.id,
+          items.map((text) => ({ text, children: [] })),
+        );
+      } catch (error) {
+        // Лимиты карты (узлы, текст, ссылки): окно остаётся, причина — в нём.
+        const message = error instanceof Error ? error.message : 'Добавить не вышло.';
+        setAi((open) => (open ? { ...open, message } : open));
+        return;
+      }
+    }
     setSheet(null);
     setAi(null);
   }, [ai, doc]);
@@ -1021,7 +1029,7 @@ export function MindMap({ handle, title }: { handle: DocHandle; title: string })
         {sheet === 'ai' && ai && (
           <div className="mm-sheet mm-ai" aria-live="polite">
             {ai.status === 'wait' && <Note>AI подбирает подузлы…</Note>}
-            {ai.status === 'error' && <Note tone="bad">{ai.message}</Note>}
+            {ai.message && <Note tone="bad">{ai.message}</Note>}
             {ai.status === 'ready' && !ai.items.length && (
               <Note>AI не нашёл новых подузлов для этой ветки.</Note>
             )}
