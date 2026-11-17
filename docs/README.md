@@ -35,6 +35,7 @@
 |---|---|
 | **[design/DESIGN_SYSTEM.md](design/DESIGN_SYSTEM.md)** | Дизайн-система v2 «Частицы»: правила §0, цвета, шрифт, состояния, движение, ссылка на макеты в Figma |
 | [design/COMPANIONS.md](design/COMPANIONS.md) | Помощники-питомцы и разбор видео-эталона |
+| [design/PULT.md](design/PULT.md) | Макеты модуля «Пульт» (HAR-002): кадры в Figma, что решено, вопросы владельцу |
 | [design/REFERENCES.md](design/REFERENCES.md) | Референсы по ощущению и выбор владельца |
 | [design/CLAUDE_DESIGN_PROMPT.md](design/CLAUDE_DESIGN_PROMPT.md) | Промпт для Claude Design: поиск визуального языка |
 
