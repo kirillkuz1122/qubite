@@ -683,13 +683,18 @@ export function AgentCard({
 export function Sources({ board, onConnect }: { board: PultBoard; onConnect: () => void }) {
   const qc = useQueryClient();
   const collectors = useCollectors(true);
+  const toast = useToast();
   const [busy, setBusy] = useState<string | null>(null);
   const remove = async (id: string) => {
     setBusy(id);
     try {
       await must(api.DELETE('/api/owner/pult/collectors/{id}', { params: { path: { id } } }));
+      toast.show('Сборщик отключён: его токен больше не работает');
       await qc.invalidateQueries({ queryKey: PULT_COLLECTORS });
       await qc.invalidateQueries({ queryKey: PULT });
+    } catch (err) {
+      // токен не отозван — сказать прямо, иначе похоже на успех
+      toast.show(`Не отключили: ${say(err)}`);
     } finally {
       setBusy(null);
     }
