@@ -292,6 +292,11 @@ export function setText(doc: Y.Doc, id: string, value: string, origin?: unknown)
     old[old.length - 1 - end] === next[next.length - 1 - end]
   )
     end++;
+  // Не резать суррогатную пару UTF-16 (эмодзи): граница правки — между целыми знаками.
+  const high = (code: number) => code >= 0xd800 && code <= 0xdbff;
+  const low = (code: number) => code >= 0xdc00 && code <= 0xdfff;
+  if (start > 0 && high(old.charCodeAt(start - 1))) start--;
+  if (end > 0 && low(old.charCodeAt(old.length - end))) end--;
   doc.transact(() => {
     text.delete(start, old.length - start - end);
     text.insert(start, next.slice(start, next.length - end));
