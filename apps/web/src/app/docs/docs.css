@@ -130,8 +130,8 @@
   gap: 8px;
 }
 .docs-back.q-btn {
+  /* тихая кнопка — текст вровень с краем колонки; зона нажатия остаётся 44 px */
   margin-left: -12px;
-  min-height: 32px;
 }
 .docs-break {
   flex: 0 0 100%;
