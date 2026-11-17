@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { mockSync } from './sync-mock';
+import { goSection } from './nav';
 
 /* «Сегодня» и Planner на настоящих данных (PLAN-001): сервер подделан, браузер настоящий. */
 
@@ -12,7 +13,7 @@ const day = (shift = 0) => {
 };
 
 async function go(page: Page, name: string) {
-  await page.getByRole('navigation', { name: 'Разделы' }).getByRole('button', { name }).click();
+  await goSection(page, name);
 }
 
 async function openCommand(page: Page) {

@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { mockSync, type SyncMock } from './sync-mock';
 import { mockDocs } from './docs-mock';
+import { goSection } from './nav';
 
 // Сервер синхронизации подделан: без него мысли просто ждали бы сети.
 let server: SyncMock;
@@ -18,7 +19,7 @@ const today = () => {
 const isPhone = (page: Page) => (page.viewportSize()?.width ?? 1280) < 900;
 
 async function go(page: Page, name: string) {
-  await page.getByRole('navigation', { name: 'Разделы' }).getByRole('button', { name }).click();
+  await goSection(page, name);
 }
 
 async function openCommand(page: Page) {

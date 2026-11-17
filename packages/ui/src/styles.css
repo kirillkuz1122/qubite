@@ -934,11 +934,19 @@ kbd {
   left: 12px;
   right: 12px;
   bottom: max(12px, env(safe-area-inset-bottom));
-  height: 60px;
+  height: 64px;
 }
 .q-flow i.q-dock-body {
   background: var(--q-panel);
   box-shadow: 0 10px 30px -14px var(--q-shadow);
+}
+/* Command в покое — оранжевая кнопка; раскрылась в строку — подложка цвета панели */
+.q-flow i.q-dock-cmd-body {
+  background: var(--q-orange);
+  transition: background-color 0.2s;
+}
+.q-dock.q-open .q-flow i.q-dock-cmd-body {
+  background: var(--q-panel);
 }
 .q-flow i.q-dock-ind {
   background: var(--q-panel-2);
@@ -948,7 +956,7 @@ kbd {
   position: absolute;
   top: 0;
   left: 0;
-  height: 60px;
+  height: 64px;
   display: grid;
   place-items: center;
   padding: 0;
@@ -959,7 +967,21 @@ kbd {
   will-change: transform, opacity;
 }
 .q-navb {
-  width: 52px;
+  width: 60px;
+  align-content: center;
+  gap: 4px;
+}
+/* подпись раздела — 10 px, единственное место шкалы с этим размером (D-907) */
+.q-navb-label {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 10px;
+  line-height: 1.2;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.q-dock.q-open .q-navb-label {
+  opacity: 0;
 }
 /* зона нажатия — вся доля капли (--q-slot), иконка остаётся 52 px */
 .q-navb::before {
@@ -968,7 +990,7 @@ kbd {
   top: 0;
   bottom: 0;
   left: 50%;
-  width: var(--q-slot, 52px);
+  width: var(--q-slot, 60px);
   transform: translateX(-50%);
 }
 .q-dock.q-open .q-navb::before {
@@ -988,13 +1010,13 @@ kbd {
 .q-dock-cmd {
   left: auto;
   right: 0;
-  width: 60px;
-  color: var(--q-ink);
+  width: 64px;
+  color: var(--q-on-accent);
 }
 .q-badge {
   position: absolute;
-  top: 14px;
-  right: 11px;
+  top: 10px;
+  right: 14px;
   width: 7px;
   height: 7px;
   border-radius: calc(var(--q-round) * 50%);
@@ -1003,7 +1025,7 @@ kbd {
 .q-dock-field {
   position: absolute;
   top: 0;
-  height: 60px;
+  height: 64px;
   display: flex;
   align-items: center;
   gap: 10px;

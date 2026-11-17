@@ -189,7 +189,7 @@ test('глаголы: группы → письменное занятие с в
 }) => {
   await mockSync(page);
   const calls = await mockVerbs(page);
-  await page.goto('/agent?tab=english&view=verbs');
+  await page.goto('/english?view=verbs');
 
   // Вкладка: счётчики и группы по звучанию.
   const card = page.getByRole('region', { name: 'Неправильные глаголы' });
@@ -271,7 +271,7 @@ test('глаголы: игры — соедини, викторина, поис�
 }) => {
   await mockSync(page);
   const calls = await mockVerbs(page, true);
-  await page.goto('/agent?tab=english&view=verbs');
+  await page.goto('/english?view=verbs');
   const trainer = page.getByRole('dialog', { name: 'Тренажёр глаголов' });
   const done = async () => {
     await expect(trainer.getByRole('region', { name: 'Итог занятия' })).toBeVisible();

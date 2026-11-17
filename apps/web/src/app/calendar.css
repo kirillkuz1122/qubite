@@ -587,3 +587,21 @@
       );
   }
 }
+
+/* Дата периода: на ПК полная, на телефоне короткая; пояс на телефоне из шапки убран (DS-013, находка 7) */
+.calendar-period-long {
+  display: none;
+}
+@media (min-width: 900px) {
+  .calendar-period-long {
+    display: inline;
+  }
+  .calendar-period-short {
+    display: none;
+  }
+}
+@media (max-width: 899px) {
+  .calendar-legend .calendar-zone {
+    display: none;
+  }
+}

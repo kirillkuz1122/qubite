@@ -13,7 +13,7 @@ import { describe, expect, it } from 'vitest';
 import { InboxProvider } from './inbox';
 import { SyncProvider } from './sync';
 import { useInbox } from './inbox-context';
-import { toView, when, withThinking } from './inbox-view';
+import { STUCK_HINT, toView, when, withThinking } from './inbox-view';
 
 /** Сервер Входящих в памяти, с теми же правилами, что настоящий. */
 class FakeServer implements Transport {
@@ -223,5 +223,9 @@ describe('«Входящие» на настоящих данных', () => {
     const [busy, calm] = withThinking([asked, rules], ['o1']);
     expect(busy).toMatchObject({ mood: 'think', hint: 'думаю, куда положить…', answers: [] });
     expect(calm!.mood).toBe('idle');
+
+    // DS-013, находка 23: разбор упал (нет ключа AI) — не «думает» вечно, а честно «не смог»
+    const [, stuck] = withThinking([asked, rules], ['o1'], [rules.id]);
+    expect(stuck).toMatchObject({ mood: 'oops', hint: STUCK_HINT, answers: [] });
   });
 });

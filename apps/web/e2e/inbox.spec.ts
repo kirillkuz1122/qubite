@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { mockSync } from './sync-mock';
+import { goSection } from './nav';
 
 /* «Входящие» на настоящих данных (CMD-007): сервер подделан, браузер настоящий. */
 
@@ -26,10 +27,7 @@ test('мысли с сервера на экране; разобранная у�
   await expect.poll(() => server.ops.some((op) => op.kind === 'patch')).toBe(true);
   const patch = server.ops.find((op) => op.kind === 'patch')!;
   expect(patch.fields).toEqual({ status: 'archived' });
-  await page
-    .getByRole('navigation', { name: 'Разделы' })
-    .getByRole('button', { name: 'Docs' })
-    .click();
+  await goSection(page, 'Docs');
   await expect(page.getByRole('button', { name: /Тема для проекта по физике\?/ })).toBeVisible();
 });
 
@@ -40,10 +38,7 @@ test('мысль без сети не теряется и уходит, когд
   const input = await openCommand(page);
   await input.fill('идея: бот для расписания');
   await input.press('Enter');
-  await page
-    .getByRole('navigation', { name: 'Разделы' })
-    .getByRole('button', { name: 'Входящие' })
-    .click();
+  await goSection(page, 'Входящие');
   const row = page.locator('.item').filter({ hasText: 'бот для расписания' });
   await expect(row).toBeVisible();
   await page.reload(); // вкладку перезагрузили — мысль осталась в IndexedDB

@@ -27,6 +27,8 @@ import {
   nowDots,
   nowPosition,
   periodLabel,
+  shortPeriodLabel,
+  zoneLabel,
   shiftPeriod,
   snapMinute,
   type CalendarEvent,
@@ -697,5 +699,30 @@ describe('blockMatchesEvent', () => {
       ends_at: at('2026-10-20', '13:30'),
     };
     expect(blockMatchesEvent(changed, occurrence, ZONE)).toBe(false);
+  });
+});
+
+describe('DS-013: короткая дата и пояс по-русски', () => {
+  const days = (from: string, n: number) =>
+    Array.from({ length: n }, (_, i) =>
+      new Date(Date.parse(`${from}T00:00:00Z`) + i * 86_400_000).toISOString().slice(0, 10),
+    );
+  it('неделя в одном месяце, на стыке месяцев и лет; день; месяц', () => {
+    expect(shortPeriodLabel('week', '2026-11-16', days('2026-11-16', 7))).toBe('16–22 ноя');
+    expect(shortPeriodLabel('week', '2026-11-30', days('2026-11-30', 7))).toBe('30 ноя – 6 дек');
+    expect(shortPeriodLabel('week', '2026-12-28', days('2026-12-28', 7))).toBe(
+      '28 дек 2026 – 3 янв 2027',
+    );
+    expect(shortPeriodLabel('day', '2026-11-13', ['2026-11-13'])).toBe('пт, 13 ноя');
+    expect(shortPeriodLabel('month', '2026-11-13', [])).toBe('ноябрь 2026');
+  });
+  it('пояс — город по-русски и смещение', () => {
+    const at = Date.parse('2026-11-16T12:00:00Z');
+    expect(zoneLabel('Asia/Yekaterinburg', at)).toBe('Екатеринбург, UTC+5');
+    expect(zoneLabel('Asia/Novosibirsk', at)).toBe('Новосибирск, UTC+7');
+    expect(zoneLabel('Europe/Moscow', at)).toBe('Москва, UTC+3');
+    expect(zoneLabel('Asia/Kolkata', at)).toBe('Kolkata, UTC+5:30');
+    expect(zoneLabel('UTC', at)).toBe('UTC');
+    expect(zoneLabel('Нет/Такого', at)).toBe('Нет/Такого');
   });
 });

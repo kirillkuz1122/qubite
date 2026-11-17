@@ -219,7 +219,7 @@ test('живой голос: ключ → WebRTC → расшифровка об
   const emit = (e: Record<string, unknown>) =>
     page.evaluate((e) => (window as unknown as W).__emit(e), e);
 
-  await page.goto('/agent?tab=english&view=talk');
+  await page.goto('/english?view=talk');
   await expect(page.getByText('Живой голос ChatGPT')).toBeVisible();
   await shot(page, 'talk-start');
   await page.getByRole('button', { name: 'Начать разговор' }).click();
@@ -314,7 +314,7 @@ test('живой голос: OpenAI недоступен — совет про V
   await mockSync(page);
   const seen = await mockServer(page);
   await page.route('https://realtime.test/**', (route) => route.abort('connectionrefused'));
-  await page.goto('/agent?tab=english&view=talk');
+  await page.goto('/english?view=talk');
   await page.getByRole('button', { name: 'Начать разговор' }).click();
   const alert = page.getByRole('alert');
   await expect(alert).toContainText('api.openai.com');
@@ -330,7 +330,7 @@ test('живой голос: лимит подписки — понятная о
   await fakeRtc(page);
   await mockSync(page);
   await mockServer(page, 'subscription_limit');
-  await page.goto('/agent?tab=english&view=talk');
+  await page.goto('/english?view=talk');
   await page.getByRole('button', { name: 'Начать разговор' }).click();
   await expect(page.getByRole('alert')).toContainText('Лимит подписки ChatGPT закончился');
   await expect(page.getByRole('button', { name: 'Начать снова' })).toBeVisible();
@@ -339,7 +339,7 @@ test('живой голос: лимит подписки — понятная о
 test('настройки: голос ChatGPT / ElevenLabs, модель и голос живого разговора', async ({ page }) => {
   await mockSync(page);
   const seen = await mockServer(page);
-  await page.goto('/agent?tab=english&view=settings');
+  await page.goto('/english?view=settings');
   const settings = page.getByRole('region', { name: 'Настройки английского' });
   await expect(settings).toContainText('Голос разговора');
   const engineSwitch = settings.getByRole('radiogroup', { name: 'Голос разговора' });

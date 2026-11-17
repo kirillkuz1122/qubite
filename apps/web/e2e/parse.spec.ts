@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { mockSync } from './sync-mock';
+import { goSection } from './nav';
 
 // Разбор без AI (CMD-003): карточка «куда ляжет» и черновик во «Входящих» — без сети и AI.
 test.beforeEach(async ({ page }) => {
@@ -19,10 +20,7 @@ async function openCommand(page: Page) {
 const card = (page: Page) => page.getByRole('status').filter({ hasText: '→' });
 
 async function toInbox(page: Page) {
-  await page
-    .getByRole('navigation', { name: 'Разделы' })
-    .getByRole('button', { name: 'Входящие' })
-    .click();
+  await goSection(page, 'Входящие');
   await expect(page).toHaveURL(/\/inbox$/);
 }
 
@@ -36,10 +34,7 @@ test('дело со сроком, проектом и важностью: кар
   await expect(card(page)).toContainText('Planner — дело');
   await expect(card(page)).toContainText('завтра, 18:00 · #алгебра · !!');
   await input.press('Enter');
-  await page
-    .getByRole('navigation', { name: 'Разделы' })
-    .getByRole('button', { name: 'Planner' })
-    .click();
+  await goSection(page, 'Planner');
   await expect(page.locator('.proj').filter({ hasText: 'Алгебра' })).toBeVisible();
   await page.getByRole('radio', { name: 'Доска' }).click();
   await expect(page.locator('.col').filter({ hasText: 'Надо' })).toContainText('повторить графы');

@@ -97,3 +97,14 @@ test('404: «Меньше движения» — ноль появляется �
   expect(shown.length).toBe(26);
   expect(new Set(shown.map(Number))).toEqual(new Set([1]));
 });
+
+/* DS-013: «Английский» — свой раздел (D-914); старые ссылки на вкладку Агента ведут туда. */
+test('Английский — отдельный раздел, старая ссылка из Агента перенаправляет', async ({ page }) => {
+  await mockAuth(page, { me: OWNER });
+  await mockSync(page);
+  await page.goto('/agent?tab=english&view=talk');
+  await expect(page).toHaveURL(/\/english\?view=talk$/);
+  await expect(page.getByRole('heading', { name: 'Английский' })).toBeAttached();
+  await page.goto('/agent');
+  await expect(page.getByRole('radio', { name: 'Английский' })).toHaveCount(0);
+});
