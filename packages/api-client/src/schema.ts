@@ -1131,6 +1131,75 @@ export interface paths {
     patch: operations['owner_update'];
     trace?: never;
   };
+  '/api/owner/pult': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Светофор: лимиты, «работает · ждёт тебя · готово», что ждёт, расход, агенты. */
+    get: operations['pult_board'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/owner/pult/agents/{key}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Карточка агента и его история (последние 50 событий). */
+    get: operations['pult_agent'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/owner/pult/collectors': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Сборщики владельца. */
+    get: operations['list_collectors'];
+    put?: never;
+    /** Подключить сборщик: выпустить токен (хранится только хеш). */
+    post: operations['create_collector'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/owner/pult/collectors/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Отключить сборщик: токен перестаёт работать, его сводка удаляется. */
+    delete: operations['delete_collector'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/owner/server': {
     parameters: {
       query?: never;
@@ -1193,6 +1262,23 @@ export interface paths {
     get: operations['status'];
     put?: never;
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/pult/report': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Принять сводку сборщика (токен `Authorization: Bearer qpult_…`, не сессия). */
+    post: operations['receive_report'];
     delete?: never;
     options?: never;
     head?: never;
@@ -3321,6 +3407,8 @@ export interface components {
        */
       per_day?: number | null;
     };
+    /** @enum {string} */
+    AgentPlace: 'cloud' | 'pc';
     /** @description Вопрос «Агент хочет знать». */
     AgentQuestion: {
       /** Format: date-time */
@@ -3444,6 +3532,8 @@ export interface components {
        */
       weekday: number;
     };
+    /** @enum {string} */
+    AgentStatus: 'running' | 'waiting' | 'done' | 'idle';
     /** @description Страница ленты: новые сверху. */
     AgentTimelinePage: {
       items: components['schemas']['AgentAction'][];
@@ -3829,6 +3919,16 @@ export interface components {
       redirect_uri: string;
       /** @description Страница входа OpenAI — открыть в браузере. */
       url: string;
+    };
+    /** @enum {string} */
+    Ci: 'running' | 'green' | 'red';
+    /** @description Новый сборщик: токен показывается один раз. */
+    CollectorToken: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      /** @description Положить в `~/.config/qubite/pult.env` как `QUBITE_PULT_TOKEN=…`. Больше не покажем. */
+      token: string;
     };
     ConfirmRequest: {
       password: string;
@@ -4957,6 +5057,10 @@ export interface components {
       /** @description Не короче 10 символов. Человек может сменить его через «Забыли пароль». */
       password: string;
     };
+    NewCollector: {
+      /** @description Как назвать машину: «ПК», «ноутбук». 1–40 знаков. */
+      name: string;
+    };
     /** @description Новый документ в проекте. */
     NewProjectDoc: {
       /** @description Текст Markdown, можно пустой. */
@@ -5325,6 +5429,185 @@ export interface components {
       /** @description `console` — сохранён в Console, `server` — из настроек сервера, `none` — нет. */
       source: string;
     };
+    /** @description Агент в списке: задача из GitHub и/или сессия с ПК. */
+    PultAgent: {
+      cache?: components['schemas']['PultCache'] | null;
+      /**
+       * Format: double
+       * @description Заполненность контекста, %.
+       */
+      context?: number | null;
+      effort?: string | null;
+      /** @description `gh-245` или `pc-<сессия>`. */
+      key: string;
+      /**
+       * Format: int64
+       * @description Сколько минут идёт.
+       */
+      minutes?: number | null;
+      /** @description «Opus 5.5». */
+      model?: string | null;
+      place: components['schemas']['AgentPlace'];
+      pr?: components['schemas']['PultPr'] | null;
+      /** @description Где: «облако», «ПК arch». */
+      source: string;
+      status: components['schemas']['AgentStatus'];
+      /** @description Что делает: начало описания задачи или «проект · ветка». */
+      task?: string | null;
+      title: string;
+      /** Format: int64 */
+      tokens?: number | null;
+      /** Format: date-time */
+      updated_at: string;
+      /** @description Issue в GitHub. */
+      url?: string | null;
+      /** Format: double */
+      usd?: number | null;
+    };
+    /** @description Карточка агента: он сам и история событий (новые сверху — нет, по времени). */
+    PultAgentCard: {
+      agent: components['schemas']['PultAgent'];
+      events: components['schemas']['PultEvent'][];
+    };
+    /** @description Светофор целиком. */
+    PultBoard: {
+      agents: components['schemas']['PultAgent'][];
+      counts: components['schemas']['PultCounts'];
+      limits: components['schemas']['PultLimits'];
+      /** Format: date-time */
+      now: string;
+      skills: string[];
+      sources: components['schemas']['PultSource'][];
+      spend?: components['schemas']['PultSpend'] | null;
+      waiting: components['schemas']['PultWaiting'][];
+    };
+    PultCache: {
+      /**
+       * Format: int64
+       * @description Тёплый — через сколько минут остынет.
+       */
+      minutes_left: number;
+      warm: boolean;
+    };
+    /** @description Сборщик в списке. */
+    PultCollector: {
+      /** Format: date-time */
+      created_at: string;
+      /** Format: uuid */
+      id: string;
+      /** Format: date-time */
+      last_seen_at?: string | null;
+      name: string;
+    };
+    PultCounts: {
+      /** Format: int32 */
+      done: number;
+      /** Format: int32 */
+      running: number;
+      /** Format: int32 */
+      waiting: number;
+    };
+    PultDay: {
+      /** @description `ГГГГ-ММ-ДД`. */
+      date: string;
+      /** Format: int64 */
+      tokens: number;
+      /** Format: double */
+      usd?: number | null;
+    };
+    PultEvent: {
+      /** Format: date-time */
+      at: string;
+      /** @description `start`, `pr`, `ci_red`, `ci_green`, `wait`, `done`, `info`. */
+      kind: string;
+      text: string;
+    };
+    /** @description Лимиты подписки. Нет данных — оба окна `null`. */
+    PultLimits: {
+      /**
+       * Format: date-time
+       * @description Когда Claude Code сообщил эти числа.
+       */
+      at?: string | null;
+      five_hour?: components['schemas']['PultWindow'] | null;
+      /** @description С какой машины. */
+      host?: string | null;
+      seven_day?: components['schemas']['PultWindow'] | null;
+    };
+    PultPr: {
+      ci?: components['schemas']['Ci'] | null;
+      /** Format: int64 */
+      number: number;
+      url: string;
+    };
+    /** @description Источник данных и его состояние — чтобы «нет данных» было честным и понятным. */
+    PultSource: {
+      /** Format: date-time */
+      at?: string | null;
+      /** @description `github` или `pc`. */
+      id: string;
+      name: string;
+      note: string;
+      ok: boolean;
+    };
+    /** @description Расход за 7 дней с ПК. Главное — % недельного лимита, ≈ $ мелко (D-963). */
+    PultSpend: {
+      /**
+       * Format: double
+       * @description Сколько сэкономил кэш, ≈ $.
+       */
+      cache_saved?: number | null;
+      days: components['schemas']['PultDay'][];
+      /** Format: int64 */
+      tokens: number;
+      top?: components['schemas']['PultTop'] | null;
+      /** Format: double */
+      usd?: number | null;
+      /**
+       * Format: double
+       * @description Израсходовано недельного лимита, % (из лимитов; нет — `null`).
+       */
+      week_used?: number | null;
+    };
+    PultTop: {
+      title: string;
+      /** Format: int64 */
+      tokens: number;
+    };
+    /** @description Решение, которого ждёт агент (вопрос в issue). */
+    PultWaiting: {
+      /** @description Ключ агента — открыть карточку. */
+      key: string;
+      /**
+       * Format: int64
+       * @description Номер issue — ответить кнопкой (`/api/owner/work/questions/{n}/answer`).
+       */
+      number: number;
+      /** @description Варианты ответа, первый — рекомендация. */
+      options: string[];
+      text: string;
+      title: string;
+      /** Format: date-time */
+      updated_at: string;
+      url: string;
+    };
+    /** @description Окно лимита на Светофоре. */
+    PultWindow: {
+      /**
+       * Format: double
+       * @description Сколько процентов осталось.
+       */
+      left: number;
+      /** @description Осталось меньше 15% (D-953). */
+      low: boolean;
+      /** Format: date-time */
+      resets_at?: string | null;
+      /**
+       * Format: date-time
+       * @description При нынешнем темпе кончится раньше сброса — примерно тогда.
+       */
+      runs_out_at?: string | null;
+    };
     /** @description Браузер, подписанный на push. */
     PushDevice: {
       /** Format: date-time */
@@ -5400,6 +5683,84 @@ export interface components {
       legal_version: string;
       /** @description `closed`, `invite_only` или `open`. */
       mode: string;
+    };
+    /** @description Сводка сборщика с ПК (`scripts/pult-collect.py`). Версия формата — 1. */
+    Report: {
+      /**
+       * Format: date-time
+       * @description Когда собрано (часы сборщика).
+       */
+      at: string;
+      /** @description Расход по дням (до 8), дата — по часам машины. */
+      days?: components['schemas']['ReportDay'][];
+      /** @description Имя машины, как его показывать («arch»). До 64 знаков. */
+      host: string;
+      limits?: components['schemas']['ReportLimits'] | null;
+      /** @description Сессии за последние 7 дней (до 100). */
+      sessions?: components['schemas']['ReportSession'][];
+      /** @description Имена навыков (до 100) — для карты. */
+      skills?: string[];
+      /**
+       * Format: int32
+       * @description Версия формата, сейчас 1.
+       */
+      version: number;
+    };
+    ReportDay: {
+      /** @description `ГГГГ-ММ-ДД`. */
+      date: string;
+      usage?: components['schemas']['Usage'][];
+    };
+    ReportLimits: {
+      /**
+       * Format: date-time
+       * @description Когда Claude Code сообщил эти числа.
+       */
+      at: string;
+      five_hour?: components['schemas']['ReportWindow'] | null;
+      seven_day?: components['schemas']['ReportWindow'] | null;
+    };
+    ReportSession: {
+      branch?: string;
+      /**
+       * Format: int32
+       * @description Время жизни кэша последнего запроса: 300 или 3600 секунд.
+       */
+      cache_ttl_s?: number;
+      /**
+       * Format: int64
+       * @description Сколько токенов в контексте сейчас (вход последнего запроса с кэшем).
+       */
+      context_tokens?: number;
+      effort?: string;
+      /** @description Номер сессии Claude Code. */
+      id: string;
+      /** Format: date-time */
+      last_at: string;
+      /** @description Модель последнего ответа (`claude-opus-5-5`). */
+      model?: string;
+      /** @description Папка проекта (последняя часть пути). */
+      project?: string;
+      /** Format: date-time */
+      started_at: string;
+      /** @description Название: своё имя сессии или начало первого запроса (до 120 знаков). */
+      title?: string;
+      /** @description Токены по моделям за всю сессию. */
+      usage?: components['schemas']['Usage'][];
+      /** @description Последний ход закончен — сессия ждёт человека. */
+      waiting?: boolean;
+    };
+    ReportWindow: {
+      /**
+       * Format: date-time
+       * @description Когда окно сбросится.
+       */
+      resets_at?: string | null;
+      /**
+       * Format: double
+       * @description Сколько процентов окна израсходовано, 0…100.
+       */
+      used: number;
     };
     ResetPasswordRequest: {
       code?: string | null;
@@ -5585,6 +5946,20 @@ export interface components {
     };
     /** @enum {string} */
     UpdateReason: 'restore';
+    /** @description Токены одной модели. */
+    Usage: {
+      /** Format: int64 */
+      cache_read?: number;
+      /** Format: int64 */
+      cache_write_1h?: number;
+      /** Format: int64 */
+      cache_write_5m?: number;
+      /** Format: int64 */
+      input?: number;
+      model: string;
+      /** Format: int64 */
+      output?: number;
+    };
     /** @description Расход за группу: $, вызовы, токены. */
     UsageRow: {
       /** @description День (`2026-10-23`), модуль, модель или почта. */
@@ -8742,6 +9117,171 @@ export interface operations {
       };
     };
   };
+  pult_board: {
+    parameters: {
+      query?: {
+        /** @description Перечитать GitHub, если снимку больше 20 секунд. */
+        fresh?: boolean;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Светофор Пульта */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PultBoard'];
+        };
+      };
+      /** @description Не owner */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  pult_agent: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Ключ агента: gh-N или pc-<сессия> */
+        key: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Карточка агента */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PultAgentCard'];
+        };
+      };
+      /** @description Не owner или агента нет */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  list_collectors: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Сборщики */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PultCollector'][];
+        };
+      };
+      /** @description Не owner */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  create_collector: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['NewCollector'];
+      };
+    };
+    responses: {
+      /** @description Токен выпущен */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CollectorToken'];
+        };
+      };
+      /** @description Пустое имя или сборщиков уже 10 */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Не owner */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  delete_collector: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Сборщик */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Отключён */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Не owner или сборщика нет */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
   server_info: {
     parameters: {
       query?: never;
@@ -8891,6 +9431,46 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['PlatformStatus'];
+        };
+      };
+    };
+  };
+  receive_report: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['Report'];
+      };
+    };
+    responses: {
+      /** @description Сводка принята */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Сводка не подходит */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет токена или он отключён */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
         };
       };
     };
