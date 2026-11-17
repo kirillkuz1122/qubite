@@ -1132,6 +1132,8 @@ function LinkPicker({ onPick }: { onPick: (target: DocLinkTarget) => void }) {
   const [query, setQuery] = useState('');
   const [found, setFound] = useState<{ query: string; targets: DocLinkTarget[] } | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
+  // Модель отказывает, например, на 201-й разной ссылке — показываем причину здесь же.
+  const [refused, setRefused] = useState<string | null>(null);
   const source = useMemo(() => httpLinkSource(), []);
   const q = query.trim();
   useEffect(() => {
@@ -1165,12 +1167,19 @@ function LinkPicker({ onPick }: { onPick: (target: DocLinkTarget) => void }) {
       />
       {failed === q && q && <Note tone="bad">Поиск недоступен. Проверьте сеть и повторите.</Note>}
       {found?.query === q && q && !targets.length && <Note>Ничего не найдено.</Note>}
+      {refused && <Note tone="bad">{refused}</Note>}
       {targets.map((target) => (
         <SheetRow
           key={target.id}
           icon={KIND_ICON[target.type]}
           label={`${target.title || 'Без названия'} · ${LINK_LABELS[target.type]}`}
-          onClick={() => onPick(target)}
+          onClick={() => {
+            try {
+              onPick(target);
+            } catch (error) {
+              setRefused(error instanceof Error ? error.message : 'Ссылку добавить не вышло.');
+            }
+          }}
         />
       ))}
     </div>
