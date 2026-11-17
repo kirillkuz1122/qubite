@@ -1474,7 +1474,7 @@ fn unauthorized() -> ApiError {
 pub async fn receive_report(
     State(state): State<AppState>,
     headers: HeaderMap,
-    Json(report): Json<Report>,
+    body: axum::body::Bytes,
 ) -> Result<StatusCode, ApiError> {
     let token = headers
         .get(axum::http::header::AUTHORIZATION)
@@ -1492,6 +1492,14 @@ pub async fn receive_report(
     .await
     .map_err(db)?;
     let id = id.ok_or_else(unauthorized)?;
+    // тело разбираем только после токена: чужой запрос не тратит сервер и получает 401
+    let report: Report = serde_json::from_slice(&body).map_err(|e| {
+        ApiError::new(
+            StatusCode::BAD_REQUEST,
+            "invalid_report",
+            format!("Сводка не подходит: {e}"),
+        )
+    })?;
     let report = report.tidy()?;
     sqlx::query(
         "INSERT INTO pult_reports (collector_id, received_at, body) VALUES ($1, now(), $2) \
