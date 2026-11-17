@@ -110,4 +110,19 @@ describe('appendTurn', () => {
     const o = qc.getQueryData<{ messages: { id: string }[] }>(ENGLISH);
     expect(o?.messages.map((m) => m.id)).toEqual(['g', 'l', 't']);
   });
+
+  it('ход старого или законченного разговора не приклеивается — обзор загружается заново', () => {
+    const qc = new QueryClient();
+    const refresh = vi.spyOn(qc, 'invalidateQueries');
+    qc.setQueryData(ENGLISH, { session: { id: 'new' }, messages: [{ id: 'g' }] });
+    appendTurn(qc, turn as never);
+    appendTurn(qc, {
+      ...turn,
+      session: { id: 'new', finished_at: '2026-11-17T10:00:00Z' },
+    } as never);
+    const o = qc.getQueryData<{ session: { id: string }; messages: { id: string }[] }>(ENGLISH);
+    expect(o?.session.id).toBe('new');
+    expect(o?.messages.map((m) => m.id)).toEqual(['g']);
+    expect(refresh).toHaveBeenCalledTimes(2);
+  });
 });

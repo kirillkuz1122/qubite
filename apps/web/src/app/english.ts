@@ -126,6 +126,13 @@ export async function sendTurn(
 /** Записанный ход — в экран без лишнего запроса. Уже загруженные реплики (ход пришёл
  * повтором, а обзор успел обновиться) второй раз не добавляются. */
 export function appendTurn(qc: QueryClient, t: EnglishTurn) {
+  // Ход пришёл повтором, а разговор за это время закончили или начали другой — старый
+  // ход не приклеиваем к текущему: обзор загружается заново.
+  const shown = qc.getQueryData<EnglishOverview>(ENGLISH);
+  if (shown && (shown.session?.id !== t.session.id || t.session.finished_at)) {
+    void qc.invalidateQueries({ queryKey: ENGLISH });
+    return;
+  }
   qc.setQueryData<EnglishOverview>(ENGLISH, (o) => {
     if (!o) return o;
     const have = new Set(o.messages.map((m) => m.id));
