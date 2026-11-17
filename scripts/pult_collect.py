@@ -286,6 +286,7 @@ class Session:
             "effort": self.effort,
             "started_at": iso(self.started or self.last),
             "last_at": iso(self.last),
+            "model_at": iso(self.context_at) if self.context_at else None,
             "waiting": waiting,
             "context_tokens": self.context,
             "cache_ttl_s": self.ttl,
