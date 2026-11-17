@@ -75,6 +75,10 @@ fn iso(t: OffsetDateTime) -> String {
     t.format(&Rfc3339).unwrap()
 }
 
+fn day(t: OffsetDateTime) -> String {
+    t.date().to_string()
+}
+
 /// Сводка сборщика: сессия в ветке задачи HAR-002, отдельная сессия на ПК и лимиты.
 fn report() -> Value {
     let now = OffsetDateTime::now_utc();
@@ -101,9 +105,11 @@ fn report() -> Value {
               "usage": [{ "model": "claude-haiku-5-5", "input": 100, "output": 1000 }] }
         ],
         "days": [
-            { "date": "2026-11-16", "usage": [{ "model": "claude-opus-5-5", "output": 1_000_000 }] },
-            { "date": "2026-11-17", "usage": [{ "model": "claude-opus-5-5", "output": 500_000 },
-                                               { "model": "local", "output": 10 }] }
+            // неделю назад ПК был выключен — этот день в расход не попадает
+            { "date": day(now - Duration::days(10)), "usage": [{ "model": "claude-opus-5-5", "output": 9_000_000 }] },
+            { "date": day(now - Duration::days(1)), "usage": [{ "model": "claude-opus-5-5", "output": 1_000_000 }] },
+            { "date": day(now), "usage": [{ "model": "claude-opus-5-5", "output": 500_000 },
+                                          { "model": "local", "output": 10 }] }
         ],
         "skills": ["task-flow", "delegate", "task-flow"]
     })
@@ -314,5 +320,45 @@ async fn without_github_and_collector_everything_is_honestly_empty() {
     let github = &b["sources"][0];
     assert_eq!(github["ok"], false);
     assert!(github["note"].as_str().unwrap().contains("нет токена"));
+    test_db.drop_db().await;
+}
+
+#[tokio::test]
+async fn pr_read_failure_is_a_partial_error_not_empty_prs() {
+    let respond = Arc::new(|req: &Received| -> (u16, String) {
+        if req.line.starts_with("GET /repos/o/r/issues?state=open") {
+            let issues = json!([
+                { "number": 78, "title": "HAR-002 — Пульт", "html_url": "https://github.com/o/r/issues/78",
+                  "body": "", "state": "open", "labels": [label("in_progress")],
+                  "updated_at": "2026-11-17T10:00:00Z", "comments": 0 }
+            ]);
+            (200, issues.to_string())
+        } else {
+            (500, "{}".into())
+        }
+    });
+    let fake = FakeHttp::start([], Action::With(respond)).await;
+    let (test_db, db) = TestDb::migrated().await;
+    qubite_auth::owner::create(db.pool(), &Passwords::default(), EMAIL, "Кирилл", PASSWORD)
+        .await
+        .unwrap();
+    let state = AppState::with_auth(db, AuthSettings::default()).with_work(WorkSettings {
+        token: Some(Secret::new("t")),
+        repo: "o/r".into(),
+        api: fake.root_url(),
+        proxy: None,
+    });
+    let address = spawn(state).await;
+    let mut owner = common::logged_in_unconfirmed(address).await;
+    let board = owner.get(address, "/api/owner/pult").await;
+    assert_eq!(board.status, 200, "{:?}", board.body);
+    let github = &board.body["sources"][0];
+    assert_eq!(
+        github["ok"], false,
+        "PR не прочитаны — источник не «исправен»"
+    );
+    assert!(github["note"].as_str().unwrap().contains("PR и CI — нет"));
+    // задача видна, хоть PR и нет
+    assert_eq!(agent(&board.body, "gh-78")["status"], "running");
     test_db.drop_db().await;
 }

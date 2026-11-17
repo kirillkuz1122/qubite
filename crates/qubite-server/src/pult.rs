@@ -547,25 +547,33 @@ struct Gathered {
     issues: Option<Arc<harness::Snapshot>>,
     github_error: Option<String>,
     prs: Arc<Vec<PrInfo>>,
+    /// PR и CI прочитаны сейчас; нет — `prs` прежние (или пусто), историю PR/CI не трогаем
+    prs_ok: bool,
     reports: Vec<(String, OffsetDateTime, Report)>,
     collectors: i64,
 }
 
 async fn gather(state: &AppState, fresh: bool) -> Result<Gathered, ApiError> {
     let work = &state.work;
-    let (issues, prs, github_error) = if work.configured() {
+    let (issues, prs, prs_ok, github_error) = if work.configured() {
         match work.snapshot(fresh).await {
-            Ok(snap) => {
-                let prs = state.pult.prs(work, fresh).await.unwrap_or_else(|e| {
+            Ok(snap) => match state.pult.prs(&state.work, fresh).await {
+                Ok(prs) => (Some(snap), prs, true, None),
+                Err(e) => {
                     tracing::warn!(error = %e.message, "PR для Пульта не прочитаны");
-                    Arc::new(Vec::new())
-                });
-                (Some(snap), prs, None)
-            }
-            Err(e) => (None, Arc::new(Vec::new()), Some(e.message.clone())),
+                    // не «PR нет», а «PR не прочитаны»: показываем прежний снимок
+                    (
+                        Some(snap),
+                        state.pult.last_prs(),
+                        false,
+                        Some(format!("задачи прочитаны, PR и CI — нет: {}", e.message)),
+                    )
+                }
+            },
+            Err(e) => (None, Arc::new(Vec::new()), false, Some(e.message.clone())),
         }
     } else {
-        (None, Arc::new(Vec::new()), None)
+        (None, Arc::new(Vec::new()), false, None)
     };
     let pool = state.db.pool();
     let rows: Vec<(String, OffsetDateTime, serde_json::Value)> = sqlx::query_as(
@@ -591,6 +599,7 @@ async fn gather(state: &AppState, fresh: bool) -> Result<Gathered, ApiError> {
         issues,
         github_error,
         prs,
+        prs_ok,
         reports,
         collectors,
     })
@@ -601,7 +610,20 @@ fn db(e: sqlx::Error) -> ApiError {
 }
 
 impl Pult {
-    async fn prs(&self, work: &harness::Work, fresh: bool) -> Result<Arc<Vec<PrInfo>>, ApiError> {
+    /// Последний прочитанный снимок PR, даже устаревший (пусто — если не читали).
+    fn last_prs(&self) -> Arc<Vec<PrInfo>> {
+        self.prs
+            .lock()
+            .expect("кэш PR")
+            .as_ref()
+            .map_or_else(|| Arc::new(Vec::new()), |(_, prs)| prs.clone())
+    }
+
+    async fn prs(
+        &self,
+        work: &Arc<harness::Work>,
+        fresh: bool,
+    ) -> Result<Arc<Vec<PrInfo>>, ApiError> {
         let keep = if fresh {
             StdDuration::from_secs(20)
         } else {
@@ -642,51 +664,64 @@ impl Pult {
                 work.url("/pulls?state=open&per_page=50"),
             ))
             .await?;
-        let mut out = Vec::with_capacity(pulls.len());
-        for (i, pull) in pulls.into_iter().enumerate() {
-            let (ci, failed) = if i < PR_CHECKS_MAX {
-                let runs: Runs = work
-                    .send(work.request(
-                        reqwest::Method::GET,
-                        work.url(&format!(
-                            "/commits/{}/check-runs?per_page=100",
-                            harness::clip(&pull.head.sha, 64)
-                        )),
-                    ))
-                    .await?;
-                let failed: Vec<String> = runs
-                    .check_runs
-                    .iter()
-                    .filter(|r| {
-                        r.status == "completed"
-                            && !matches!(
-                                r.conclusion.as_deref(),
-                                Some("success" | "skipped" | "neutral")
-                            )
-                    })
-                    .map(|r| harness::clip(&r.name, 40))
-                    .collect();
-                let ci = if runs.check_runs.is_empty() {
-                    None
-                } else if runs.check_runs.iter().any(|r| r.status != "completed") {
-                    Some(Ci::Running)
-                } else if failed.is_empty() {
-                    Some(Ci::Green)
-                } else {
-                    Some(Ci::Red)
-                };
-                (ci, failed)
-            } else {
-                (None, Vec::new())
-            };
-            out.push(PrInfo {
-                number: pull.number,
-                url: pull.html_url,
-                text: format!("{}\n{}", pull.title, pull.body.unwrap_or_default()),
-                ci,
-                failed,
+        // CI всех PR — разом, а не по очереди: 15 запросов по 2 секунды подряд не влезли бы
+        // в 30-секундный тайм-аут запроса
+        let mut checks = tokio::task::JoinSet::new();
+        for (i, pull) in pulls.iter().enumerate().take(PR_CHECKS_MAX) {
+            let work = work.clone();
+            let url = work.url(&format!(
+                "/commits/{}/check-runs?per_page=100",
+                harness::clip(&pull.head.sha, 64)
+            ));
+            checks.spawn(async move {
+                let runs: Result<Runs, ApiError> =
+                    work.send(work.request(reqwest::Method::GET, url)).await;
+                (i, runs)
             });
         }
+        let mut ci_of: HashMap<usize, (Option<Ci>, Vec<String>)> = HashMap::new();
+        while let Some(done) = checks.join_next().await {
+            let (i, runs) = done.map_err(|e| {
+                ApiError::new(StatusCode::BAD_GATEWAY, "github_unavailable", e.to_string())
+            })?;
+            let runs = runs?;
+            let failed: Vec<String> = runs
+                .check_runs
+                .iter()
+                .filter(|r| {
+                    r.status == "completed"
+                        && !matches!(
+                            r.conclusion.as_deref(),
+                            Some("success" | "skipped" | "neutral")
+                        )
+                })
+                .map(|r| harness::clip(&r.name, 40))
+                .collect();
+            let ci = if runs.check_runs.is_empty() {
+                None
+            } else if runs.check_runs.iter().any(|r| r.status != "completed") {
+                Some(Ci::Running)
+            } else if failed.is_empty() {
+                Some(Ci::Green)
+            } else {
+                Some(Ci::Red)
+            };
+            ci_of.insert(i, (ci, failed));
+        }
+        let out: Vec<PrInfo> = pulls
+            .into_iter()
+            .enumerate()
+            .map(|(i, pull)| {
+                let (ci, failed) = ci_of.remove(&i).unwrap_or((None, Vec::new()));
+                PrInfo {
+                    number: pull.number,
+                    url: pull.html_url,
+                    text: format!("{}\n{}", pull.title, pull.body.unwrap_or_default()),
+                    ci,
+                    failed,
+                }
+            })
+            .collect();
         let prs = Arc::new(out);
         *self.prs.lock().expect("кэш PR") = Some((Instant::now(), prs.clone()));
         Ok(prs)
@@ -822,7 +857,7 @@ fn first_paragraph(body: &str) -> Option<String> {
     (!text.is_empty()).then(|| harness::clip(&text.join(" "), 300))
 }
 
-fn agents(g: &Gathered, now: OffsetDateTime) -> (Vec<PultAgent>, Vec<PultWaiting>) {
+fn agents(g: &Gathered, now: OffsetDateTime) -> (Vec<PultAgent>, Vec<PultWaiting>, PultCounts) {
     let mut out = Vec::new();
     let mut waiting = Vec::new();
     let mut used_sessions = std::collections::HashSet::new();
@@ -923,9 +958,16 @@ fn agents(g: &Gathered, now: OffsetDateTime) -> (Vec<PultAgent>, Vec<PultWaiting
             .cmp(&rank(b.status))
             .then(b.updated_at.cmp(&a.updated_at))
     });
+    // счётчики — по всем агентам, обрезается только показанный список
+    let count = |st: AgentStatus| out.iter().filter(|a| a.status == st).count() as u32;
+    let counts = PultCounts {
+        running: count(AgentStatus::Running),
+        waiting: waiting.len() as u32,
+        done: count(AgentStatus::Done),
+    };
     out.truncate(AGENTS_MAX);
     waiting.sort_by_key(|w| std::cmp::Reverse(w.updated_at));
-    (out, waiting)
+    (out, waiting, counts)
 }
 
 fn gh_agent(issue: &GhIssue, status: AgentStatus, prs: &[PrInfo]) -> PultAgent {
@@ -949,13 +991,17 @@ fn gh_agent(issue: &GhIssue, status: AgentStatus, prs: &[PrInfo]) -> PultAgent {
     }
 }
 
-fn spend(g: &Gathered, limits: &PultLimits) -> Option<PultSpend> {
+fn spend(g: &Gathered, limits: &PultLimits, now: OffsetDateTime) -> Option<PultSpend> {
     if g.reports.is_empty() {
         return None;
     }
+    // только эта неделя: сводка выключенного неделю назад ПК — не «нынешний расход».
+    // Даты — по часам ПК, поэтому край — на день шире, чем по UTC.
+    let first = (now - Duration::days(7)).date().to_string();
+    let week_ago = now - Duration::days(7);
     let mut by_day: BTreeMap<String, Vec<Usage>> = BTreeMap::new();
     for (_, _, r) in &g.reports {
-        for d in &r.days {
+        for d in r.days.iter().filter(|d| d.date >= first) {
             by_day
                 .entry(d.date.clone())
                 .or_default()
@@ -987,7 +1033,7 @@ fn spend(g: &Gathered, limits: &PultLimits) -> Option<PultSpend> {
     // больше всего — по задаче (ветке) или сессии
     let mut per: HashMap<String, u64> = HashMap::new();
     for (_, _, r) in &g.reports {
-        for s in &r.sessions {
+        for s in r.sessions.iter().filter(|s| s.last_at >= week_ago) {
             let name = task_id(&s.branch).map(str::to_owned).unwrap_or_else(|| {
                 if s.title.is_empty() {
                     s.project.clone()
@@ -1023,7 +1069,7 @@ fn sources(g: &Gathered, configured: bool, now: OffsetDateTime) -> Vec<PultSourc
     let mut out = vec![PultSource {
         id: "github".into(),
         name: "GitHub".into(),
-        ok: g.issues.is_some(),
+        ok: g.issues.is_some() && g.github_error.is_none(),
         at: g.issues.as_ref().map(|s| s.at),
         note: if !configured {
             "на сервере нет токена GitHub — задачи и PR не видны".into()
@@ -1067,8 +1113,7 @@ fn sources(g: &Gathered, configured: bool, now: OffsetDateTime) -> Vec<PultSourc
 
 fn board(state: &AppState, g: &Gathered, now: OffsetDateTime) -> PultBoard {
     let limits = limits(&g.reports, now);
-    let (agents, waiting) = agents(g, now);
-    let count = |s: AgentStatus| agents.iter().filter(|a| a.status == s).count() as u32;
+    let (agents, waiting, counts) = agents(g, now);
     let mut skills: Vec<String> = g
         .reports
         .iter()
@@ -1077,12 +1122,8 @@ fn board(state: &AppState, g: &Gathered, now: OffsetDateTime) -> PultBoard {
     skills.sort();
     skills.dedup();
     PultBoard {
-        counts: PultCounts {
-            running: count(AgentStatus::Running),
-            waiting: waiting.len() as u32,
-            done: count(AgentStatus::Done),
-        },
-        spend: spend(g, &limits),
+        counts,
+        spend: spend(g, &limits, now),
         limits,
         waiting,
         agents,
@@ -1168,7 +1209,12 @@ fn diff(
 }
 
 /// Записать события по всем агентам. Две записи разом не пересекаются (замок в базе).
-async fn record(state: &AppState, agents: &[PultAgent], prs: &[PrInfo]) -> Result<(), sqlx::Error> {
+async fn record(
+    state: &AppState,
+    agents: &[PultAgent],
+    prs: &[PrInfo],
+    prs_ok: bool,
+) -> Result<(), sqlx::Error> {
     let now = OffsetDateTime::now_utc();
     let mut tx = state.db.pool().begin().await?;
     sqlx::query("SELECT pg_advisory_xact_lock(930005)")
@@ -1185,9 +1231,21 @@ async fn record(state: &AppState, agents: &[PultAgent], prs: &[PrInfo]) -> Resul
         .filter_map(|(k, v)| serde_json::from_value(v).ok().map(|f| (k, f)))
         .collect();
     for agent in agents {
-        let current = facts(agent);
+        let mut current = facts(agent);
         let before = known.get(&agent.key);
+        // PR и CI не прочитаны — это не «PR закрыт»: оставляем, что знали
+        if !prs_ok && let Some(b) = before {
+            current.pr = b.pr;
+            current.ci = b.ci;
+        }
         if before == Some(&current) {
+            // ничего не поменялось — только отметка «видели», иначе через 30 дней
+            // состояние сотрётся и история повторится
+            sqlx::query("UPDATE pult_agent_state SET seen_at = $2 WHERE agent = $1")
+                .bind(&agent.key)
+                .bind(now)
+                .execute(&mut *tx)
+                .await?;
             continue;
         }
         let failed = agent
@@ -1232,7 +1290,7 @@ async fn refresh(state: &AppState, fresh: bool) -> Result<(PultBoard, Arc<Vec<Pr
     let g = gather(state, fresh).await?;
     let now = OffsetDateTime::now_utc();
     let board = board(state, &g, now);
-    if let Err(error) = record(state, &board.agents, &g.prs).await {
+    if let Err(error) = record(state, &board.agents, &g.prs, g.prs_ok).await {
         tracing::warn!(%error, "история Пульта не записана");
     }
     Ok((board, g.prs))
@@ -1626,6 +1684,49 @@ mod tests {
         fixed.pr.as_mut().unwrap().ci = Some(Ci::Green);
         let next = diff(&fixed, Some(&now), &green, &[]);
         assert_eq!(next, [("ci_green", "CI зелёный".to_owned())]);
+    }
+
+    #[test]
+    fn counts_include_agents_beyond_the_list() {
+        let now = at("2026-11-17T12:00:00Z");
+        let session = |i: usize, waiting: bool| ReportSession {
+            id: format!("s{i}"),
+            title: format!("сессия {i}"),
+            project: "p".into(),
+            branch: "main".into(),
+            model: String::new(),
+            effort: String::new(),
+            started_at: now - Duration::minutes(10),
+            // готовая — давнее работающих, при сортировке уходит в конец списка
+            last_at: now - Duration::minutes(if waiting { 30 } else { 1 }),
+            waiting,
+            context_tokens: 0,
+            cache_ttl_s: 300,
+            usage: Vec::new(),
+        };
+        let mut sessions: Vec<ReportSession> = (0..45).map(|i| session(i, false)).collect();
+        sessions.push(session(99, true));
+        let report = Report {
+            version: 1,
+            host: "arch".into(),
+            at: now,
+            limits: None,
+            sessions,
+            days: Vec::new(),
+            skills: Vec::new(),
+        };
+        let g = Gathered {
+            issues: None,
+            github_error: None,
+            prs: Arc::new(Vec::new()),
+            prs_ok: true,
+            reports: vec![("ПК".into(), now, report)],
+            collectors: 1,
+        };
+        let (list, _, counts) = agents(&g, now);
+        assert_eq!(list.len(), AGENTS_MAX);
+        assert_eq!(counts.running, 45);
+        assert_eq!(counts.done, 1);
     }
 
     #[test]
