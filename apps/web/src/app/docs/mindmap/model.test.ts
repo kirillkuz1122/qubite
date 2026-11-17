@@ -6,11 +6,14 @@ import {
   addSibling,
   appendOutline,
   findNode,
+  MAX_LINKS,
   MAX_MARKDOWN_CHARS,
   MAX_NODE_TEXT,
   initMindmap,
   isMindmap,
   mindmapLinks,
+  setLink,
+  addLinkChild,
   mindmapUpdate,
   moveNode,
   readTree,
@@ -429,5 +432,27 @@ describe('mind map: история версий (DOC-004)', () => {
     // Половина проходит, и текст карты действительно укладывается в лимит.
     appendOutline(doc, ROOT, many.slice(0, 350));
     expect([...mindmapMarkdown(doc)].length).toBeLessThan(MAX_MARKDOWN_CHARS);
+  });
+  it('не больше 200 разных ссылок: и при добавлении списка, и по одной', () => {
+    const doc = fresh();
+    const target = (i: number) => `0199a1b2-c3d4-7e5f-8a9b-${String(i).padStart(12, '0')}`;
+    const item = (i: number) => ({
+      text: '',
+      link: { target: target(i), kind: 'docs.page' as const },
+      children: [],
+    });
+    const many = Array.from({ length: MAX_LINKS + 1 }, (_, i) => item(i));
+    expect(() => appendOutline(doc, ROOT, many)).toThrow(/200 разных ссылок/);
+    expect(readTree(doc).children).toHaveLength(0);
+    appendOutline(doc, ROOT, many.slice(0, MAX_LINKS));
+    expect(mindmapLinks(doc)).toHaveLength(MAX_LINKS);
+    // Уже существующие цели считаются: ещё одна новая — нельзя, повтор старой — можно.
+    expect(() => appendOutline(doc, ROOT, [item(MAX_LINKS)])).toThrow(/200 разных ссылок/);
+    expect(() => addLinkChild(doc, ROOT, item(MAX_LINKS).link)).toThrow(/200 разных ссылок/);
+    const plain = addChild(doc, ROOT, 'текст');
+    expect(() => setLink(doc, plain, item(MAX_LINKS).link)).toThrow(/200 разных ссылок/);
+    addLinkChild(doc, ROOT, item(0).link);
+    setLink(doc, plain, item(1).link);
+    expect(mindmapLinks(doc)).toHaveLength(MAX_LINKS);
   });
 });
