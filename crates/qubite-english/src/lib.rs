@@ -789,8 +789,9 @@ pub(crate) fn with_heard(error: AiError, heard: Option<&str>) -> Error {
 /// (до 60 с каждый), а HTTP-запрос ждёт 90 с: после 408 работа доводится в фоне
 /// (D-904), и экран спрашивает ещё раз с тем же ключом.
 /// - ответ сохранён → тот же ход, бесплатно;
-/// - вызов ещё идёт, ответ вот-вот сохранится или распознавание только что закончилось,
-///   а ответ ещё не запрошен (меньше 30 с назад) → [`Error::InProgress`];
+/// - вызов ещё идёт, ответ вот-вот сохранится, распознавание только что закончилось,
+///   а ответ ещё не запрошен, или шлюз ждёт перед своим повтором после «не отправлено»
+///   (всё это — меньше 30 с назад) → [`Error::InProgress`];
 /// - прошлый ход с этим ключом не удался или его не было → `None`, дальше как обычно.
 async fn replay(pool: &PgPool, account: Uuid, key: Uuid) -> Result<Option<Turn>> {
     let tutor_request = format!("english:{key}:tutor");
@@ -810,7 +811,8 @@ async fn replay(pool: &PgPool, account: Uuid, key: Uuid) -> Result<Option<Turn>>
         // Ответа ещё не просили. Распознавание идёт или только что закончилось (между ним
         // и вызовом модели — несколько запросов к базе) — ждать; иначе ход не удался.
         let busy = stt.is_some_and(|(_, status, _, fresh)| {
-            status == "sending" || (status == "succeeded" && *fresh)
+            status == "sending"
+                || (*fresh && (status == "succeeded" || status == "failed_not_sent"))
         });
         return if busy {
             Err(Error::InProgress)
@@ -818,8 +820,11 @@ async fn replay(pool: &PgPool, account: Uuid, key: Uuid) -> Result<Option<Turn>>
             Ok(None)
         };
     };
+    let fresh = tutor.is_some_and(|(.., fresh)| *fresh);
     match status.as_str() {
         "sending" => return Err(Error::InProgress),
+        // «Не отправлено» — шлюз через 1–2 с пробует ещё раз с тем же вызовом.
+        "failed_not_sent" if fresh => return Err(Error::InProgress),
         "succeeded" => {}
         _ => return Ok(None),
     }
@@ -887,10 +892,12 @@ pub async fn turn(
     if let Said::Text(text) = &said {
         check_text(text)?;
     }
-    let (auth, session) = begin(pool, account).await?;
+    // Повтор — до `begin`: тот открыл бы новый разговор, если прошлый уже закончили.
+    may_write(pool, account).await?;
     if let Some(done) = replay(pool, account, key).await? {
         return Ok(done);
     }
+    let (auth, session) = begin(pool, account).await?;
     // Распознавание и ответ — один ход для защиты от зацикливания.
     let ai = gateway.turn();
 

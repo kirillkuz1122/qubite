@@ -618,6 +618,33 @@ async fn same_key_returns_saved_turn_or_in_progress() {
     assert!(matches!(busy, Err(Error::InProgress)), "{busy:?}");
     assert_eq!(Error::InProgress.code(), "in_progress");
 
+    // Шлюз ждёт перед своим повтором («не отправлено») — тоже «ещё думаю».
+    sqlx::query("UPDATE ai_calls SET status = 'failed_not_sent' WHERE request_id = $1")
+        .bind(format!("english:{key}:tutor"))
+        .execute(pool)
+        .await
+        .unwrap();
+    let pause = qubite_english::turn(pool, &ai.gateway, &settings, me, key, voice_clip()).await;
+    assert!(matches!(pause, Err(Error::InProgress)), "{pause:?}");
+
+    // Разговор закончили в другой вкладке — повтор отдаёт ход, а не открывает новый разговор.
+    sqlx::query("UPDATE ai_calls SET status = 'succeeded' WHERE request_id = $1")
+        .bind(format!("english:{key}:tutor"))
+        .execute(pool)
+        .await
+        .unwrap();
+    qubite_english::finish(pool, me).await.unwrap();
+    let sessions = count("SELECT count(*) FROM english_sessions WHERE account_id = $1").await;
+    let late = qubite_english::turn(pool, &ai.gateway, &settings, me, key, voice_clip())
+        .await
+        .unwrap();
+    assert_eq!(late.tutor.id, first.tutor.id);
+    assert_eq!(
+        count("SELECT count(*) FROM english_sessions WHERE account_id = $1").await,
+        sessions,
+        "нового разговора нет"
+    );
+
     // Распознавание готово, а модель ещё не спрашивали (вызова репетитора нет): только
     // что — «ещё думаю»; полминуты назад и больше — ход не удался, как раньше.
     sqlx::query("UPDATE ai_calls SET request_id = request_id || ':moved' WHERE request_id = $1")
