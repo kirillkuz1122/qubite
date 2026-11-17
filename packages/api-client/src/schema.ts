@@ -3457,6 +3457,8 @@ export interface components {
     AgentTriage: {
       /** @description Разложенное за сутки и не откаченное, новые сверху. */
       filed: components['schemas']['AgentFiled'][];
+      /** @description Мысли, которые агент не смог разобрать (нет ключа AI, сбой): разбирает человек. */
+      stuck: string[];
       /** @description Мысли, за которые агент вот-вот возьмётся (Элик думает). */
       thinking: string[];
     };

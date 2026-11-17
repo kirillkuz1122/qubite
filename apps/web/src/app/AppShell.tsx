@@ -33,6 +33,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { commandView, loadHistory, remember, saveHistory, type CommandEntry } from './command';
 import { Bell } from './Bell';
 import { CommandField } from './CommandField';
+import { MoreSheet } from './MoreSheet';
 import { CommandVoiceNote } from './VoiceCapture';
 import { useVoice } from './voice-context';
 import { ShellCtx, type ShellApi } from './context';
@@ -47,6 +48,7 @@ import {
 } from './data';
 import { AgentScreen } from './screens/Agent';
 import { CalendarScreen } from './screens/Calendar';
+import { EnglishScreen } from './screens/English';
 import { DocsScreen } from './screens/Docs';
 import { HomeScreen } from './screens/Home';
 import { InboxScreen } from './screens/Inbox';
@@ -62,22 +64,33 @@ import { useSync } from './sync-context';
 import './app.css';
 
 // CAL-001b ограничен подключением раздела в оболочке: общий Command пока не меняем.
-type ShellSectionId = SectionId | 'calendar';
+type ShellSectionId = SectionId | 'calendar' | 'english';
 type ShellSection = Omit<Section, 'id' | 'path'> & { id: ShellSectionId; path: string };
+/* «Английский» — отдельный модуль, а не вкладка Агента (DS-013, находка 22, D-914) */
+const ENGLISH: ShellSection = {
+  id: 'english',
+  path: '/english',
+  name: 'Английский',
+  title: 'АНГЛИЙСКИЙ',
+  icon: 'learn',
+  who: 'neit',
+};
 const SECTIONS = BASE_SECTIONS.flatMap<ShellSection>((section) =>
-  section.id === 'planner'
-    ? [
-        section,
-        {
-          id: 'calendar',
-          path: '/calendar',
-          name: 'Календарь',
-          title: 'КАЛЕНДАРЬ',
-          icon: 'calendar',
-          who: 'proto',
-        },
-      ]
-    : [section],
+  section.id === 'docs'
+    ? [section, ENGLISH]
+    : section.id === 'planner'
+      ? [
+          section,
+          {
+            id: 'calendar',
+            path: '/calendar',
+            name: 'Календарь',
+            title: 'КАЛЕНДАРЬ',
+            icon: 'calendar',
+            who: 'proto',
+          },
+        ]
+      : [section],
 );
 
 const SCREENS: Record<ShellSectionId, () => ReactNode> = {
@@ -86,6 +99,7 @@ const SCREENS: Record<ShellSectionId, () => ReactNode> = {
   inbox: () => <InboxScreen />,
   planner: () => <PlannerScreen />,
   calendar: () => <CalendarScreen />,
+  english: () => <EnglishScreen />,
   agent: () => <AgentScreen />,
   docs: () => <DocsScreen />,
   settings: () => <SettingsScreen />,
@@ -158,6 +172,8 @@ function subtitle(
       );
     case 'calendar':
       return 'события, дела и уроки';
+    case 'english':
+      return 'уроки с Нейтом · голос, глаголы, огонёк';
     case 'agent':
       return 'что сделал и почему · любое — откатить';
     case 'docs':
@@ -268,6 +284,7 @@ export function AppShell() {
   const look = useLook();
   const [value, setValue] = useState('');
   const [open, setOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const [focused, setFocused] = useState(false);
   /** пункт, выбранный стрелками; null — тот, что выбран сам */
   const [picked, setPicked] = useState<number | null>(null);
@@ -465,6 +482,20 @@ export function AppShell() {
             : 0,
     badge: s.id === 'inbox',
   }));
+  /* телефон: в панели — Главная, Сегодня, Planner и «Ещё» (D-866, «Входящие» — в «Ещё» по D-945) */
+  const inDock = (i: NavItem<ShellSectionId>) => DOCK_MAIN.includes(i.id);
+  const rest = items.filter((i) => !inDock(i));
+  const dockItems: NavItem<DockId>[] = [
+    ...items.filter(inDock),
+    {
+      id: 'more',
+      label: 'Ещё',
+      icon: 'more',
+      count: rest.reduce((n, i) => n + (i.badge ? (i.count ?? 0) : 0), 0),
+      badge: true,
+    },
+  ];
+  const dockCurrent: DockId = DOCK_MAIN.includes(id) ? id : 'more';
 
   const pitch = wide ? 5.6 : 4.4;
   const headH = wide ? 136 : 112;
@@ -541,9 +572,9 @@ export function AppShell() {
         </form>
       ) : (
         <Dock
-          items={items}
-          current={id}
-          onGo={go}
+          items={dockItems}
+          current={dockCurrent}
+          onGo={(to) => (to === 'more' ? setMoreOpen(true) : go(to))}
           open={open && !wide}
           onOpenChange={(o) => (o ? openCmd() : closeCmd())}
         >
@@ -559,11 +590,23 @@ export function AppShell() {
           </form>
         </Dock>
       )}
+      {!wide && (
+        <MoreSheet
+          open={moreOpen}
+          items={rest}
+          current={id}
+          onGo={go}
+          onClose={() => setMoreOpen(false)}
+        />
+      )}
     </ShellCtx.Provider>
   );
 }
 
 const LIST_ID = 'q-command-list';
+
+type DockId = ShellSectionId | 'more';
+const DOCK_MAIN: ShellSectionId[] = ['home', 'today', 'planner'];
 
 const HELPER_NAME = { elik: 'Элик', proto: 'Прото', neit: 'Нейт', foti: 'Фоти' } as const;
 
@@ -571,6 +614,9 @@ const HELPER_NAME = { elik: 'Элик', proto: 'Прото', neit: 'Нейт', f
 function visibleTarget(id: SectionId): Element | null {
   const all = document.querySelectorAll<HTMLElement>(`[data-nav-target="${id}"]`);
   for (const el of all) if (el.offsetParent !== null || el.getClientRects().length) return el;
+  // на телефоне раздел может жить в листе «Ещё» — точка летит в кнопку «Ещё»
+  const more = document.querySelector<HTMLElement>('.q-dock [data-nav-target="more"]');
+  if (more?.getClientRects().length) return more;
   return all[0] ?? null;
 }
 

@@ -715,3 +715,50 @@ async fn note_with_project_goes_to_project_memory() {
     db.close().await;
     test_db.drop_db().await;
 }
+
+/// DS-013, находка 23: без ключа AI задача разбора падает — мысль не «думает» вечно, а «не смог».
+#[tokio::test]
+async fn failed_triage_is_stuck_not_thinking() {
+    let (test_db, db) = TestDb::migrated().await;
+    let pool = db.pool();
+    let me = owner(pool).await;
+    let thought = create(pool, me, "inbox.item", "купить хлеб").await;
+    assert_eq!(triage_jobs(pool, thought).await, 1);
+    let who = Who::owner(me, None);
+
+    let fresh = triage::overview(pool, &who).await.unwrap();
+    assert_eq!(
+        fresh.thinking,
+        vec![thought],
+        "задача ещё не падала — Элик думает"
+    );
+    assert!(fresh.stuck.is_empty());
+
+    // Первый запуск упал (как без ключа AI) и ждёт повтора.
+    sqlx::query(
+        "UPDATE jobs SET attempts = 1, last_error = 'нет ключа AI' \
+          WHERE kind = $1 AND payload->>'item_id' = $2",
+    )
+    .bind(triage::JOB)
+    .bind(thought.to_string())
+    .execute(pool)
+    .await
+    .unwrap();
+    let failed = triage::overview(pool, &who).await.unwrap();
+    assert!(failed.thinking.is_empty(), "после ошибки — не «думает»");
+    assert_eq!(failed.stuck, vec![thought]);
+
+    // Сдался совсем — по-прежнему «не смог».
+    sqlx::query("UPDATE jobs SET status = 'dead' WHERE kind = $1 AND payload->>'item_id' = $2")
+        .bind(triage::JOB)
+        .bind(thought.to_string())
+        .execute(pool)
+        .await
+        .unwrap();
+    assert_eq!(
+        triage::overview(pool, &who).await.unwrap().stuck,
+        vec![thought]
+    );
+    db.close().await;
+    test_db.drop_db().await;
+}

@@ -1597,7 +1597,7 @@ async fn homework(pool: &PgPool, account: Uuid, lesson: &Value) -> Result<Option
         lesson["title"]["ru"].as_str().unwrap_or(id)
     );
     let notes = format!(
-        "{}\nОткрыть: /agent?tab=english&lesson={id}&homework=1",
+        "{}\nОткрыть: /english?lesson={id}&homework=1",
         lesson["homework"]["about_ru"].as_str().unwrap_or_default()
     );
     let run = qubite_agent::start_run(pool, account, qubite_agent::Trigger::Manual)

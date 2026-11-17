@@ -341,7 +341,7 @@ test('урок: теория → задания → голос → огонёк 
   await fakeMedia(page);
   await mockSync(page);
   const calls = await mockLessons(page);
-  await page.goto('/agent?tab=english');
+  await page.goto('/english');
 
   // Главная модуля: кольцо дня, огонёк, задания дня, следующий урок.
   await expect(page.getByRole('img', { name: 'Сегодня 0 из 10 минут' })).toBeVisible();
@@ -448,7 +448,7 @@ test('новичок: входной тест → уровень; игра и н
       },
     }),
   );
-  await page.goto('/agent?tab=english');
+  await page.goto('/english');
   await expect(page.getByRole('region', { name: 'Входной тест' })).toContainText('С чего начнём?');
   await shot(page, 'placement');
   await page.getByRole('button', { name: 'Пройти тест' }).click();
@@ -534,7 +534,7 @@ test.describe('телефон, пальцем (ENG-006)', () => {
       route.fulfill({ json: { say: 'Hello — это «привет». Now, back to work!' } }),
     );
 
-    await page.goto('/agent?tab=english');
+    await page.goto('/english');
     await page.getByRole('button', { name: 'Начать урок' }).tap();
     await page.getByRole('button', { name: 'К заданиям' }).tap();
     const task = page.getByRole('region', { name: 'Задание' });
@@ -696,7 +696,7 @@ test.describe('телефон: голос или текст (ENG-006)', () => {
       });
     });
 
-    await page.goto('/agent?tab=english');
+    await page.goto('/english');
     await page.getByRole('button', { name: 'Начать урок' }).tap();
     await page.getByRole('button', { name: 'К заданиям' }).tap();
     const task = page.getByRole('region', { name: 'Задание' });

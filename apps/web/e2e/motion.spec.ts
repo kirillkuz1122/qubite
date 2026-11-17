@@ -85,12 +85,12 @@ test('капля: нажатие в любом месте доли раздел�
   await page.setViewportSize({ width: 820, height: 780 });
   await page.goto('/today');
   const dock = page.getByRole('navigation', { name: 'Разделы' });
-  const inbox = dock.getByRole('button', { name: 'Входящие' });
-  const ib = (await inbox.boundingBox())!;
+  const planner = dock.getByRole('button', { name: 'Planner' });
+  const pb = (await planner.boundingBox())!;
   const slot = await dock.evaluate((el) => parseFloat(el.style.getPropertyValue('--q-slot')));
-  // не по иконке, а у края доли «Входящих»
-  await page.mouse.click(ib.x + ib.width / 2 + slot * 0.45, ib.y + ib.height / 2);
-  await expect(page).toHaveURL(/\/inbox$/);
+  // не по иконке, а у края доли Planner
+  await page.mouse.click(pb.x + pb.width / 2 + slot * 0.45, pb.y + pb.height / 2);
+  await expect(page).toHaveURL(/\/planner$/);
 });
 
 test('подсказка Прото уходит плавно, дела ниже доезжают на место', async ({ page }) => {
@@ -141,7 +141,8 @@ test('капля: подсветку можно перетащить, а быс�
     await page.mouse.move(pb.x + pb.width / 2 - dx, y);
   }
   await page.mouse.up();
-  await expect(page).toHaveURL(/\/inbox$/);
+  // слева от Planner в панели — «Сегодня» (D-945: «Входящие» ушли в «Ещё»)
+  await expect(page).toHaveURL(/\/today$/);
 });
 
 test.describe('капля на дробном масштабе экрана (ПК, 125 %)', () => {
@@ -171,13 +172,14 @@ test.describe('капля на дробном масштабе экрана (П�
         });
         return { W: (el as HTMLElement).offsetWidth, n: n!, c: c! };
       });
-      expect(g.n.cap, `ширина ${width}`).toBeCloseTo(g.W - 68, 0);
+      // панель 64 px + зазор 8 (DESIGN_SYSTEM §5)
+      expect(g.n.cap, `ширина ${width}`).toBeCloseTo(g.W - 72, 0);
       expect(g.n.mid).toBeLessThanOrEqual(g.n.cap - 14);
       expect(g.c.cap0 - g.n.cap).toBeCloseTo(8, 0);
       expect(g.c.mid).toBeLessThanOrEqual(g.c.cap - 14);
     }
-    // нажатая «Настройки» сжимается на месте — в своей подсветке, а не уезжает к соседу
-    const btn = dock.getByRole('button', { name: 'Настройки' });
+    // Настройки живут в «Ещё»: нажатая «Ещё» сжимается на месте — в своей подсветке, а не уезжает
+    const btn = dock.getByRole('button', { name: 'Ещё', exact: true });
     const box = (await btn.boundingBox())!;
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.down();

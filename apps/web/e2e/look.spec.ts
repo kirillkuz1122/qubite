@@ -44,3 +44,14 @@ test('404: ноль ушёл за кофе, кнопка зовёт его об�
   await page.getByRole('button', { name: 'На главную' }).click();
   await expect(page).toHaveURL(/\/$/);
 });
+
+/* DS-013: «Английский» — свой раздел (D-914); старые ссылки на вкладку Агента ведут туда. */
+test('Английский — отдельный раздел, старая ссылка из Агента перенаправляет', async ({ page }) => {
+  await mockAuth(page, { me: OWNER });
+  await mockSync(page);
+  await page.goto('/agent?tab=english&view=talk');
+  await expect(page).toHaveURL(/\/english\?view=talk$/);
+  await expect(page.getByRole('heading', { name: 'Английский' })).toBeAttached();
+  await page.goto('/agent');
+  await expect(page.getByRole('radio', { name: 'Английский' })).toHaveCount(0);
+});
