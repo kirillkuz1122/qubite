@@ -16,6 +16,11 @@ export const MAX_NODE_TEXT = 300;
 export const MAX_NODES = 2000;
 /** Одно обновление Yjs — с запасом под лимит сервера 512 КиБ (D-751). */
 export const MAX_UPDATE_BYTES = 480 * 1024;
+/**
+ * Текст карты (вложенный список, D-1002) — с запасом под MAX_DOC_CHARS сервера (200 000):
+ * подпись ссылки берётся из кэша и может быть длиннее сохранённой.
+ */
+export const MAX_MARKDOWN_CHARS = 190_000;
 
 export interface MindLink {
   target: string;
@@ -413,21 +418,39 @@ export function appendOutline(
   // Сервер принимает обновление до 512 КиБ (D-751): пробуем запись на копии и меряем.
   const probe = new Y.Doc();
   let size = 0;
+  let chars: number;
   try {
     Y.applyUpdate(probe, Y.encodeStateAsUpdate(doc));
     probe.on('update', (update: Uint8Array) => {
       size += update.length;
     });
     writeOutline(probe, parent, items);
+    chars = outlineChars(readTree(probe));
   } finally {
     probe.destroy();
   }
-  if (size > MAX_UPDATE_BYTES) throw new Error('Слишком много текста за раз. Добавьте частями.');
+  if (size > MAX_UPDATE_BYTES || chars > MAX_MARKDOWN_CHARS)
+    throw new Error('Слишком много текста за раз. Добавьте частями.');
   let created: string[] = [];
   doc.transact(() => {
     created = writeOutline(doc, parent, items);
   }, origin);
   return created;
+}
+
+/**
+ * Длина текста карты в знаках (кодовых точках, как считает сервер) — по той же схеме, что
+ * treeMarkdown: «  »×глубина, «- », подпись; у ссылки — «[@подпись](qubite://uuid)».
+ */
+function outlineChars(tree: MindNode): number {
+  let sum = 0;
+  const walk = (item: MindNode, depth: number) => {
+    const text = [...item.text.trim()].length;
+    sum += 2 * depth + 2 + (item.link ? text + 15 + item.link.target.length : text + 1) + 1;
+    item.children.forEach((child) => walk(child, depth + 1));
+  };
+  walk(tree, 0);
+  return sum;
 }
 
 function writeOutline(doc: Y.Doc, parent: MindNode, items: readonly Outline[]): string[] {
