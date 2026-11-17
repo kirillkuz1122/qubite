@@ -940,10 +940,10 @@ kbd {
   background: var(--q-panel);
   box-shadow: 0 10px 30px -14px var(--q-shadow);
 }
-/* Command в покое — оранжевая кнопка; раскрылась в строку — подложка цвета панели */
+/* Command в покое — оранжевая кнопка; раскрылась в строку — подложка цвета панели
+   (сразу, без перехода цвета: анимируются только transform и opacity) */
 .q-flow i.q-dock-cmd-body {
   background: var(--q-orange);
-  transition: background-color 0.2s;
 }
 .q-dock.q-open .q-flow i.q-dock-cmd-body {
   background: var(--q-panel);

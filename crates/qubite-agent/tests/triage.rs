@@ -762,3 +762,44 @@ async fn failed_triage_is_stuck_not_thinking() {
     db.close().await;
     test_db.drop_db().await;
 }
+
+/// Codex к PR #247: старый успешный разбор (агент спросил) не прячет упавший позже разбор ответа.
+#[tokio::test]
+async fn later_failure_is_stuck_despite_earlier_success() {
+    let (test_db, db) = TestDb::migrated().await;
+    let pool = db.pool();
+    let me = owner(pool).await;
+    let thought = create(pool, me, "inbox.item", "непонятное").await;
+    let who = Who::owner(me, None);
+    // первый разбор прошёл (агент задал вопрос) …
+    sqlx::query(
+        "UPDATE jobs SET status = 'succeeded', finished_at = now() \
+          WHERE kind = $1 AND payload->>'item_id' = $2",
+    )
+    .bind(triage::JOB)
+    .bind(thought.to_string())
+    .execute(pool)
+    .await
+    .unwrap();
+    // … а разбор ответа позже упал и ждёт повтора
+    sqlx::query(
+        "INSERT INTO jobs (id, kind, payload, attempts, last_error, created_at) \
+         SELECT $1, kind, payload, 1, 'нет ключа AI', now() + interval '1 second' FROM jobs \
+          WHERE kind = $2 AND payload->>'item_id' = $3",
+    )
+    .bind(Uuid::now_v7())
+    .bind(triage::JOB)
+    .bind(thought.to_string())
+    .execute(pool)
+    .await
+    .unwrap();
+    let overview = triage::overview(pool, &who).await.unwrap();
+    assert!(overview.thinking.is_empty());
+    assert_eq!(
+        overview.stuck,
+        vec![thought],
+        "поздний сбой виден, старый успех его не прячет"
+    );
+    db.close().await;
+    test_db.drop_db().await;
+}

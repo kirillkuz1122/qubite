@@ -751,23 +751,29 @@ pub async fn overview(pool: &PgPool, who: &Who) -> Result<Overview> {
     let account = who.account();
     let mut conn = pool.acquire().await?;
     timeline::check_agent(&mut conn, who).await?;
-    // «Думает» — только пока задача ни разу не падала; упавшая (ждёт повтора или сдалась) — «не смог».
+    // «Думает» — пока задача работает или ещё ни разу не падала; упавшая и ждущая повтора
+    // или сдавшаяся — «не смог».
     let thinking: Vec<Uuid> = sqlx::query_scalar(
         "SELECT DISTINCT (j.payload->>'item_id')::uuid FROM jobs j \
-          WHERE j.kind = $1 AND j.status IN ('queued', 'running') AND j.last_error IS NULL \
+          WHERE j.kind = $1 \
+            AND (j.status = 'running' OR (j.status = 'queued' AND j.last_error IS NULL)) \
             AND j.payload->>'account_id' = $2::text",
     )
     .bind(JOB)
     .bind(account)
     .fetch_all(&mut *conn)
     .await?;
+    // «Не смог» — по последней задаче разбора этой мысли: старый успех (например, вопрос агента)
+    // не прячет упавший позже разбор ответа.
     let stuck: Vec<Uuid> = sqlx::query_scalar(
-        "SELECT DISTINCT (j.payload->>'item_id')::uuid FROM jobs j \
-          WHERE j.kind = $1 AND j.status IN ('queued', 'dead') AND j.last_error IS NOT NULL \
-            AND j.payload->>'account_id' = $2::text \
-            AND NOT EXISTS (SELECT 1 FROM jobs k WHERE k.kind = j.kind \
-              AND k.payload->>'item_id' = j.payload->>'item_id' \
-              AND (k.status = 'succeeded' OR (k.status IN ('queued', 'running') AND k.last_error IS NULL)))",
+        "SELECT item FROM ( \
+           SELECT DISTINCT ON (j.payload->>'item_id') (j.payload->>'item_id')::uuid AS item, \
+                  j.status, j.last_error \
+             FROM jobs j \
+            WHERE j.kind = $1 AND j.payload->>'account_id' = $2::text \
+            ORDER BY j.payload->>'item_id', j.created_at DESC, j.id DESC \
+         ) last \
+         WHERE last.status IN ('queued', 'dead') AND last.last_error IS NOT NULL",
     )
     .bind(JOB)
     .bind(account)

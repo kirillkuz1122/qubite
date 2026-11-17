@@ -251,6 +251,22 @@ describe('Возможности на Главной', () => {
     expect(server.posts).toEqual(['/api/v1/opportunities/opp-1/interested']);
   });
 
+  it('после «Интересно» можно перейти к следующей карточке (одна на Главной, D-867)', async () => {
+    server.items = [item({ title: 'Первая' }), item({ title: 'Вторая' })];
+    show();
+    const c = await screen.findByRole('article', { name: 'Первая' });
+    fireEvent.click(within(c).getByRole('button', { name: 'Интересно' }));
+    expect(await within(c).findByText('Дела поставлены: 3')).toBeInTheDocument();
+    fireEvent.click(within(c).getByRole('button', { name: 'Следующая' }));
+    expect(await screen.findByRole('article', { name: 'Вторая' })).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('article', { name: 'Первая' })).toBeNull());
+    // последняя — «Следующей» нет
+    const last = screen.getByRole('article', { name: 'Вторая' });
+    fireEvent.click(within(last).getByRole('button', { name: 'Интересно' }));
+    expect(await within(last).findByText('Дела поставлены: 3')).toBeInTheDocument();
+    expect(within(last).queryByRole('button', { name: 'Следующая' })).toBeNull();
+  });
+
   it('«Интересно» не прошло — ошибка, кнопки снова доступны', async () => {
     server.items = [item({ title: 'ВКОШП' })];
     post.mockImplementationOnce(() => fail(503, 'Агент сейчас занят'));

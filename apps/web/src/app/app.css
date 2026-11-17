@@ -2899,37 +2899,33 @@ html[data-motion='less'] .rec-dot {
   white-space: nowrap;
 }
 
-/* лист «Ещё» нижней панели телефона: плитки «значок + подпись» (DS-013, D-913) */
+/* лист «Ещё» нижней панели телефона: плитки «значок + подпись» на общем Button (DS-013, D-913) */
 .more-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
-.more-tile {
+.more-tile.q-btn {
   position: relative;
   display: grid;
   justify-items: center;
   align-content: center;
   gap: 8px;
   min-height: 76px;
+  height: auto;
   padding: 12px 4px;
-  border: 1px solid var(--q-line);
+  border-color: var(--q-line);
   border-radius: calc(var(--q-round) * 24px);
   background: var(--q-panel-2);
   color: var(--q-mute);
-  font: inherit;
   font-size: 12px;
-  cursor: pointer;
-  transition:
-    background-color 0.15s,
-    color 0.15s;
 }
-.more-tile[aria-current='page'] {
+.more-tile.q-btn[aria-current='page'] {
   color: var(--q-ink);
   border-color: var(--q-line-2);
 }
 @media (hover: hover) {
-  .more-tile:hover {
+  .more-tile.q-btn:hover {
     color: var(--q-ink);
   }
 }
