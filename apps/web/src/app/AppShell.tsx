@@ -49,6 +49,9 @@ import {
 import { AgentScreen } from './screens/Agent';
 import { CalendarScreen } from './screens/Calendar';
 import { EnglishScreen } from './screens/English';
+import { PultScreen } from './screens/Pult';
+import { PultSubtitle } from './PultSubtitle';
+import { usePult } from './pult';
 import { DocsScreen } from './screens/Docs';
 import { HomeScreen } from './screens/Home';
 import { InboxScreen } from './screens/Inbox';
@@ -64,7 +67,7 @@ import { useSync } from './sync-context';
 import './app.css';
 
 // CAL-001b ограничен подключением раздела в оболочке: общий Command пока не меняем.
-type ShellSectionId = SectionId | 'calendar' | 'english';
+type ShellSectionId = SectionId | 'calendar' | 'english' | 'pult';
 type ShellSection = Omit<Section, 'id' | 'path'> & { id: ShellSectionId; path: string };
 /* «Английский» — отдельный модуль, а не вкладка Агента (DS-013, находка 22, D-914) */
 const ENGLISH: ShellSection = {
@@ -75,7 +78,16 @@ const ENGLISH: ShellSection = {
   icon: 'learn',
   who: 'neit',
 };
-const SECTIONS = BASE_SECTIONS.flatMap<ShellSection>((section) =>
+/* «Пульт» агентов (HAR-002, AOS-5) — модуль только для владельца (D-949) */
+const PULT: ShellSection = {
+  id: 'pult',
+  path: '/pult',
+  name: 'Пульт',
+  title: 'ПУЛЬТ',
+  icon: 'pult',
+  who: 'proto',
+};
+const SECTIONS = [...BASE_SECTIONS, PULT].flatMap<ShellSection>((section) =>
   section.id === 'docs'
     ? [section, ENGLISH]
     : section.id === 'planner'
@@ -100,6 +112,7 @@ const SCREENS: Record<ShellSectionId, () => ReactNode> = {
   planner: () => <PlannerScreen />,
   calendar: () => <CalendarScreen />,
   english: () => <EnglishScreen />,
+  pult: () => <PultScreen />,
   agent: () => <AgentScreen />,
   docs: () => <DocsScreen />,
   settings: () => <SettingsScreen />,
@@ -180,6 +193,8 @@ function subtitle(
       return 'заметки и документы · доступны без сети';
     case 'settings':
       return 'вид, помощники, голос и аккаунт';
+    case 'pult':
+      return <PultSubtitle />;
   }
 }
 
@@ -191,6 +206,10 @@ export function AppShell() {
   const inbox = useInbox();
   const planner = usePlanner();
   const sync = useSync();
+  /* Пульт и его точка «ждёт тебя» — только у владельца (D-949, D-961) */
+  const owner = !!useMe().data?.is_owner;
+  const pult = usePult(owner);
+  const waiting = pult.data?.counts.waiting ?? 0;
   const [documents, setDocuments] = useState<State['docs']>([]);
   useEffect(() => {
     let alive = true;
@@ -468,25 +487,34 @@ export function AppShell() {
   );
 
   /* ---------- навигация ---------- */
-  const items: NavItem<ShellSectionId>[] = SECTIONS.map((s) => ({
-    id: s.id,
-    label: s.name,
-    icon: s.icon,
-    count:
-      s.id === 'inbox'
-        ? inbox.items.length
-        : s.id === 'planner'
-          ? left(planner)
-          : s.id === 'docs'
-            ? documents.length
-            : 0,
-    badge: s.id === 'inbox',
-  }));
-  /* телефон: в панели — Главная, Сегодня, Planner и «Ещё» (D-866, «Входящие» — в «Ещё» по D-945) */
-  const inDock = (i: NavItem<ShellSectionId>) => DOCK_MAIN.includes(i.id);
-  const rest = items.filter((i) => !inDock(i));
+  const all: NavItem<ShellSectionId>[] = SECTIONS.filter((s) => owner || s.id !== 'pult').map(
+    (s) => ({
+      id: s.id,
+      label: s.name,
+      icon: s.icon,
+      count:
+        s.id === 'inbox'
+          ? inbox.items.length
+          : s.id === 'planner'
+            ? left(planner)
+            : s.id === 'docs'
+              ? documents.length
+              : s.id === 'pult'
+                ? waiting
+                : 0,
+      badge: s.id === 'inbox' || s.id === 'pult',
+    }),
+  );
+  /* ПК: модули — отдельной группой под разделами, Пульт первый (D-955) */
+  const items = all.filter((i) => !MODULES.includes(i.id));
+  const modules = all.filter((i) => MODULES.includes(i.id));
+  /* телефон: Главная, Сегодня, Planner и «Ещё» (D-866, «Входящие» — в «Ещё» по D-945);
+     у владельца между Сегодня и Planner — Пульт с точкой «ждёт тебя» (D-945, D-952, D-961) */
+  const dockMain = owner ? DOCK_OWNER : DOCK_MAIN;
+  const inDock = (i: NavItem<ShellSectionId>) => dockMain.includes(i.id);
+  const rest = all.filter((i) => !inDock(i));
   const dockItems: NavItem<DockId>[] = [
-    ...items.filter(inDock),
+    ...dockMain.flatMap((id) => all.filter((i) => i.id === id)),
     {
       id: 'more',
       label: 'Ещё',
@@ -495,7 +523,7 @@ export function AppShell() {
       badge: true,
     },
   ];
-  const dockCurrent: DockId = DOCK_MAIN.includes(id) ? id : 'more';
+  const dockCurrent: DockId = dockMain.includes(id) ? id : 'more';
 
   const pitch = wide ? 5.6 : 4.4;
   const headH = wide ? 136 : 112;
@@ -512,6 +540,12 @@ export function AppShell() {
             <span className="q-dot" />
           </div>
           <SideNav items={items} current={id} onGo={go} />
+          {modules.length > 0 && (
+            <>
+              <div className="side-group">Модули</div>
+              <SideNav items={modules} current={id} onGo={go} label="Модули" />
+            </>
+          )}
           <div className="side-foot">
             <SideMe />
             <Bell wide />
@@ -611,6 +645,8 @@ const LIST_ID = 'q-command-list';
 
 type DockId = ShellSectionId | 'more';
 const DOCK_MAIN: ShellSectionId[] = ['home', 'today', 'planner'];
+const DOCK_OWNER: ShellSectionId[] = ['home', 'today', 'pult', 'planner'];
+const MODULES: ShellSectionId[] = ['pult'];
 
 const HELPER_NAME = { elik: 'Элик', proto: 'Прото', neit: 'Нейт', foti: 'Фоти' } as const;
 
