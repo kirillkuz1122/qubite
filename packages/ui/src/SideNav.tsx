@@ -7,21 +7,33 @@ export interface SideNavProps<T extends string> {
   items: NavItem<T>[];
   current: T;
   onGo: (id: T) => void;
+  /** подпись группы для читалки; по умолчанию «Разделы» */
+  label?: string;
 }
 
 /** Разделы на ПК: подсветка едет к пункту и тянется по пути. */
-export function SideNav<T extends string>({ items, current, onGo }: SideNavProps<T>) {
-  const { node, to } = useSlide(44, 'q-side-sel');
+export function SideNav<T extends string>({
+  items,
+  current,
+  onGo,
+  label = 'Разделы',
+}: SideNavProps<T>) {
+  const { node, to, hide } = useSlide(44, 'q-side-sel');
   const btns = useRef(new Map<T, HTMLButtonElement>());
   const first = useRef(true);
   useLayoutEffect(() => {
     const b = btns.current.get(current);
-    if (!b) return;
+    // раздел из другой группы (Модули): здесь выделение тает, а не стоит на старом месте
+    if (!b) {
+      hide(first.current);
+      first.current = true;
+      return;
+    }
     to(b.offsetTop, b.offsetHeight, first.current);
     first.current = false;
-  }, [current, to]);
+  }, [current, to, hide]);
   return (
-    <nav className="q-side-nav" aria-label="Разделы">
+    <nav className="q-side-nav" aria-label={label}>
       {node}
       {items.map((it) => (
         <button
