@@ -24,6 +24,7 @@ pub mod harness;
 pub mod home;
 pub mod inbox;
 pub mod maintenance;
+pub mod mindmap;
 pub mod modules;
 pub mod notices;
 pub mod notifications;
@@ -372,6 +373,7 @@ impl AppState {
         docs::get_y,
         docs::post_y,
         docs::link_targets,
+        mindmap::suggest,
         docs::doc_backlinks,
         docs::object_backlinks,
         docs::doc_links,
@@ -623,6 +625,8 @@ impl AppState {
         docs::LinkTarget,
         docs::DocLink,
         docs::LinkTargets,
+        mindmap::SuggestRequest,
+        mindmap::SuggestResponse,
         docs::Backlinks,
         docs::DocLinks,
         docs::UpdateReason,
@@ -1077,6 +1081,7 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
         )
         .route("/api/v1/docs", get(projects::list_my_docs))
         .route("/api/v1/docs/link-targets", get(docs::link_targets))
+        .route("/api/v1/docs/mindmap/suggest", post(mindmap::suggest))
         .route("/api/v1/docs/{id}/backlinks", get(docs::doc_backlinks))
         .route(
             "/api/v1/objects/{id}/backlinks",

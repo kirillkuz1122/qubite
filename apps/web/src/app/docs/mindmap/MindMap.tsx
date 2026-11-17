@@ -9,6 +9,7 @@ import type * as Y from 'yjs';
 import type { DocHandle, DocLink, DocLinkKind, DocLinkTarget } from '@qubite/sync-client';
 import {
   Button,
+  Check,
   DotIcon,
   Field,
   Note,
@@ -26,6 +27,7 @@ import { ADVANCE, descendants, measureNode, probeAdvance, type NodeSize } from '
 import {
   addChild,
   addLinkChild,
+  appendOutline,
   addSibling,
   BRANCH_COLORS,
   findNode,
@@ -42,6 +44,7 @@ import {
   type Side,
 } from './model';
 import { MAX_ZOOM, MIN_ZOOM, Scene } from './scene';
+import { pathTo, priceText, suggestSubnodes } from './suggest';
 import { nodeLabel } from './text';
 import './mindmap.css';
 
@@ -113,7 +116,15 @@ export function MindMap({ handle, title }: { handle: DocHandle; title: string })
     blank ? { id: ROOT, original: '', fresh: false } : null,
   );
   const [drop, setDrop] = useState<string | null>(null);
-  const [sheet, setSheet] = useState<'node' | 'color' | 'link' | null>(null);
+  const [sheet, setSheet] = useState<'node' | 'color' | 'link' | 'ai' | null>(null);
+  const [ai, setAi] = useState<{
+    id: string;
+    status: 'wait' | 'ready' | 'error';
+    items: string[];
+    picked: boolean[];
+    cost: number;
+    message?: string;
+  } | null>(null);
   const [zoom, setZoom] = useState(1);
   const [ghosts, setGhosts] = useState<ReadonlyMap<string, View>>(new Map());
   const [advance, setAdvance] = useState(ADVANCE);
@@ -408,6 +419,61 @@ export function MindMap({ handle, title }: { handle: DocHandle; title: string })
     },
     [doc, handle, selected, select],
   );
+
+  /** AI предлагает подузлы ветки; человек выбирает, какие добавить (D-1008). */
+  const askAi = useCallback(
+    (id: string) => {
+      const current = readTree(doc);
+      const node = findNode(current, id);
+      if (!node) return;
+      const label = (item: MindNode) => nodeLabel(item, links) || placeholder(item);
+      setSheet('ai');
+      setAi({ id, status: 'wait', items: [], picked: [], cost: 0 });
+      suggestSubnodes(pathTo(current, id, label), node.children.map(label))
+        .then((result) =>
+          setAi((open) =>
+            open?.id === id && open.status === 'wait'
+              ? {
+                  id,
+                  status: 'ready',
+                  items: result.items,
+                  picked: result.items.map(() => true),
+                  cost: result.cost,
+                }
+              : open,
+          ),
+        )
+        .catch((error: unknown) =>
+          setAi((open) =>
+            open?.id === id && open.status === 'wait'
+              ? {
+                  ...open,
+                  status: 'error',
+                  message:
+                    error instanceof TypeError
+                      ? 'Нет связи с сервером. AI работает только онлайн.'
+                      : error instanceof Error
+                        ? error.message
+                        : 'AI сейчас недоступен.',
+                }
+              : open,
+          ),
+        );
+    },
+    [doc, links],
+  );
+  const addSuggested = useCallback(() => {
+    if (!ai || ai.status !== 'ready') return;
+    const items = ai.items.filter((_, i) => ai.picked[i]);
+    if (items.length && findNode(readTree(doc), ai.id))
+      appendOutline(
+        doc,
+        ai.id,
+        items.map((text) => ({ text, children: [] })),
+      );
+    setSheet(null);
+    setAi(null);
+  }, [ai, doc]);
 
   // Ушли со страницы посреди правки: пустой новый узел не остаётся.
   const editingRef = useRef(editing);
@@ -819,6 +885,11 @@ export function MindMap({ handle, title }: { handle: DocHandle; title: string })
                   icon: 'link' as IconName,
                   onPick: () => setSheet('link'),
                 },
+                {
+                  label: 'Предложить подузлы · AI',
+                  icon: 'spark' as IconName,
+                  onPick: () => askAi(selectedNode.id),
+                },
                 ...(selectedNode.link
                   ? [
                       {
@@ -902,6 +973,7 @@ export function MindMap({ handle, title }: { handle: DocHandle; title: string })
                 disabled={!selectedNode.children.length}
                 onClick={actions(selectedNode).fold}
               />
+              <BarItem icon="spark" label="AI" onClick={() => askAi(selectedNode.id)} />
               <BarItem icon="more" label="Ещё" onClick={() => setSheet('node')} />
             </div>
           )}
@@ -914,12 +986,67 @@ export function MindMap({ handle, title }: { handle: DocHandle; title: string })
             ? 'Цвет ветки'
             : sheet === 'link'
               ? 'Ссылка на объект'
-              : `Ветка «${selectedNode ? nodeLabel(selectedNode, links) || placeholder(selectedNode) : ''}»`
+              : sheet === 'ai'
+                ? 'Предложить подузлы'
+                : `Ветка «${selectedNode ? nodeLabel(selectedNode, links) || placeholder(selectedNode) : ''}»`
         }
-        onClose={() => setSheet(null)}
+        onClose={() => {
+          setSheet(null);
+          setAi(null);
+        }}
+        footer={
+          sheet === 'ai' ? (
+            <div className="mm-sheet-actions">
+              <Button
+                variant="fill"
+                disabled={ai?.status !== 'ready' || !ai.picked.some(Boolean)}
+                onClick={addSuggested}
+              >
+                Добавить {ai?.status === 'ready' ? ai.picked.filter(Boolean).length : ''}
+              </Button>
+              <Button
+                variant="quiet"
+                onClick={() => {
+                  setSheet(null);
+                  setAi(null);
+                }}
+              >
+                Отмена
+              </Button>
+            </div>
+          ) : undefined
+        }
       >
         {selectedNode && sheet === 'link' && <LinkPicker onPick={link} />}
-        {selectedNode && sheet !== 'link' && (
+        {sheet === 'ai' && ai && (
+          <div className="mm-sheet mm-ai" aria-live="polite">
+            {ai.status === 'wait' && <Note>AI подбирает подузлы…</Note>}
+            {ai.status === 'error' && <Note tone="bad">{ai.message}</Note>}
+            {ai.status === 'ready' && !ai.items.length && (
+              <Note>AI не нашёл новых подузлов для этой ветки.</Note>
+            )}
+            {ai.status === 'ready' &&
+              ai.items.map((item, i) => (
+                <Check
+                  key={`${i}-${item}`}
+                  checked={ai.picked[i] ?? false}
+                  onChange={(value) =>
+                    setAi((open) =>
+                      open
+                        ? { ...open, picked: open.picked.map((v, j) => (j === i ? value : v)) }
+                        : open,
+                    )
+                  }
+                >
+                  {item}
+                </Check>
+              ))}
+            {ai.status === 'ready' && (
+              <span className="mm-ai-cost">Стоимость: {priceText(ai.cost)}</span>
+            )}
+          </div>
+        )}
+        {selectedNode && sheet !== 'link' && sheet !== 'ai' && (
           <div className="mm-sheet">
             {sheet === 'node' && (
               <>
@@ -950,6 +1077,11 @@ export function MindMap({ handle, title }: { handle: DocHandle; title: string })
                   />
                 )}
                 <SheetRow icon="link" label="Ссылка на объект" onClick={() => setSheet('link')} />
+                <SheetRow
+                  icon="spark"
+                  label="Предложить подузлы · AI"
+                  onClick={() => askAi(selectedNode.id)}
+                />
                 {selectedNode.link ? (
                   <SheetRow
                     icon="link"

@@ -303,3 +303,64 @@ test('экспорт PNG и SVG, узел-ссылка @ на документ',
   expect(bytes.subarray(1, 4).toString()).toBe('PNG');
   expect(bytes.length).toBeGreaterThan(5000);
 });
+
+for (const width of [1440, 360]) {
+  test(`AI: предложить подузлы ветки, ${width}px (ответ шлюза — мок)`, async ({ page }, info) => {
+    test.skip(info.project.name !== 'chromium', 'один браузер');
+    await page.setViewportSize({ width, height: width === 360 ? 780 : 900 });
+    const server = await mockDocs(page);
+    server.add('Конспект', 'Текст');
+    const asked: unknown[] = [];
+    let budget = false;
+    await page.route('**/api/v1/docs/mindmap/suggest', async (route) => {
+      asked.push(route.request().postDataJSON());
+      if (budget)
+        return route.fulfill({
+          status: 409,
+          json: { error: 'budget_exceeded', message: 'Дневной лимит AI исчерпан' },
+        });
+      return route.fulfill({
+        json: { suggestions: ['valuable ~', 'reliable ~', 'first-hand ~'], cost_usd_micros: 120 },
+      });
+    });
+    await page.goto('/docs');
+    await createFromMenu(page, 'Mind map: collocations');
+    await tap(page, 'adjective + information');
+    if (width === 1440) {
+      await page.getByRole('button', { name: 'Действия с узлом' }).click();
+      await page.getByRole('menuitem', { name: 'Предложить подузлы · AI' }).click();
+    } else
+      await page
+        .getByRole('toolbar', { name: 'Действия с узлом' })
+        .getByRole('button', { name: 'AI' })
+        .click();
+    const dialog = page.getByRole('dialog', { name: 'Предложить подузлы' });
+    await expect(dialog.getByRole('checkbox')).toHaveCount(3);
+    await expect(dialog).toContainText('меньше цента');
+    expect(asked[0]).toMatchObject({
+      path: ['information', 'adjective + information'],
+      existing: ['useful ~', 'detailed ~', 'accurate ~', 'up-to-date ~', 'background ~'],
+    });
+    await dialog.getByText('reliable ~').click();
+    await dialog.getByRole('button', { name: 'Добавить 2' }).click();
+    await expect(node(page, 'valuable ~')).toBeAttached();
+    await expect(node(page, 'reliable ~')).toHaveCount(0);
+    await expect
+      .poll(() => server.pushes.at(-1)?.text ?? '')
+      .toContain('    - background ~\n    - valuable ~\n    - first-hand ~');
+    // Бюджет кончился — человек видит причину словами, карта не меняется.
+    budget = true;
+    await tap(page, 'adjective + information');
+    if (width === 1440) {
+      await page.getByRole('button', { name: 'Действия с узлом' }).click();
+      await page.getByRole('menuitem', { name: 'Предложить подузлы · AI' }).click();
+    } else
+      await page
+        .getByRole('toolbar', { name: 'Действия с узлом' })
+        .getByRole('button', { name: 'AI' })
+        .click();
+    await expect(dialog).toContainText('Дневной лимит AI исчерпан');
+    await expect(dialog.getByRole('button', { name: /Добавить/ })).toBeDisabled();
+    await noScroll(page);
+  });
+}

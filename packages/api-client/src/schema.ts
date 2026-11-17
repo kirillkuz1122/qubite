@@ -1653,6 +1653,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/docs/mindmap/suggest': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Предложить подузлы ветки mind map через AI-шлюз. */
+    post: operations['suggest'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/docs/{id}': {
     parameters: {
       query?: never;
@@ -5526,6 +5543,27 @@ export interface components {
       chatgpt_model?: string | null;
       /** @description `owner`, `chatgpt` или `own_key`. */
       source: string;
+    };
+    /** @description Ветка, для которой нужны подузлы. */
+    SuggestRequest: {
+      /** @description Подписи подузлов, которые уже есть, до 50. */
+      existing?: string[];
+      /** @description Подписи от центра до ветки, 1–12 строк до 300 знаков. */
+      path: string[];
+      /**
+       * Format: uuid
+       * @description ID действия: повтор с тем же ID не выполняется и не списывается второй раз.
+       */
+      request_id: string;
+    };
+    /** @description Предложенные подузлы и цена вызова. */
+    SuggestResponse: {
+      /**
+       * Format: int64
+       * @description Стоимость вызова, микродоллары.
+       */
+      cost_usd_micros: number;
+      suggestions: string[];
     };
     /** @description Модель для задачи. */
     TaskModel: {
@@ -10103,6 +10141,57 @@ export interface operations {
       };
       /** @description Нет права читать Docs */
       403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  suggest: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SuggestRequest'];
+      };
+    };
+    responses: {
+      /** @description Предложения (могут быть пустыми) */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SuggestResponse'];
+        };
+      };
+      /** @description Неверный путь или подузлы */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет права писать в Docs или пользоваться AI */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Бюджет AI исчерпан, повтор или нет модели */
+      409: {
         headers: {
           [name: string]: unknown;
         };
