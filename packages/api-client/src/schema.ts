@@ -5739,6 +5739,12 @@ export interface components {
       last_at: string;
       /** @description Модель последнего ответа (`claude-opus-5-5`). */
       model?: string;
+      /**
+       * Format: date-time
+       * @description Последнее обращение к модели — от него считается срок кэша (результат инструмента
+       *     модель не трогает). Нет — берём `last_at`.
+       */
+      model_at?: string | null;
       /** @description Папка проекта (последняя часть пути). */
       project?: string;
       /** Format: date-time */

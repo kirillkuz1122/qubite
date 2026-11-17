@@ -16170,6 +16170,11 @@
             "type": "string",
             "description": "Модель последнего ответа (`claude-opus-5-5`)."
           },
+          "model_at": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "Последнее обращение к модели — от него считается срок кэша (результат инструмента\nмодель не трогает). Нет — берём `last_at`."
+          },
           "project": {
             "type": "string",
             "description": "Папка проекта (последняя часть пути)."
