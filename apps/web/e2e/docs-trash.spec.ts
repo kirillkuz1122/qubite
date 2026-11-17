@@ -1,5 +1,12 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { mockDocs } from './docs-mock';
+
+/** Удалить открытый документ: «Ещё» → «Удалить» (окно подтверждения — дальше в тесте). */
+async function removeDoc(page: Page) {
+  const doc = page.getByRole('article', { name: 'Документ' });
+  await doc.getByRole('button', { name: 'Ещё', exact: true }).click();
+  await doc.getByRole('menuitem', { name: 'Удалить', exact: true }).click();
+}
 
 for (const width of [1440, 360]) {
   for (const theme of ['dark', 'light']) {
@@ -29,12 +36,12 @@ for (const width of [1440, 360]) {
           .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
           .toBe(true);
       };
-      const remove = page
-        .getByRole('article', { name: 'Документ' })
-        .getByRole('button', { name: 'Удалить', exact: true });
+      const doc = page.getByRole('article', { name: 'Документ' });
       await noOverflow();
       await shot('документ');
-      await remove.click();
+      // Удаление — в меню «Ещё» у документа (DS-013).
+      await doc.getByRole('button', { name: 'Ещё', exact: true }).click();
+      await doc.getByRole('menuitem', { name: 'Удалить', exact: true }).click();
       const dialog = page.getByRole('dialog', { name: 'Удалить документ' });
       await expect(dialog.getByText('Документ уйдёт в корзину. Его можно вернуть')).toBeVisible();
       expect(server.sync.objects.get(id)?.deleted).toBe(false);
@@ -95,10 +102,7 @@ test('корзина: удаление и возврат без сети отп�
   await expect.poll(() => server.pushes.some((push) => push.id === id)).toBe(true);
   server.sync.offline = true;
   await context.setOffline(true);
-  await page
-    .getByRole('article', { name: 'Документ' })
-    .getByRole('button', { name: 'Удалить', exact: true })
-    .click();
+  await removeDoc(page);
   await page.getByRole('dialog').getByRole('button', { name: 'Удалить', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Вернуть', exact: true })).toBeFocused();
   expect(server.sync.ops.some((op) => op.kind === 'delete')).toBe(false);
@@ -133,10 +137,7 @@ test('корзина: быстрый возврат из заметки', async 
   const id = server.add('Вернуть сразу', 'Текст');
   await page.goto(`/docs/${id}`);
   await expect(page.getByRole('textbox', { name: 'Текст документа' })).toContainText('Текст');
-  await page
-    .getByRole('article', { name: 'Документ' })
-    .getByRole('button', { name: 'Удалить', exact: true })
-    .click();
+  await removeDoc(page);
   await page.getByRole('dialog').getByRole('button', { name: 'Удалить', exact: true }).click();
   await page.getByRole('button', { name: 'Вернуть', exact: true }).click();
   await expect(

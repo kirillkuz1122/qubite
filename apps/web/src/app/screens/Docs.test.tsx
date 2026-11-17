@@ -119,8 +119,11 @@ describe('новый документ', () => {
 describe('удаление документа', () => {
   it('просит подтверждение; отмена сохраняет документ и возвращает фокус', async () => {
     const view = await setup();
-    const remove = view.getByRole('button', { name: 'Удалить' });
-    act(() => remove.focus());
+    // Удаление — в меню «Ещё»; после окна фокус возвращается на кнопку меню.
+    const more = view.getAllByRole('button', { name: 'Ещё' }).at(-1)!;
+    act(() => more.focus());
+    fireEvent.click(more);
+    const remove = view.getByRole('menuitem', { name: 'Удалить' });
     fireEvent.click(remove);
     const dialog = view.getByRole('dialog', { name: 'Удалить документ' });
     expect(
@@ -129,13 +132,14 @@ describe('удаление документа', () => {
     expect((await view.client.get(view.doc.id))?.deleted).toBe(false);
     fireEvent.click(within(dialog).getByRole('button', { name: 'Отмена' }));
     await waitFor(() => expect(view.queryByRole('dialog')).toBeNull());
-    expect(remove).toHaveFocus();
+    expect(more).toHaveFocus();
     expect((await view.client.get(view.doc.id))?.deleted).toBe(false);
   });
 
   it('удаляет без сети, переходит к списку и возвращает из заметки с фокусом на документе', async () => {
     const view = await setup();
-    fireEvent.click(view.getByRole('button', { name: 'Удалить' }));
+    fireEvent.click(view.getAllByRole('button', { name: 'Ещё' }).at(-1)!);
+    fireEvent.click(view.getByRole('menuitem', { name: 'Удалить' }));
     fireEvent.click(within(view.getByRole('dialog')).getByRole('button', { name: 'Удалить' }));
     const undo = await view.findByRole('button', { name: 'Вернуть' });
     await waitFor(() => expect(undo).toHaveFocus());
@@ -179,7 +183,8 @@ describe('удаление документа', () => {
   it('объясняет ошибку локального удаления и сохраняет открытый документ', async () => {
     const view = await setup();
     vi.spyOn(view.client, 'remove').mockRejectedValueOnce(new Error('диск'));
-    fireEvent.click(view.getByRole('button', { name: 'Удалить' }));
+    fireEvent.click(view.getAllByRole('button', { name: 'Ещё' }).at(-1)!);
+    fireEvent.click(view.getByRole('menuitem', { name: 'Удалить' }));
     fireEvent.click(within(view.getByRole('dialog')).getByRole('button', { name: 'Удалить' }));
     await waitFor(() =>
       expect(view.getAllByRole('alert').map((alert) => alert.textContent)).toContainEqual(
@@ -216,7 +221,8 @@ async function markdownSetup() {
 describe('Markdown-файлы без сети', () => {
   it('создаёт два документа, сохраняет текст после закрытия и остаётся в списке', async () => {
     const view = await markdownSetup();
-    expect(view.getAllByRole('button', { name: 'Импорт .md' })).toHaveLength(2);
+    // В пустом списке импорт — тихая кнопка под приглашением; в шапке списка он в меню «Ещё».
+    expect(view.getAllByRole('button', { name: 'Импорт .md' })).toHaveLength(1);
     fireEvent.change(view.input, {
       target: {
         files: [

@@ -503,7 +503,7 @@
 @media (min-width: 840px) and (max-width: 1279px) {
   /* На ноутбуке сохраняем поля 18 px: семь дней помещаются при ширине 1024 px. */
   .main:has(.calendar) .main-in {
-    padding-inline: 18px;
+    padding-inline: 16px;
   }
 }
 @media (min-width: 1280px) {

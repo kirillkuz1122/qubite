@@ -69,21 +69,21 @@
 .cs-stack {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 14px;
+  gap: 12px;
 }
 .cs-panel {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 14px;
+  gap: 12px;
   min-width: 0;
-  padding: 18px 16px;
+  padding: 16px 16px;
   border-radius: calc(var(--q-round) * 24px);
   background: var(--q-panel);
   border: 1px solid var(--q-line);
 }
 @media (min-width: 600px) {
   .cs-panel {
-    padding: 22px 26px;
+    padding: 22px 24px;
   }
 }
 .cs-h {
@@ -129,7 +129,7 @@
 .cs-methods {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 10px 18px;
+  gap: 10px 16px;
 }
 .cs-method,
 .cs-ai {
@@ -237,14 +237,14 @@
   grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   margin: 6px 0 10px;
-  padding: 14px 12px;
+  padding: 16px 12px;
   border-left: 2px solid var(--q-orange);
 }
 .cs-facts,
 .cs-three {
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr);
-  gap: 4px 14px;
+  gap: 4px 12px;
   margin: 0;
   font-size: 13px;
 }
@@ -298,7 +298,7 @@
   display: grid;
   gap: 10px;
   width: min(760px, calc(100% - 32px));
-  padding: 12px 14px;
+  padding: 12px 16px;
   transform: translateX(-50%);
   border-radius: calc(var(--q-round) * 22px);
   background: var(--q-panel-2);
@@ -427,12 +427,12 @@
   grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   min-width: 0;
-  padding: 14px 0 16px;
+  padding: 16px 0 16px;
   border-top: 1px solid var(--q-line);
 }
 .cs-usage {
   display: grid;
-  gap: 14px;
+  gap: 12px;
 }
 .cs-options {
   display: grid;

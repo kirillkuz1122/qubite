@@ -13,7 +13,7 @@
   position: relative;
   display: grid;
   justify-items: center;
-  gap: 14px;
+  gap: 12px;
   width: 100%;
   max-width: 520px;
   padding: 32px 16px;
@@ -63,7 +63,7 @@
   width: max-content;
   white-space: nowrap;
   max-width: calc(100% - 32px);
-  padding: 6px 14px;
+  padding: 6px 16px;
   border-radius: calc(var(--q-round) * 16px);
   border: 1px solid var(--q-line-2);
   background: var(--q-panel-2);

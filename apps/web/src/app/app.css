@@ -28,7 +28,7 @@ a {
 .main-in {
   max-width: 760px;
   margin: 0 auto;
-  padding: 0 18px calc(104px + env(safe-area-inset-bottom, 0px));
+  padding: 0 16px calc(104px + env(safe-area-inset-bottom, 0px));
 }
 .side {
   display: none;
@@ -43,7 +43,7 @@ a {
     top: 0;
     bottom: 0;
     width: 248px;
-    padding: 24px 14px 18px;
+    padding: 24px 16px 16px;
     border-right: 1px solid var(--q-line);
     background: var(--q-bg);
   }
@@ -58,7 +58,7 @@ a {
   display: flex;
   align-items: center;
   gap: 9px;
-  padding: 0 10px 26px;
+  padding: 0 10px 24px;
 }
 .side-logo .q-dot {
   width: 8px;
@@ -104,11 +104,11 @@ a {
 /* ---------- шапка: заголовок из точек, помощник справа ---------- */
 .head {
   position: relative;
-  margin: 0 -18px 6px;
+  margin: 0 -16px 6px;
 }
 .head-title {
   position: absolute;
-  left: 14px;
+  left: 12px;
   top: 22px;
   display: flex;
   align-items: center;
@@ -136,7 +136,7 @@ a {
 }
 .head-sub {
   position: absolute;
-  left: 18px;
+  left: 16px;
   right: 84px;
   bottom: 12px;
   font-size: 13px;
@@ -169,7 +169,7 @@ a {
   will-change: transform, opacity;
 }
 .settings-content {
-  margin-top: 14px;
+  margin-top: 16px;
 }
 .settings-content .acc {
   padding: 16px;
@@ -197,7 +197,7 @@ a {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  margin: 26px 0 8px;
+  margin: 24px 0 8px;
 }
 .sec-h canvas {
   display: block;
@@ -206,6 +206,16 @@ a {
 .sec-h .more {
   font-size: 13px;
   color: var(--q-dim);
+}
+/* Действие секции — по нижнему краю заголовка (DS-013, находка 13): высокая область нажатия
+   растёт вверх, а текст и значок стоят на одной линии с низом букв заголовка. */
+.sec-h > :not(canvas, h2) {
+  align-self: flex-end;
+}
+.sec-h .more {
+  display: inline-flex;
+  align-items: flex-end;
+  line-height: 1.2;
 }
 .more {
   border: 0;
@@ -277,8 +287,8 @@ a {
 .tip {
   display: flex;
   gap: 12px;
-  margin: 18px 0 4px;
-  padding: 14px 16px;
+  margin: 16px 0 4px;
+  padding: 16px 16px;
   font-size: 14px;
   color: var(--q-mute);
 }
@@ -298,7 +308,7 @@ a {
 }
 .tip .acts {
   display: flex;
-  gap: 14px;
+  gap: 12px;
   align-items: center;
   margin-top: 10px;
 }
@@ -311,7 +321,7 @@ a {
 .row {
   position: relative;
   display: flex;
-  gap: 14px;
+  gap: 12px;
   align-items: center;
   min-height: 58px;
   padding: 8px 10px;
@@ -371,7 +381,7 @@ a {
 .item {
   position: relative;
   display: flex;
-  gap: 14px;
+  gap: 12px;
   padding: 16px 0;
   border-bottom: 1px solid var(--q-line);
   transform-origin: 50% 0;
@@ -486,7 +496,7 @@ a {
 .proj {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   width: 100%;
   padding: 13px 0;
   border: 0;
@@ -515,8 +525,7 @@ a {
 }
 .proj-new {
   display: grid;
-  gap: 10px;
-  margin: 4px 0 12px;
+  gap: 16px;
 }
 .proj-new-row {
   display: flex;
@@ -547,7 +556,7 @@ a {
 .board {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 18px;
+  gap: 16px;
   margin-top: 16px;
 }
 @media (min-width: 700px) {
@@ -582,7 +591,7 @@ a {
 }
 .card {
   position: relative;
-  padding: 12px 14px;
+  padding: 12px 16px;
   margin-bottom: 8px;
   font-size: 14px;
   cursor: grab;
@@ -666,7 +675,7 @@ a {
 /* ---------- Docs: строка раскрывается в страницу ---------- */
 .doc {
   display: flex;
-  gap: 14px;
+  gap: 12px;
   width: 100%;
   padding: 16px 0;
   border: 0;
@@ -738,7 +747,7 @@ a {
   color: var(--q-dim);
 }
 .page-in p {
-  margin: 0 0 14px;
+  margin: 0 0 16px;
   color: var(--q-mute);
   font-size: 15px;
 }
@@ -774,15 +783,15 @@ a {
   color: var(--q-dim);
 }
 .formula {
-  margin: 14px 0;
-  padding: 14px 16px;
+  margin: 16px 0;
+  padding: 16px 16px;
   border-radius: calc(var(--q-round) * 16px);
   background: var(--q-bg);
   border: 1px solid var(--q-line);
   font-size: 15px;
 }
 .ink {
-  margin: 14px 0;
+  margin: 16px 0;
   padding: 10px;
   border-radius: calc(var(--q-round) * 18px);
   background: var(--q-bg);
@@ -818,12 +827,12 @@ a {
 
 /* ---------- Настройки ---------- */
 .group {
-  padding: 4px 18px;
+  padding: 4px 16px;
 }
 .set {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   min-height: 58px;
   padding: 10px 0;
   border-bottom: 1px solid var(--q-line);
@@ -968,7 +977,7 @@ a.set {
 
 /* ---------- «Агент»: лента «Что сделал агент» (AGT-002) ---------- */
 .lead {
-  margin: 14px 0;
+  margin: 16px 0;
   font-size: 14px;
   color: var(--q-mute);
 }
@@ -978,7 +987,7 @@ a.set {
   list-style: none;
 }
 .act {
-  padding: 14px 0;
+  padding: 16px 0;
   border-bottom: 1px solid var(--q-line);
   font-size: 14px;
 }
@@ -1058,7 +1067,7 @@ a.set {
 .act-fix,
 .act-ask {
   margin-top: 10px;
-  padding: 12px 14px;
+  padding: 12px 16px;
   font-size: 13px;
 }
 .act-conflict p {
@@ -1301,7 +1310,7 @@ button.proj {
 .bell-toast button {
   gap: 2px;
   width: 100%;
-  padding: 12px 14px;
+  padding: 12px 16px;
   border: 0;
   background: none;
   text-align: left;
@@ -1320,11 +1329,11 @@ button.proj {
 }
 .rec {
   display: grid;
-  gap: 14px;
+  gap: 12px;
 }
 .rec-body {
   display: grid;
-  gap: 14px;
+  gap: 12px;
   min-width: 0;
 }
 @media (min-width: 900px) {
@@ -1350,7 +1359,7 @@ button.proj {
   color: var(--q-dim);
 }
 .rec-folder:not(:first-child) li button {
-  padding-left: 18px;
+  padding-left: 16px;
 }
 .rec-tree button {
   display: flex;
@@ -1439,7 +1448,7 @@ button.proj {
   cursor: pointer;
 }
 .rec-sub {
-  margin: 14px 0 0;
+  margin: 16px 0 0;
   font-size: 14px;
   font-weight: 600;
 }
@@ -1482,8 +1491,8 @@ button.proj {
 .rec-fix {
   display: grid;
   gap: 8px;
-  margin-top: 18px;
-  padding-top: 14px;
+  margin-top: 16px;
+  padding-top: 16px;
   border-top: 1px solid var(--q-line);
 }
 .rec-fix > button {
@@ -1525,7 +1534,7 @@ button.proj {
   overflow-wrap: anywhere;
 }
 .rec-ask {
-  padding: 14px 16px;
+  padding: 16px 16px;
 }
 .rec-ask h2 {
   margin: 0;
@@ -1572,7 +1581,7 @@ button.proj {
 }
 .talk-msg {
   max-width: min(560px, 92%);
-  padding: 10px 14px;
+  padding: 10px 16px;
   border-radius: calc(var(--q-round) * 18px);
   background: var(--q-panel);
   border: 1px solid var(--q-line);
@@ -1624,7 +1633,7 @@ button.proj {
 .pace {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 14px;
+  gap: 12px;
   max-width: 640px;
 }
 .pace-block {
@@ -1632,7 +1641,7 @@ button.proj {
   grid-template-columns: minmax(0, 1fr);
   gap: 10px;
   justify-items: start;
-  padding: 14px 16px;
+  padding: 16px 16px;
   border: 1px solid var(--q-line);
   border-radius: calc(var(--q-round) * 18px);
 }
@@ -1711,7 +1720,7 @@ button.proj {
 .skill-bar {
   display: grid;
   gap: 8px;
-  margin-top: 14px;
+  margin-top: 16px;
 }
 @media (min-width: 700px) {
   .skill-row {
@@ -1728,13 +1737,13 @@ button.proj {
 .eng {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 14px;
+  gap: 12px;
 }
 .eng-stage {
   display: flex;
   align-items: flex-end;
   gap: 16px;
-  padding: 14px 16px;
+  padding: 16px 16px;
   border: 1px solid var(--q-line);
   border-radius: calc(var(--q-round) * 18px);
   background: var(--q-panel);
@@ -1810,7 +1819,7 @@ button.proj {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 12px;
-  padding: 10px 14px;
+  padding: 10px 16px;
   border: 1px solid var(--q-orange);
   border-radius: calc(var(--q-round) * 18px);
 }
@@ -1840,7 +1849,7 @@ button.proj {
   grid-template-columns: minmax(0, 1fr);
   gap: 10px;
   min-width: 0;
-  padding: 14px 16px;
+  padding: 16px 16px;
   border: 1px solid var(--q-line);
   border-radius: calc(var(--q-round) * 18px);
   background: var(--q-panel);
@@ -1872,7 +1881,7 @@ h4.eng-h {
 .eng-today-row {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
 }
 .eng-today-text {
   display: grid;
@@ -2002,7 +2011,7 @@ h4.eng-h {
 .eng-lesson {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 14px;
+  gap: 12px;
 }
 .eng-close {
   margin-left: auto;
@@ -2095,7 +2104,7 @@ h4.eng-h {
 .q-btn.eng-opt {
   height: auto;
   min-height: 48px;
-  padding: 10px 14px;
+  padding: 10px 16px;
   border-width: 2px;
   white-space: normal;
   overflow-wrap: anywhere;
@@ -2360,8 +2369,8 @@ h4.eng-h {
   border: 0;
   border-bottom: 1px solid var(--q-line);
   border-radius: 0;
-  padding: calc(8px + env(safe-area-inset-top)) max(18px, env(safe-area-inset-right)) 8px
-    max(18px, env(safe-area-inset-left));
+  padding: calc(8px + env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 8px
+    max(16px, env(safe-area-inset-left));
 }
 .eng-lesson-screen .eng-who {
   flex: 1;
@@ -2388,7 +2397,7 @@ h4.eng-h {
   min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
-  padding: 16px max(18px, env(safe-area-inset-right)) 24px max(18px, env(safe-area-inset-left));
+  padding: 16px max(16px, env(safe-area-inset-right)) 24px max(16px, env(safe-area-inset-left));
 }
 .eng-lesson-column {
   display: grid;
@@ -2403,8 +2412,8 @@ h4.eng-h {
 .eng-lesson-bottom {
   border-top: 1px solid var(--q-line);
   background: var(--q-panel);
-  padding: 8px max(18px, env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom))
-    max(18px, env(safe-area-inset-left));
+  padding: 8px max(16px, env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom))
+    max(16px, env(safe-area-inset-left));
   max-height: 50dvh;
   overflow: auto;
   overscroll-behavior: contain;
@@ -2717,13 +2726,13 @@ h4.eng-h {
 
 /* ---------- голосовой ввод (CMD-005b) ---------- */
 .voice-bar-box {
-  margin: 4px 0 14px;
+  margin: 4px 0 16px;
 }
 .voice-bar {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 14px 16px;
+  gap: 12px;
+  padding: 16px 16px;
 }
 .voice-bar-t {
   flex: 1;
@@ -2826,7 +2835,7 @@ html[data-motion='less'] .rec-dot {
 }
 .voice-set-lead {
   margin: 0;
-  padding: 10px 14px 6px;
+  padding: 10px 16px 6px;
   font-size: 14px;
 }
 .voice-set-lead small {
@@ -2846,7 +2855,7 @@ html[data-motion='less'] .rec-dot {
 .voice-form {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 14px;
+  gap: 12px;
   min-width: 0;
 }
 .voice-row {
