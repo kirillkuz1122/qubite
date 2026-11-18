@@ -20,7 +20,7 @@ export function watchLostMindmap(
   confirmed: () => Map<number, number>,
 ): () => void {
   const key = Symbol('mindmap-lost-before');
-  type Pending = { id: string; text: string; ancestors: string[] };
+  type Pending = { id: string; entry: Y.Map<unknown>; text: string; ancestors: string[] };
 
   // Обычный документ не получает лишний корневой тип: смотрим, только если карта уже есть.
   const nodes = () => (doc.share.has('mindmap') ? doc.getMap<unknown>('mindmap') : null);
@@ -48,7 +48,7 @@ export function watchLostMindmap(
           const next = map.get(up);
           up = next instanceof Y.Map ? next.get('parent') : null;
         }
-        pending.push({ id, text: text.toString(), ancestors });
+        pending.push({ id, entry: value, text: text.toString(), ancestors });
         return;
       }
     });
@@ -64,7 +64,9 @@ export function watchLostMindmap(
     const lost: LostBlock[] = [];
     for (const item of pending) {
       const text = item.text.trim();
-      if (map.has(item.id) || !text) continue;
+      // Сравниваем саму запись: восстановление версии кладёт новую Y.Map под тем же id,
+      // и старый Y.Text с допиской уходит вместе с прежней записью.
+      if ((map.get(item.id) === item.entry && !item.entry._item?.deleted) || !text) continue;
       // Родитель — ближайший уцелевший предок: туда узел и вернётся.
       const parent = item.ancestors.find((id) => map.has(id)) ?? null;
       const above = parent ? map.get(parent) : undefined;

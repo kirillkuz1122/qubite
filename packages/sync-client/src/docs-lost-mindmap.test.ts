@@ -64,6 +64,17 @@ describe('потерянные дописки mind map', () => {
     ]);
   });
 
+  it('узел заменён восстановленной версией под тем же id — дописка не теряется', () => {
+    const { a, b, found, label, exchange } = pair();
+    label(a, 'leaf').insert(4, ' — дописка');
+    // Так пишет restoreDocVersion: прежние записи удаляются, новые — под теми же id.
+    b.transact(() => node(b, 'leaf', 'лист', 'branch'));
+    exchange();
+    expect(found).toEqual([
+      { text: 'лист — дописка', kind: MINDMAP_LOST_KIND, after: 'ветка', parent: 'branch' },
+    ]);
+  });
+
   it('без своих неподтверждённых правок удаление — просто удаление', () => {
     const { b, found, exchange } = pair();
     b.getMap('mindmap').delete('leaf');
