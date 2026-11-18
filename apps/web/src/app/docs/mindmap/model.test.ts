@@ -16,6 +16,7 @@ import {
   addLinkChild,
   mindmapUpdate,
   moveNode,
+  parentNode,
   readTree,
   removeNode,
   ROOT,
@@ -492,5 +493,24 @@ describe('mind map: история версий (DOC-004)', () => {
     const tree = readTree(doc);
     expect(findNode(tree, branch)!.children.map((n) => n.text)).toEqual(['лист — дописка']);
     expect(tree.children.map((n) => n.text)).toEqual(['ветка', 'сирота']);
+  });
+  it('перенос ветки глубже не перерастает лимит текста из-за отступов', () => {
+    const doc = fresh();
+    const branch = addChild(doc, ROOT, 'ветка');
+    appendOutline(
+      doc,
+      branch,
+      Array.from({ length: 650 }, (_, i) => ({ text: `${i}`.padEnd(270, 'x'), children: [] })),
+    );
+    let end = ROOT;
+    for (let i = 0; i < 20; i++) end = addChild(doc, end, '');
+    const before = [...mindmapMarkdown(doc)].length;
+    expect(() => moveNode(doc, branch, end)).toThrow(/на пределе/);
+    expect([...mindmapMarkdown(doc)].length).toBe(before);
+    expect(parentNode(readTree(doc), branch)!.id).toBe(ROOT);
+    // Неглубокий перенос укладывается; перенос выше — всегда можно.
+    const near = addChild(doc, ROOT, 'рядом');
+    expect(moveNode(doc, branch, near)).toBe(true);
+    expect(moveNode(doc, branch, ROOT)).toBe(true);
   });
 });
