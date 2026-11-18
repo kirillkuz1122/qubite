@@ -44,6 +44,30 @@ export function mindmapMarkdown(doc: Y.Doc, links: readonly DocLink[] = []): str
   return treeMarkdown(readTree(doc), links);
 }
 
+/** Лимит текста документа на сервере (MAX_DOC_CHARS в qubite-planner). */
+export const MAX_SYNC_CHARS = 200_000;
+
+/**
+ * Текст карты для сервера (поиск, превью): не длиннее MAX_SYNC_CHARS, иначе сервер отклонит
+ * весь обмен и карта перестанет синхронизироваться. Проверки модели этого не гарантируют:
+ * подпись ссылки — название цели из кэша, а его переименовывают уже после вставки.
+ * Данные карты — в Y.Doc и не урезаются; хвост списка лишь не попадёт в поиск.
+ * «Скачать .md» берёт полный mindmapMarkdown.
+ */
+export function mindmapSyncText(doc: Y.Doc, links: readonly DocLink[] = []): string {
+  const full = mindmapMarkdown(doc, links);
+  if (full.length <= MAX_SYNC_CHARS) return full; // знаков не больше, чем кодовых единиц
+  let used = 0;
+  const kept: string[] = [];
+  for (const line of full.split('\n')) {
+    const size = [...line].length + (kept.length ? 1 : 0);
+    if (used + size > MAX_SYNC_CHARS) break;
+    kept.push(line);
+    used += size;
+  }
+  return kept.join('\n');
+}
+
 // Пустой пункт («- » или «-») — пустой узел карты: экспорт и импорт обратимы.
 const ITEM = /^([ \t]*)(?:[-*+]|\d+[.)])(?:[ \t]+\[[ xX]\])?(?:[ \t]+(.*))?$/;
 

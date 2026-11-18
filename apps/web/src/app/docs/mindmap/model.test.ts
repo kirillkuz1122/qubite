@@ -29,7 +29,9 @@ import {
 import { layoutTree, neighbour } from './layout';
 import {
   collocationsTemplate,
+  MAX_SYNC_CHARS,
   mindmapMarkdown,
+  mindmapSyncText,
   outlineRoot,
   parseOutline,
   treeMarkdown,
@@ -512,5 +514,26 @@ describe('mind map: история версий (DOC-004)', () => {
     const near = addChild(doc, ROOT, 'рядом');
     expect(moveNode(doc, branch, near)).toBe(true);
     expect(moveNode(doc, branch, ROOT)).toBe(true);
+  });
+  it('текст для сервера не длиннее его лимита даже с длинными названиями ссылок', () => {
+    const doc = fresh();
+    const target = '0199a1b2-c3d4-7e5f-8a9b-0123456789ab';
+    const link = { target, kind: 'docs.page' as const };
+    appendOutline(
+      doc,
+      ROOT,
+      Array.from({ length: 1000 }, () => ({ text: '', link, children: [] })),
+    );
+    const links = [
+      { id: target, type: 'docs.page' as const, title: 'я'.repeat(200), deleted: false },
+    ];
+    expect([...mindmapMarkdown(doc, links)].length).toBeGreaterThan(MAX_SYNC_CHARS);
+    const sync = mindmapSyncText(doc, links);
+    expect([...sync].length).toBeLessThanOrEqual(MAX_SYNC_CHARS);
+    // Обрезано по целым строкам: каждая строка — целый пункт списка.
+    expect(sync.split('\n').every((line) => /^ *- /.test(line))).toBe(true);
+    expect(renderDocText(doc, links)).toBe(sync);
+    // Короткая карта — без изменений.
+    expect(mindmapSyncText(fresh('центр'))).toBe(mindmapMarkdown(fresh('центр')));
   });
 });
