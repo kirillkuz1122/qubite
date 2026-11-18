@@ -752,17 +752,22 @@ export function MindMap({ handle, title }: { handle: DocHandle; title: string })
     setDrop(null);
     const onto = target(at.x, at.y, g.ids);
     const node = findNode(tree, g.id);
-    if (onto && node) moveNode(doc, g.id, onto);
-    else if (node?.depth === 1) {
-      // В пустоту: ветка встаёт на ту сторону центра и на ту высоту, куда её бросили.
-      const p = scene.world(at.x, at.y);
-      const side: Side = p.x < 0 ? 'l' : 'r';
-      const others = tree.children.filter((child) => child.id !== g.id);
-      const anchor = others.find((child) => {
-        const b = views.layout.boxes.get(child.id);
-        return b?.side === side && b.y + b.h / 2 > p.y;
-      });
-      moveNode(doc, g.id, ROOT, anchor ? others.indexOf(anchor) : others.length, side);
+    try {
+      if (onto && node) moveNode(doc, g.id, onto);
+      else if (node?.depth === 1) {
+        // В пустоту: ветка встаёт на ту сторону центра и на ту высоту, куда её бросили.
+        const p = scene.world(at.x, at.y);
+        const side: Side = p.x < 0 ? 'l' : 'r';
+        const others = tree.children.filter((child) => child.id !== g.id);
+        const anchor = others.find((child) => {
+          const b = views.layout.boxes.get(child.id);
+          return b?.side === side && b.y + b.h / 2 > p.y;
+        });
+        moveNode(doc, g.id, ROOT, anchor ? others.indexOf(anchor) : others.length, side);
+      }
+    } catch (error) {
+      // Лимит текста карты: ветка возвращается на место, причина — сообщением.
+      setProblem(error instanceof Error ? error.message : 'Перенести не вышло.');
     }
     scene.release();
   }
