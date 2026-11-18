@@ -454,5 +454,12 @@ describe('mind map: история версий (DOC-004)', () => {
     addLinkChild(doc, ROOT, item(0).link);
     setLink(doc, plain, item(1).link);
     expect(mindmapLinks(doc)).toHaveLength(MAX_LINKS);
+    // Замена единственной ссылки на цель — не новая цель сверх лимита: прежняя исчезает.
+    const only = readTree(doc).children.find((n) => n.link?.target === target(5))!.id;
+    setLink(doc, only, item(MAX_LINKS).link);
+    expect(mindmapLinks(doc)).toHaveLength(MAX_LINKS);
+    expect(mindmapLinks(doc)).not.toContain(target(5));
+    // А цель, на которую ссылаются ещё и другие узлы, остаётся — замена её узла отклоняется.
+    expect(() => setLink(doc, plain, item(MAX_LINKS + 1).link)).toThrow(/200 разных ссылок/);
   });
 });

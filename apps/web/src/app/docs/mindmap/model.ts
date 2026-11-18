@@ -378,7 +378,8 @@ export function setFolded(doc: Y.Doc, id: string, folded: boolean, origin?: unkn
 
 export function setLink(doc: Y.Doc, id: string, link: MindLink | null, origin?: unknown): void {
   if (link) {
-    const targets = mindmapLinks(doc);
+    // Считаем цели после замены: прежняя цель узла остаётся, только если на неё ссылаются другие.
+    const targets = mindmapLinks(doc, id);
     if (targets.length >= MAX_LINKS && !targets.includes(link.target))
       throw new Error(TOO_MANY_LINKS);
   }
@@ -510,10 +511,11 @@ export function mindmapUpdate(rootText: string, branches: readonly Outline[] = [
 }
 
 /** Все цели ссылок карты — для `links` документа (DOC-003). */
-export function mindmapLinks(doc: Y.Doc): string[] {
+/** Разные цели ссылок карты; `except` — узел, чья ссылка не считается (её заменяют). */
+export function mindmapLinks(doc: Y.Doc, except?: string): string[] {
   const targets = new Set<string>();
   const walk = (item: MindNode) => {
-    if (item.link) targets.add(item.link.target);
+    if (item.link && item.id !== except) targets.add(item.link.target);
     item.children.forEach(walk);
   };
   walk(readTree(doc));
