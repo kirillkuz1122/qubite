@@ -91,4 +91,32 @@ describe('потерянные дописки mind map', () => {
     doc.transact(() => doc.get('root', Y.XmlText).insert(0, 'текст'), EXCHANGE);
     expect(doc.share.has('mindmap')).toBe(false);
   });
+  it('дописка в конец уже отправленного куска (один склеенный Item) тоже не теряется', () => {
+    const a = new Y.Doc();
+    a.transact(() => {
+      node(a, 'root', 'центр', null);
+      node(a, 'leaf', 'лист', 'root');
+    });
+    const label = (a.getMap('mindmap').get('leaf') as Y.Map<unknown>).get('text') as Y.Text;
+    label.insert(4, ' один');
+    const b = new Y.Doc();
+    Y.applyUpdate(b, Y.encodeStateAsUpdate(a));
+    // Сервер подтвердил « один»; « два» набрано следом и склеилось с ним в один Item.
+    const confirmed = Y.decodeStateVector(Y.encodeStateVector(a));
+    label.insert(9, ' два');
+    let item = label._start;
+    while (item && !(item.content instanceof Y.ContentString && item.content.str.includes('два')))
+      item = item.right;
+    expect(item!.id.clock).toBeLessThan(confirmed.get(a.clientID)!);
+    const found: LostBlock[] = [];
+    watchLostMindmap(
+      a,
+      EXCHANGE,
+      (lost) => found.push(...lost),
+      () => confirmed,
+    );
+    b.getMap('mindmap').delete('leaf');
+    Y.applyUpdate(a, Y.encodeStateAsUpdate(b, Y.encodeStateVector(a)), EXCHANGE);
+    expect(found.map((lost) => lost.text)).toEqual(['лист один два']);
+  });
 });
