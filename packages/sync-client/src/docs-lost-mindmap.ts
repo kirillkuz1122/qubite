@@ -36,7 +36,10 @@ export function watchLostMindmap(
       const text = value.get('text');
       if (!(text instanceof Y.Text)) return;
       for (let item = text._start; item; item = item.right) {
-        if (item.deleted || item.id.clock < (known.get(item.id.client) ?? 0)) continue;
+        // Yjs склеивает подряд набранное в один Item: неподтверждённым может быть только хвост,
+        // поэтому смотрим на конец диапазона, а не на начало.
+        if (item.deleted || item.id.clock + item.length <= (known.get(item.id.client) ?? 0))
+          continue;
         // Предки снимаются сейчас: после обмена записей удалённых предков уже не прочесть.
         const ancestors: string[] = [];
         let up = value.get('parent');
