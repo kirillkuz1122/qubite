@@ -242,6 +242,17 @@ function slot(doc: Y.Doc, siblings: readonly MindNode[], index: number): number 
 
 const TEXT_FULL = 'Текст карты на пределе для синхронизации. Разделите её.';
 
+/** Глубина узла: у центра 0. */
+function depthOf(tree: MindNode, id: string): number {
+  let found = -1;
+  const walk = (item: MindNode, depth: number) => {
+    if (item.id === id) found = depth;
+    else if (found < 0) item.children.forEach((child) => walk(child, depth + 1));
+  };
+  walk(tree, 0);
+  return found;
+}
+
 function ensureRoom(doc: Y.Doc, text = ''): void {
   if (nodes(doc).size >= MAX_NODES) throw new Error('В карте уже 2000 узлов. Разделите её.');
   // Строка нового узла: отступ (до ~30 уровней), «- » и подпись — с запасом.
@@ -349,6 +360,13 @@ export function moveNode(
   if (isInside(tree, id, parentId)) return false;
   const parent = findNode(tree, parentId);
   if (!parent) return false;
+  // Глубже — длиннее отступы: «  » на уровень у каждого узла переносимой ветки.
+  const deeper = depthOf(tree, parentId) + 1 - depthOf(tree, id);
+  if (deeper > 0) {
+    const moved = findNode(tree, id);
+    const count = moved ? countNodes(moved) : 0;
+    if (outlineChars(tree) + 2 * deeper * count > MAX_MARKDOWN_CHARS) throw new Error(TEXT_FULL);
+  }
   const siblings = parent.children.filter((child) => child.id !== id);
   const at = Math.max(0, Math.min(index ?? siblings.length, siblings.length));
   doc.transact(() => {
