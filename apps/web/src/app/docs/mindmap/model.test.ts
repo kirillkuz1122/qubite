@@ -22,6 +22,7 @@ import {
   setColor,
   setFolded,
   setText,
+  restoreLostNodes,
   type MindNode,
 } from './model';
 import { layoutTree, neighbour } from './layout';
@@ -454,5 +455,42 @@ describe('mind map: история версий (DOC-004)', () => {
     addLinkChild(doc, ROOT, item(0).link);
     setLink(doc, plain, item(1).link);
     expect(mindmapLinks(doc)).toHaveLength(MAX_LINKS);
+    // Замена единственной ссылки на цель — не новая цель сверх лимита: прежняя исчезает.
+    const only = readTree(doc).children.find((n) => n.link?.target === target(5))!.id;
+    setLink(doc, only, item(MAX_LINKS).link);
+    expect(mindmapLinks(doc)).toHaveLength(MAX_LINKS);
+    expect(mindmapLinks(doc)).not.toContain(target(5));
+    // А цель, на которую ссылаются ещё и другие узлы, остаётся — замена её узла отклоняется.
+    expect(() => setLink(doc, plain, item(MAX_LINKS + 1).link)).toThrow(/200 разных ссылок/);
+  });
+  it('обычная правка и новые узлы тоже не перерастают лимит текста карты', () => {
+    const doc = fresh();
+    const many = Array.from({ length: 640 }, () => ({ text: '', children: [] }));
+    const ids = appendOutline(doc, ROOT, many);
+    const long = 'x'.repeat(MAX_NODE_TEXT);
+    for (const id of ids) setText(doc, id, long);
+    const chars = [...mindmapMarkdown(doc)].length;
+    expect(chars).toBeLessThanOrEqual(MAX_MARKDOWN_CHARS);
+    // Часть подписей обрезана, а не потеряна целиком; укоротить можно всегда.
+    expect(readTree(doc).children.at(-1)!.text.length).toBeLessThan(MAX_NODE_TEXT);
+    setText(doc, ids[0]!, 'коротко');
+    expect(findNode(readTree(doc), ids[0]!)!.text).toBe('коротко');
+    // На пределе новый узел не создаётся — объясняем почему.
+    for (const id of ids) setText(doc, id, long);
+    expect(() => addChild(doc, ROOT, 'ещё')).toThrow(/на пределе/);
+    expect(() => addSibling(doc, ids[0]!, 'ещё')).toThrow(/на пределе/);
+  });
+  it('потерянные подписи возвращаются под уцелевшего предка, иначе под центр', () => {
+    const doc = fresh();
+    const branch = addChild(doc, ROOT, 'ветка');
+    const made = restoreLostNodes(doc, [
+      { text: 'лист — дописка', kind: 'mindmap', after: 'ветка', parent: branch },
+      { text: 'сирота', kind: 'mindmap', after: null, parent: 'нет-такого' },
+      { text: 'обычный текст', kind: 'text', after: null },
+    ]);
+    expect(made).toHaveLength(2);
+    const tree = readTree(doc);
+    expect(findNode(tree, branch)!.children.map((n) => n.text)).toEqual(['лист — дописка']);
+    expect(tree.children.map((n) => n.text)).toEqual(['ветка', 'сирота']);
   });
 });

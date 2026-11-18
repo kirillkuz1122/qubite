@@ -11,6 +11,8 @@ export type LostBlock = {
   kind: string;
   /** Текст предыдущего живого блока; null — вставить в начало. */
   after: string | null;
+  /** Mind map: id уцелевшего узла-предка, под который вернуть подпись (kind 'mindmap'). */
+  parent?: string;
 };
 
 type BeforeBlock = { deleted: boolean; kind: string; pending: LostInline[] };
