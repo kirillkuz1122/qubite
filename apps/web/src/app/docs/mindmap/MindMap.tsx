@@ -6,12 +6,18 @@
 import { useNavigate } from '@tanstack/react-router';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type * as Y from 'yjs';
-import type { DocHandle, DocLink } from '@qubite/sync-client';
+import {
+  MINDMAP_LOST_KIND,
+  type DocHandle,
+  type DocLink,
+  type LostBlock,
+} from '@qubite/sync-client';
 import {
   Button,
   DotIcon,
   IconButton,
   Menu,
+  Note,
   Presence,
   Sheet,
   useMedia,
@@ -30,6 +36,7 @@ import {
   parentNode,
   readTree,
   removeNode,
+  restoreLostNodes,
   ROOT,
   setColor,
   setFolded,
@@ -97,6 +104,27 @@ export function MindMap({ handle, title }: { handle: DocHandle; title: string })
   const doc = handle.doc;
   const tree = useTree(doc);
   const links = useLinks(handle);
+  // Узлы, удалённые на другом устройстве поверх здешней правки (watchLostMindmap).
+  const [lost, setLost] = useState<LostBlock[]>(handle.lost);
+  useEffect(() => handle.onLost(setLost), [handle]);
+  const lostNodes = lost.filter((item) => item.kind === MINDMAP_LOST_KIND);
+  const [busy, setBusy] = useState(false);
+  /** Отказ модели: лимиты узлов, текста, ссылок — показываем, а не роняем экран. */
+  const [problem, setProblem] = useState<string | null>(null);
+  const settleLost = useCallback(
+    async (restore: boolean) => {
+      setBusy(true);
+      try {
+        if (restore) restoreLostNodes(doc, handle.lost);
+        await handle.clearLost();
+      } catch (error) {
+        setProblem(error instanceof Error ? error.message : 'Вернуть не вышло.');
+      } finally {
+        setBusy(false);
+      }
+    },
+    [doc, handle],
+  );
   const wide = useMedia(WIDE);
   const roomy = useMedia(NARROW_GAP);
   const navigate = useNavigate();
@@ -356,14 +384,26 @@ export function MindMap({ handle, title }: { handle: DocHandle; title: string })
 
   const addKid = useCallback(
     (id: string) => {
-      const created = addChild(doc, id);
+      let created: string;
+      try {
+        created = addChild(doc, id);
+      } catch (error) {
+        setProblem(error instanceof Error ? error.message : 'Узел добавить не вышло.');
+        return;
+      }
       edit(created, true);
     },
     [doc, edit],
   );
   const addNext = useCallback(
     (id: string) => {
-      const created = addSibling(doc, id);
+      let created: string;
+      try {
+        created = addSibling(doc, id);
+      } catch (error) {
+        setProblem(error instanceof Error ? error.message : 'Узел добавить не вышло.');
+        return;
+      }
       edit(created, true);
     },
     [doc, edit],
@@ -826,6 +866,43 @@ export function MindMap({ handle, title }: { handle: DocHandle; title: string })
           )}
         </div>
       )}
+      <Presence show={lostNodes.length > 0 || !!problem} className="mm-notice">
+        {lostNodes.length > 0 ? (
+          <Note>
+            <p>
+              На другом устройстве удалили узлы, в которых здесь были правки:{' '}
+              {lostNodes.map((item) => `«${item.text}»`).join(', ')}. Вернуть?
+            </p>
+            <div className="mm-notice-actions">
+              <Button
+                size="sm"
+                variant="fill"
+                disabled={busy}
+                onClick={() => void settleLost(true)}
+              >
+                Вернуть
+              </Button>
+              <Button
+                size="sm"
+                variant="quiet"
+                disabled={busy}
+                onClick={() => void settleLost(false)}
+              >
+                Не нужно
+              </Button>
+            </div>
+          </Note>
+        ) : (
+          <Note tone="bad">
+            <p>{problem}</p>
+            <div className="mm-notice-actions">
+              <Button size="sm" variant="quiet" onClick={() => setProblem(null)}>
+                Понятно
+              </Button>
+            </div>
+          </Note>
+        )}
+      </Presence>
       {wide && (
         <Presence show={!!editing} className="mm-keys">
           <span>
