@@ -3,7 +3,7 @@
  * Координат нет: раскладку считает экран (D-1005), поэтому разные устройства видят одну структуру.
  */
 import * as Y from 'yjs';
-import type { DocLinkKind } from '@qubite/sync-client';
+import { MINDMAP_LOST_KIND, type DocLinkKind, type LostBlock } from '@qubite/sync-client';
 
 export const MINDMAP_KIND = 'mindmap';
 export const ROOT = 'root';
@@ -240,12 +240,17 @@ function slot(doc: Y.Doc, siblings: readonly MindNode[], index: number): number 
   return index - 0.5;
 }
 
-function ensureRoom(doc: Y.Doc): void {
+const TEXT_FULL = 'Текст карты на пределе для синхронизации. Разделите её.';
+
+function ensureRoom(doc: Y.Doc, text = ''): void {
   if (nodes(doc).size >= MAX_NODES) throw new Error('В карте уже 2000 узлов. Разделите её.');
+  // Строка нового узла: отступ (до ~30 уровней), «- » и подпись — с запасом.
+  if (outlineChars(readTree(doc)) + [...clip(text)].length + 64 > MAX_MARKDOWN_CHARS)
+    throw new Error(TEXT_FULL);
 }
 
 export function addChild(doc: Y.Doc, parentId: string, text = '', origin?: unknown): string {
-  ensureRoom(doc);
+  ensureRoom(doc, text);
   const tree = readTree(doc);
   const parent = findNode(tree, parentId);
   if (!parent) throw new Error('узла нет');
@@ -269,7 +274,7 @@ export function addSibling(doc: Y.Doc, id: string, text = '', origin?: unknown):
   const tree = readTree(doc);
   const parent = parentNode(tree, id);
   if (!parent) return addChild(doc, ROOT, text, origin);
-  ensureRoom(doc);
+  ensureRoom(doc, text);
   const index = parent.children.findIndex((child) => child.id === id);
   const self = parent.children[index]!;
   const next = newId();
@@ -292,8 +297,15 @@ export function addSibling(doc: Y.Doc, id: string, text = '', origin?: unknown):
 export function setText(doc: Y.Doc, id: string, value: string, origin?: unknown): void {
   const text = node(doc, id).get('text');
   if (!(text instanceof Y.Text)) return;
-  const next = clip(value);
   const old = text.toString();
+  let next = clip(value);
+  // Общий текст карты не должен перерасти лимит сервера (MAX_DOC_CHARS): подпись, которая
+  // его превысила бы, обрезается — укоротить можно всегда.
+  const grow = [...next].length - [...old].length;
+  if (grow > 0) {
+    const room = MAX_MARKDOWN_CHARS - outlineChars(readTree(doc));
+    if (grow > room) next = [...next].slice(0, [...old].length + Math.max(0, room)).join('');
+  }
   if (old === next) return;
   let start = 0;
   while (start < old.length && start < next.length && old[start] === next[start]) start++;
@@ -520,4 +532,25 @@ export function mindmapLinks(doc: Y.Doc, except?: string): string[] {
   };
   walk(readTree(doc));
   return [...targets];
+}
+
+/**
+ * Вернуть подписи узлов, которые удалили на другом устройстве, пока здесь была неотправленная
+ * правка (watchLostMindmap). Узел встаёт под уцелевшего предка, иначе — под центр.
+ */
+export function restoreLostNodes(
+  doc: Y.Doc,
+  lost: readonly LostBlock[],
+  origin?: unknown,
+): string[] {
+  const items = lost.filter((item) => item.kind === MINDMAP_LOST_KIND && item.text.trim());
+  const tree = readTree(doc);
+  const created: string[] = [];
+  doc.transact(() => {
+    for (const item of items) {
+      const parent = item.parent && findNode(tree, item.parent) ? item.parent : ROOT;
+      created.push(addChild(doc, parent, item.text, origin));
+    }
+  }, origin);
+  return created;
 }
