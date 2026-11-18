@@ -8,6 +8,7 @@ export {
   type DocVersionItem,
 } from './docs-versions';
 export { DOC_BLOCK_TYPE, watchLostEdits, type LostBlock, type LostInline } from './docs-lost';
+export { MINDMAP_LOST_KIND, watchLostMindmap } from './docs-lost-mindmap';
 export {
   SyncClient,
   type SyncClientOptions,

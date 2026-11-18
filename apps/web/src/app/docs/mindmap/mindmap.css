@@ -383,3 +383,21 @@
   display: flex;
   gap: 8px;
 }
+
+/* Предложение вернуть узлы, удалённые на другом устройстве, и отказы модели (лимиты). */
+.mm-notice {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  left: 16px;
+  max-width: 420px;
+  margin-left: auto;
+  z-index: 3;
+}
+.mm-notice p {
+  margin: 0 0 8px;
+}
+.mm-notice-actions {
+  display: flex;
+  gap: 8px;
+}
