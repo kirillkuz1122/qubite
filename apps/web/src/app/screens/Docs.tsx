@@ -696,6 +696,7 @@ function Document({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
   const deletingNow = useRef(false);
   const touchY = useRef(0);
   const editorBox = useRef<HTMLDivElement>(null);
@@ -817,6 +818,7 @@ function Document({
 
   function download(kind: 'md' | 'png' | 'svg') {
     if (!handle) return;
+    setDownloadError(null);
     const name = titleValue.current || title || 'Документ';
     if (kind === 'md') {
       downloadMarkdown(name, handle.text());
@@ -831,7 +833,12 @@ function Document({
     const file = fileNameFor(name).replace(/\.md$/, `.${kind}`);
     if (kind === 'svg')
       downloadBlob(new Blob([toSvg(drawing)], { type: 'image/svg+xml;charset=utf-8' }), file);
-    else void toPng(drawing).then((blob) => downloadBlob(blob, file));
+    else
+      void toPng(drawing)
+        .then((blob) => downloadBlob(blob, file))
+        .catch((error: unknown) =>
+          setDownloadError(error instanceof Error ? error.message : 'Картинка не собралась.'),
+        );
   }
 
   async function remove() {
@@ -957,6 +964,9 @@ function Document({
         </Presence>
       </Sheet>
       {failure && <Note tone="bad">{failure}</Note>}
+      <Presence show={!!downloadError}>
+        <Note tone="bad">{downloadError}</Note>
+      </Presence>
       {restored && <Note>Версия восстановлена. Прежний текст — в истории</Note>}
       <History
         id={id}
