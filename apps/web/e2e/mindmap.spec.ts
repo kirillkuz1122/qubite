@@ -207,7 +207,7 @@ test('палец: долгое нажатие переносит ветку, щ�
   await expect(node(page, 'noun + information')).toBeVisible();
   const cdp = await page.context().newCDPSession(page);
   const touch = (
-    type: 'touchStart' | 'touchMove' | 'touchEnd',
+    type: 'touchStart' | 'touchMove' | 'touchEnd' | 'touchCancel',
     points: { x: number; y: number }[],
   ) =>
     cdp.send('Input.dispatchTouchEvent', {
@@ -247,11 +247,19 @@ test('палец: долгое нажатие переносит ветку, щ�
       return Math.abs((a?.x ?? 0) - (b?.x ?? 0)) + Math.abs((a?.width ?? 0) - (b?.width ?? 0));
     })
     .toBeLessThan(0.5);
-  // Долгое нажатие на лист и бросок на другую ветку — лист переезжает.
   const leaf = (await node(page, 'a lack of ~').boundingBox())!;
   const into = (await node(page, 'information').boundingBox())!;
   const from = { x: leaf.x + leaf.width / 2, y: leaf.y + leaf.height / 2 };
   const to = { x: into.x + into.width / 2, y: into.y + into.height / 2 };
+  // Жест прервала система (touchcancel → pointercancel) — ветку не бросали, она на месте.
+  await touch('touchStart', [from]);
+  await page.waitForTimeout(500);
+  await touch('touchMove', [{ x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 }]);
+  await touch('touchMove', [to]);
+  await touch('touchCancel', []);
+  await page.waitForTimeout(800);
+  expect(server.pushes.at(-1)?.text ?? '').not.toContain('\n  - a lack of ~');
+  // Долгое нажатие на лист и бросок на другую ветку — лист переезжает.
   await touch('touchStart', [from]);
   await page.waitForTimeout(500);
   await touch('touchMove', [{ x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 }]);

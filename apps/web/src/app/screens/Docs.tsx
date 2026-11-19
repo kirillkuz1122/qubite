@@ -983,7 +983,11 @@ function Document({
           />
         )}
         {handle && map ? (
-          <MindMap key={handle.doc.guid} handle={handle} title={title ?? ''} />
+          <>
+            <MindMap key={handle.doc.guid} handle={handle} title={title ?? ''} />
+            {/* «Ссылаются сюда» и у карты (D-1000): под холстом, как под текстом документа. */}
+            <DocumentBacklinks id={id} hidden={false} />
+          </>
         ) : handle ? (
           <>
             <div

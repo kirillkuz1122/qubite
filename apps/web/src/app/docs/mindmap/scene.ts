@@ -24,6 +24,8 @@ const clampZoom = (k: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, k));
 export class Scene {
   readonly L = loop();
   private items = new Map<string, Item>();
+  /** DOM узлов отдельно от пружин: React зовёт ref нового узла раньше, чем sync создаст его. */
+  private els = new Map<string, HTMLElement>();
   private lines = new Map<string, SVGPathElement>();
   private anchors = new Map<HTMLElement, () => string | null>();
   private readonly paint: () => void;
@@ -52,6 +54,8 @@ export class Scene {
   }
 
   node(id: string, el: HTMLElement | null): void {
+    if (el) this.els.set(id, el);
+    else this.els.delete(id);
     const item = this.items.get(id);
     if (item) item.el = el;
     if (el) this.paint();
@@ -83,7 +87,7 @@ export class Scene {
         const sx = from ? from.x.x + from.box.w / 2 - box.w / 2 : box.x;
         const sy = from ? from.y.x + from.box.h / 2 - box.h / 2 : box.y;
         item = {
-          el: null,
+          el: this.els.get(box.id) ?? null,
           x: this.spring(instant ? box.x : sx),
           y: this.spring(instant ? box.y : sy),
           a: this.spring(instant ? 1 : 0),

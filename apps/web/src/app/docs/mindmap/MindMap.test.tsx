@@ -82,3 +82,29 @@ describe('экран mind map: правки в удалённых узлах', (
     expect(readTree(value.doc).children).toHaveLength(0);
   });
 });
+
+describe('экран mind map: правка узла', () => {
+  it('открытое поле видит правку с другого устройства и не стирает её', async () => {
+    const value = handle([]);
+    // Пустой центр — новая карта открывается сразу с правкой центра.
+    const root = (value.doc.getMap('mindmap').get(ROOT) as Y.Map<unknown>).get('text') as Y.Text;
+    root.delete(0, root.length);
+    render(<MindMap handle={value} title="Карта" />);
+    const field = (await screen.findByRole('textbox', {
+      name: 'Текст узла',
+    })) as HTMLTextAreaElement;
+    fireEvent.input(field, { target: { value: 'мой' } });
+    expect(root.toString()).toBe('мой');
+    // С другого устройства дописали в начало.
+    const remote = new Y.Doc();
+    Y.applyUpdate(remote, Y.encodeStateAsUpdate(value.doc));
+    ((remote.getMap('mindmap').get(ROOT) as Y.Map<unknown>).get('text') as Y.Text).insert(0, 'их ');
+    await act(async () =>
+      Y.applyUpdate(value.doc, Y.encodeStateAsUpdate(remote, Y.encodeStateVector(value.doc))),
+    );
+    await waitFor(() => expect(field.value).toBe('их мой'));
+    // Следующее нажатие здесь чужое слово не стирает.
+    fireEvent.input(field, { target: { value: 'их мой текст' } });
+    expect(root.toString()).toBe('их мой текст');
+  });
+});

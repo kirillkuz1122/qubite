@@ -676,6 +676,11 @@ export function MindMap({ handle, title }: { handle: DocHandle; title: string })
     }
     // Бросили ветку.
     setDrop(null);
+    if (event.type === 'pointercancel') {
+      // Жест прервала система или браузер — ветку не бросали: вернуть на место, модель не трогать.
+      scene.release();
+      return;
+    }
     const onto = target(at.x, at.y, g.ids);
     const node = findNode(tree, g.id);
     try {
@@ -1118,6 +1123,23 @@ function NodeInput({
     el.focus({ preventScroll: true });
     el.setSelectionRange(el.value.length, el.value.length);
   }, []);
+  // Текст узла поменяли с другого устройства или вкладки, пока поле открыто: показываем его,
+  // иначе следующее нажатие отправит старую строку целиком и сотрёт чужую правку.
+  // Каретка остаётся на месте относительно своего текста.
+  const composing = useRef(false);
+  useEffect(() => {
+    const el = input.current;
+    if (!el || composing.current || el.value === node.text) return;
+    const old = el.value;
+    const next = node.text;
+    let same = 0;
+    while (same < old.length && same < next.length && old[same] === next[same]) same++;
+    const shift = (at: number) => (at > same ? Math.max(same, at + next.length - old.length) : at);
+    const start = shift(el.selectionStart);
+    const end = shift(el.selectionEnd);
+    el.value = next;
+    if (document.activeElement === el) el.setSelectionRange(start, end);
+  }, [node.text]);
   return (
     // Правка подписи прямо в узле, как в редакторе документа: общий Field здесь — лишняя рамка.
     <textarea
@@ -1130,6 +1152,13 @@ function NodeInput({
       placeholder={placeholder}
       style={{ width }}
       onInput={(event) => onInput(event.currentTarget.value)}
+      onCompositionStart={() => {
+        composing.current = true;
+      }}
+      onCompositionEnd={(event) => {
+        composing.current = false;
+        onInput(event.currentTarget.value);
+      }}
       onBlur={onDone}
       onKeyDown={(event) => {
         event.stopPropagation();
