@@ -26,26 +26,37 @@ const STYLES: Style[] = [
 
 export const styleOf = (depth: number): Style => STYLES[Math.min(depth, 2)]!;
 
-/** Сколько строк займёт текст при переносе по словам (длинное слово рвётся). */
-export function wrapLines(text: string, perLine: number): number {
-  if (perLine < 1) return 1;
-  let lines = 1;
-  let used = 0;
-  for (const word of text.split(/\s+/).filter(Boolean)) {
-    let rest = word.length;
-    const need = used ? used + 1 + rest : rest;
-    if (need <= perLine) {
-      used = need;
+/**
+ * Строки текста при переносе по словам (длинное слово рвётся) — как CSS `overflow-wrap: anywhere`.
+ * Длина и разрыв — по Unicode-символам: эмодзи на границе не режется на половинки суррогатной
+ * пары (в SVG и PNG они стали бы «�»).
+ */
+export function wrapText(text: string, perLine: number): string[] {
+  if (perLine < 1) return [text];
+  const size = (value: string) => [...value].length;
+  const lines: string[] = [];
+  let line = '';
+  // Как `white-space: pre-wrap`: пробелы и табы остаются как есть, строка рвётся перед словом,
+  // а пробелы на краю строки «висят» и перенос не вызывают.
+  for (const token of text.match(/\s+|\S+/g) ?? []) {
+    if (/^\s/.test(token) || size(line + token) <= perLine) {
+      line += token;
       continue;
     }
-    if (used) lines++;
-    while (rest > perLine) {
-      rest -= perLine;
-      lines++;
+    if (line) lines.push(line);
+    let rest = [...token];
+    while (rest.length > perLine) {
+      lines.push(rest.slice(0, perLine).join(''));
+      rest = rest.slice(perLine);
     }
-    used = rest;
+    line = rest.join('');
   }
+  lines.push(line);
   return lines;
+}
+
+export function wrapLines(text: string, perLine: number): number {
+  return wrapText(text, perLine).length;
 }
 
 export interface NodeSize extends Size {
@@ -65,7 +76,7 @@ export function measureNode(
   const char = font * advance;
   const shown = node.link ? `@ ${label}` : label;
   const perLine = Math.floor(MAX_TEXT / char);
-  const chars = Math.max(1, shown.length);
+  const chars = Math.max(1, [...shown].length);
   const lines = wrapLines(shown || ' ', perLine);
   const text = Math.ceil(Math.min(chars, perLine) * char);
   const lineHeight = node.link ? 18.85 : style.line;

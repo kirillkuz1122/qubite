@@ -25,11 +25,13 @@ import {
 import { useNavigate, useRouterState } from '@tanstack/react-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as Y from 'yjs';
-import { downloadMarkdown, readMarkdownFile } from '../docs/markdown-file';
+import { downloadMarkdown, fileNameFor, readMarkdownFile } from '../docs/markdown-file';
+import { downloadBlob, drawMindmap, readPalette, toPng, toSvg } from '../docs/mindmap/export';
+import { probeAdvance } from '../docs/mindmap/measure';
 import { extractDocLinks, markdownToYUpdate, renderDocText } from '../docs/render';
 import { DocEditor } from '../docs/Editor';
 import { MindMap } from '../docs/mindmap/MindMap';
-import { isMindmap, mindmapUpdate } from '../docs/mindmap/model';
+import { isMindmap, mindmapUpdate, readTree } from '../docs/mindmap/model';
 import { collocationsTemplate, COLLOCATIONS_TITLE } from '../docs/mindmap/text';
 import { History } from '../docs/History';
 import { Trash } from '../docs/Trash';
@@ -694,6 +696,7 @@ function Document({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
   const deletingNow = useRef(false);
   const touchY = useRef(0);
   const editorBox = useRef<HTMLDivElement>(null);
@@ -813,6 +816,31 @@ function Document({
       .catch(() => setTitleError(true));
   }
 
+  function download(kind: 'md' | 'png' | 'svg') {
+    if (!handle) return;
+    setDownloadError(null);
+    const name = titleValue.current || title || 'Документ';
+    if (kind === 'md') {
+      downloadMarkdown(name, handle.text());
+      return;
+    }
+    const drawing = drawMindmap(
+      readTree(handle.doc),
+      handle.links,
+      readPalette(),
+      probeAdvance(document.body),
+    );
+    const file = fileNameFor(name).replace(/\.md$/, `.${kind}`);
+    if (kind === 'svg')
+      downloadBlob(new Blob([toSvg(drawing)], { type: 'image/svg+xml;charset=utf-8' }), file);
+    else
+      void toPng(drawing)
+        .then((blob) => downloadBlob(blob, file))
+        .catch((error: unknown) =>
+          setDownloadError(error instanceof Error ? error.message : 'Картинка не собралась.'),
+        );
+  }
+
   async function remove() {
     if (deletingNow.current) return;
     deletingNow.current = true;
@@ -868,16 +896,30 @@ function Document({
               setHistoryOpen(true);
             }}
           />
-          <IconButton
-            icon="download"
-            label="Скачать .md"
-            variant="frame"
-            disabled={!handle}
-            onClick={() => {
-              if (handle)
-                downloadMarkdown(titleValue.current || title || 'Документ', handle.text());
-            }}
-          />
+          {map ? (
+            // У карты три формата: список .md, картинка PNG и рисунок SVG (D-1007).
+            <Menu
+              label="Скачать"
+              icon="download"
+              disabled={!handle}
+              items={[
+                { label: 'Список .md', icon: 'list', onPick: () => download('md') },
+                { label: 'Картинка PNG', icon: 'download', onPick: () => download('png') },
+                { label: 'Рисунок SVG', icon: 'download', onPick: () => download('svg') },
+              ]}
+            />
+          ) : (
+            <IconButton
+              icon="download"
+              label="Скачать .md"
+              variant="frame"
+              disabled={!handle}
+              onClick={() => {
+                if (handle)
+                  downloadMarkdown(titleValue.current || title || 'Документ', handle.text());
+              }}
+            />
+          )}
           <Menu
             label="Ещё"
             items={[
@@ -922,6 +964,9 @@ function Document({
         </Presence>
       </Sheet>
       {failure && <Note tone="bad">{failure}</Note>}
+      <Presence show={!!downloadError}>
+        <Note tone="bad">{downloadError}</Note>
+      </Presence>
       {restored && <Note>Версия восстановлена. Прежний текст — в истории</Note>}
       <History
         id={id}
