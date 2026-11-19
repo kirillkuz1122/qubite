@@ -29,6 +29,7 @@ import {
 import { layoutTree, neighbour } from './layout';
 import { wrapText } from './measure';
 import { pngScale } from './export';
+import { aiContext } from './suggest';
 import {
   collocationsTemplate,
   MAX_SYNC_CHARS,
@@ -557,5 +558,19 @@ describe('mind map: история версий (DOC-004)', () => {
     expect(35064 * tall).toBeLessThanOrEqual(32_767);
     expect(tall).toBeGreaterThan(0.25);
     expect(pngScale(40000, 40000)).toBeLessThan(0.25);
+  });
+  it('контекст для AI влезает в пределы сервера: центр + ближайшие к узлу подписи', () => {
+    const path = Array.from({ length: 15 }, (_, i) => `уровень ${i}`);
+    const { path: short, existing } = aiContext(path, [
+      'я'.repeat(500),
+      ...Array.from({ length: 60 }, (_, i) => `${i}`),
+    ]);
+    expect(short).toHaveLength(12);
+    expect(short[0]).toBe('уровень 0');
+    expect(short.at(-1)).toBe('уровень 14');
+    expect(short[1]).toBe('уровень 4');
+    expect(existing).toHaveLength(50);
+    expect([...existing[0]!].length).toBe(300);
+    expect(aiContext(['центр', 'ветка'], []).path).toEqual(['центр', 'ветка']);
   });
 });

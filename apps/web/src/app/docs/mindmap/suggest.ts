@@ -19,9 +19,27 @@ export function pathTo(tree: MindNode, id: string, label: (node: MindNode) => st
   return path;
 }
 
+/** Пределы сервера (mindmap.rs): путь — до 12 подписей, подузлов — до 50, подпись — до 300 знаков. */
+const MAX_PATH = 12;
+const MAX_EXISTING = 50;
+const MAX_TEXT = 300;
+const fit = (text: string) => [...text].slice(0, MAX_TEXT).join('');
+
+/**
+ * Контекст под пределы сервера: у глубокой ветки — центр (тема карты) и ближайшие к узлу
+ * подписи; название цели ссылки бывает длиннее подписи узла — его обрезаем.
+ */
+export function aiContext(
+  path: string[],
+  existing: string[],
+): { path: string[]; existing: string[] } {
+  const short = path.length > MAX_PATH ? [path[0]!, ...path.slice(-(MAX_PATH - 1))] : path;
+  return { path: short.map(fit), existing: existing.slice(0, MAX_EXISTING).map(fit) };
+}
+
 export async function suggestSubnodes(path: string[], existing: string[]): Promise<Suggestions> {
   const { data, error, response } = await api.POST('/api/v1/docs/mindmap/suggest', {
-    body: { request_id: crypto.randomUUID(), path, existing: existing.slice(0, 50) },
+    body: { request_id: crypto.randomUUID(), ...aiContext(path, existing) },
   });
   if (data) return { items: data.suggestions, cost: data.cost_usd_micros };
   if (response.status === 403) throw new Error('Нет права пользоваться AI в Docs.');
