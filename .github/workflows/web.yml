@@ -28,7 +28,9 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # 45, не 30 (D-1009): обычный прогон — 24–30 мин (установка браузеров до 9 мин + 655 e2e),
+    # при 30 его обрывало на последних тестах. Зависший прогон всё равно остановится.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
