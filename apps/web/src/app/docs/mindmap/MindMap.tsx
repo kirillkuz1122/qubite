@@ -5,7 +5,7 @@
  */
 import { useNavigate } from '@tanstack/react-router';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import type * as Y from 'yjs';
+import * as Y from 'yjs';
 import {
   MINDMAP_LOST_KIND,
   type DocHandle,
@@ -24,7 +24,7 @@ import {
   WIDE,
   type IconName,
 } from '@qubite/ui';
-import { linkHref } from '../links';
+import { httpLinkSource, linkHref } from '../links';
 import { layoutTree, neighbour, type Box, type Layout } from './layout';
 import { ADVANCE, descendants, measureNode, probeAdvance, type NodeSize } from './measure';
 import {
@@ -33,6 +33,7 @@ import {
   BRANCH_COLORS,
   findNode,
   moveNode,
+  nodeText,
   parentNode,
   readTree,
   removeNode,
@@ -61,6 +62,9 @@ const NARROW_GAP = '(min-width: 600px)';
 export const LONG_PRESS = 400;
 const MOVE = 6;
 
+/** origin своего ввода в поле узла (см. editUndo). */
+const EDIT_ORIGIN = Symbol('mindmap-edit');
+
 function useTree(doc: Y.Doc): MindNode {
   const [tree, setTree] = useState(() => readTree(doc));
   // Другой Y.Doc — другой ключ компонента (Docs.tsx), поэтому начальное дерево всегда своё.
@@ -75,6 +79,36 @@ function useTree(doc: Y.Doc): MindNode {
 function useLinks(handle: DocHandle): readonly DocLink[] {
   const [links, setLinks] = useState(handle.links);
   useEffect(() => handle.onLinks(() => setLinks(handle.links)), [handle]);
+  // Названия целей не едут через Yjs: подгружаем их с сервера, как Mentions у документа, —
+  // при открытии, после сохранения, при возврате сети и окна. Иначе на другом устройстве
+  // узел-ссылка показывает «…», а переименованная цель — старое название.
+  useEffect(() => {
+    const source = httpLinkSource();
+    let abort: AbortController | undefined;
+    const refresh = () => {
+      abort?.abort();
+      abort = new AbortController();
+      const request = abort;
+      void source
+        .links(handle.id, request.signal)
+        .then((found) => {
+          if (!request.signal.aborted) void handle.cacheLinks(found).catch(() => {});
+        })
+        .catch(() => {});
+    };
+    const stop = handle.onStatus((status) => {
+      if (status === 'saved') refresh();
+    });
+    refresh();
+    window.addEventListener('online', refresh);
+    window.addEventListener('focus', refresh);
+    return () => {
+      abort?.abort();
+      stop();
+      window.removeEventListener('online', refresh);
+      window.removeEventListener('focus', refresh);
+    };
+  }, [handle]);
   return links;
 }
 
@@ -134,8 +168,8 @@ export function MindMap({ handle, title }: { handle: DocHandle; title: string })
   // Новая пустая карта — сразу правка центра (макет «пусто»).
   const [blank] = useState(() => !tree.text && !tree.children.length);
   const [chosen, setSelected] = useState<string | null>(blank ? ROOT : null);
-  const [opened, setEditing] = useState<{ id: string; original: string; fresh: boolean } | null>(
-    blank ? { id: ROOT, original: '', fresh: false } : null,
+  const [opened, setEditing] = useState<{ id: string; fresh: boolean } | null>(
+    blank ? { id: ROOT, fresh: false } : null,
   );
   const [drop, setDrop] = useState<string | null>(null);
   const [sheet, setSheet] = useState<'node' | 'color' | null>(null);
@@ -357,11 +391,28 @@ export function MindMap({ handle, title }: { handle: DocHandle; title: string })
       const node = findNode(readTree(doc), id);
       if (!node || node.link) return;
       setSelected(id);
-      setEditing({ id, original: node.text, fresh });
+      setEditing({ id, fresh });
       requestAnimationFrame(() => reveal(id));
     },
     [doc, reveal],
   );
+
+  // Свой ввод в открытом поле — отдельный origin: UndoManager отслеживает только его.
+  const editUndo = useRef<Y.UndoManager | null>(null);
+  const editingId = editing?.id ?? null;
+  useEffect(() => {
+    const text = editingId ? nodeText(doc, editingId) : null;
+    if (!text) return;
+    const undo = new Y.UndoManager(text, {
+      trackedOrigins: new Set([EDIT_ORIGIN]),
+      captureTimeout: Number.POSITIVE_INFINITY,
+    });
+    editUndo.current = undo;
+    return () => {
+      undo.destroy();
+      if (editUndo.current === undo) editUndo.current = null;
+    };
+  }, [doc, editingId]);
 
   const finish = useCallback(
     (cancel: boolean) => {
@@ -374,7 +425,10 @@ export function MindMap({ handle, title }: { handle: DocHandle; title: string })
         // Новый узел без текста или отменённый — не остаётся пустой точкой на карте.
         removeNode(doc, node.id);
         kept = false;
-      } else if (node && cancel) setText(doc, node.id, editing.original);
+      } else if (node && cancel) {
+        // Esc отменяет только здешний ввод: чужие правки, пришедшие за это время, остаются.
+        while (editUndo.current?.canUndo()) editUndo.current.undo();
+      }
       setEditing(null);
       setSelected(kept ? editing.id : parent);
       canvas.current?.focus({ preventScroll: true });
@@ -786,7 +840,7 @@ export function MindMap({ handle, title }: { handle: DocHandle; title: string })
                     node={node}
                     width={view.size.text}
                     placeholder={placeholder(node)}
-                    onInput={(value) => setText(doc, node.id, value)}
+                    onInput={(value) => setText(doc, node.id, value, EDIT_ORIGIN)}
                     onDone={() => finish(false)}
                     onCancel={() => finish(true)}
                     onChild={() => {
