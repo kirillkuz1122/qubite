@@ -325,8 +325,15 @@ for (const width of [1440, 360]) {
     server.add('Конспект', 'Текст');
     const asked: unknown[] = [];
     let budget = false;
+    // Медленные ответы по очереди: каждый ждёт своего «отпустить».
+    const slow: { gate: Promise<void>; items: string[] }[] = [];
     await page.route('**/api/v1/docs/mindmap/suggest', async (route) => {
       asked.push(route.request().postDataJSON());
+      const wait = slow.shift();
+      if (wait) {
+        await wait.gate;
+        return route.fulfill({ json: { suggestions: wait.items, cost_usd_micros: 120 } });
+      }
       if (budget)
         return route.fulfill({
           status: 409,
@@ -375,5 +382,27 @@ for (const width of [1440, 360]) {
     await expect(dialog).toContainText('Дневной лимит AI исчерпан');
     await expect(dialog.getByRole('button', { name: /Добавить/ })).toBeDisabled();
     await noScroll(page);
+    if (width !== 1440) return;
+    // Окно закрыли во время медленного ответа и открыли снова. Ответ первого вызова приходит,
+    // пока второй ждёт, — в окне всё равно ответ второго (его и оплатили последним).
+    budget = false;
+    await dialog.getByRole('button', { name: 'Отмена' }).click();
+    const gates: (() => void)[] = [];
+    for (const items of [['old ~'], ['new ~']])
+      slow.push({ gate: new Promise<void>((done) => gates.push(done)), items });
+    const ask = async () => {
+      await tap(page, 'adjective + information');
+      await page.getByRole('button', { name: 'Действия с узлом' }).click();
+      await page.getByRole('menuitem', { name: 'Предложить подузлы · AI' }).click();
+      await expect(dialog).toContainText('AI подбирает подузлы');
+    };
+    await ask();
+    await dialog.getByRole('button', { name: 'Отмена' }).click();
+    await ask();
+    gates[0]!();
+    await page.waitForTimeout(400);
+    await expect(dialog).not.toContainText('old ~');
+    gates[1]!();
+    await expect(dialog.getByRole('checkbox', { name: 'new ~' })).toBeVisible();
   });
 }

@@ -176,7 +176,10 @@ export function MindMap({ handle, title }: { handle: DocHandle; title: string })
   );
   const [drop, setDrop] = useState<string | null>(null);
   const [sheet, setSheet] = useState<'node' | 'color' | 'link' | 'ai' | null>(null);
+  /** Номер вызова AI: ответ старого (окно закрыли и открыли снова) не попадает в новое окно. */
+  const aiCall = useRef(0);
   const [ai, setAi] = useState<{
+    call: number;
     id: string;
     status: 'wait' | 'ready' | 'error';
     items: string[];
@@ -499,12 +502,14 @@ export function MindMap({ handle, title }: { handle: DocHandle; title: string })
       if (!node) return;
       const label = (item: MindNode) => nodeLabel(item, links) || placeholder(item);
       setSheet('ai');
-      setAi({ id, status: 'wait', items: [], picked: [], cost: 0 });
+      const call = ++aiCall.current;
+      setAi({ call, id, status: 'wait', items: [], picked: [], cost: 0 });
       suggestSubnodes(pathTo(current, id, label), node.children.map(label))
         .then((result) =>
           setAi((open) =>
-            open?.id === id && open.status === 'wait'
+            open?.call === call && open.status === 'wait'
               ? {
+                  call,
                   id,
                   status: 'ready',
                   items: result.items,
@@ -516,7 +521,7 @@ export function MindMap({ handle, title }: { handle: DocHandle; title: string })
         )
         .catch((error: unknown) =>
           setAi((open) =>
-            open?.id === id && open.status === 'wait'
+            open?.call === call && open.status === 'wait'
               ? {
                   ...open,
                   status: 'error',
