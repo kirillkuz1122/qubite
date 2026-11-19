@@ -27,6 +27,7 @@ import {
   type MindNode,
 } from './model';
 import { layoutTree, neighbour } from './layout';
+import { wrapText } from './measure';
 import {
   collocationsTemplate,
   MAX_SYNC_CHARS,
@@ -535,5 +536,10 @@ describe('mind map: история версий (DOC-004)', () => {
     expect(renderDocText(doc, links)).toBe(sync);
     // Короткая карта — без изменений.
     expect(mindmapSyncText(fresh('центр'))).toBe(mindmapMarkdown(fresh('центр')));
+  });
+  it('перенос длинного слова не режет эмодзи пополам', () => {
+    const lines = wrapText('a'.repeat(23) + '😀b', 24);
+    expect(lines).toEqual(['a'.repeat(23) + '😀', 'b']);
+    for (const line of lines) expect(line).not.toMatch(/[\ud800-\udbff](?![\udc00-\udfff])/);
   });
 });
