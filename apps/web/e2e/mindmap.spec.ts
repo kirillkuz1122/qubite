@@ -310,4 +310,9 @@ test('экспорт PNG и SVG, узел-ссылка @ на документ',
   const bytes = Buffer.concat(await (await png.createReadStream()).toArray());
   expect(bytes.subarray(1, 4).toString()).toBe('PNG');
   expect(bytes.length).toBeGreaterThan(5000);
+
+  // Цель переименовали (здесь или на другом устройстве): карта берёт название с сервера.
+  server.targets.set(lesson, { id: lesson, type: 'docs.page', title: 'Урок 5: collocations' });
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await expect(node(page, 'Урок 5: collocations')).toBeVisible();
 });

@@ -79,6 +79,36 @@ function useTree(doc: Y.Doc): MindNode {
 function useLinks(handle: DocHandle): readonly DocLink[] {
   const [links, setLinks] = useState(handle.links);
   useEffect(() => handle.onLinks(() => setLinks(handle.links)), [handle]);
+  // Названия целей не едут через Yjs: подгружаем их с сервера, как Mentions у документа, —
+  // при открытии, после сохранения, при возврате сети и окна. Иначе на другом устройстве
+  // узел-ссылка показывает «…», а переименованная цель — старое название.
+  useEffect(() => {
+    const source = httpLinkSource();
+    let abort: AbortController | undefined;
+    const refresh = () => {
+      abort?.abort();
+      abort = new AbortController();
+      const request = abort;
+      void source
+        .links(handle.id, request.signal)
+        .then((found) => {
+          if (!request.signal.aborted) void handle.cacheLinks(found).catch(() => {});
+        })
+        .catch(() => {});
+    };
+    const stop = handle.onStatus((status) => {
+      if (status === 'saved') refresh();
+    });
+    refresh();
+    window.addEventListener('online', refresh);
+    window.addEventListener('focus', refresh);
+    return () => {
+      abort?.abort();
+      stop();
+      window.removeEventListener('online', refresh);
+      window.removeEventListener('focus', refresh);
+    };
+  }, [handle]);
   return links;
 }
 
