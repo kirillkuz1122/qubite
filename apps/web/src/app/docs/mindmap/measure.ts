@@ -26,24 +26,29 @@ const STYLES: Style[] = [
 
 export const styleOf = (depth: number): Style => STYLES[Math.min(depth, 2)]!;
 
-/** Строки текста при переносе по словам (длинное слово рвётся) — как CSS `overflow-wrap: anywhere`. */
+/**
+ * Строки текста при переносе по словам (длинное слово рвётся) — как CSS `overflow-wrap: anywhere`.
+ * Длина и разрыв — по Unicode-символам: эмодзи на границе не режется на половинки суррогатной
+ * пары (в SVG и PNG они стали бы «�»).
+ */
 export function wrapText(text: string, perLine: number): string[] {
   if (perLine < 1) return [text];
+  const size = (value: string) => [...value].length;
   const lines: string[] = [];
   let line = '';
   for (const word of text.split(/\s+/).filter(Boolean)) {
     const joined = line ? `${line} ${word}` : word;
-    if (joined.length <= perLine) {
+    if (size(joined) <= perLine) {
       line = joined;
       continue;
     }
     if (line) lines.push(line);
-    let rest = word;
+    let rest = [...word];
     while (rest.length > perLine) {
-      lines.push(rest.slice(0, perLine));
+      lines.push(rest.slice(0, perLine).join(''));
       rest = rest.slice(perLine);
     }
-    line = rest;
+    line = rest.join('');
   }
   lines.push(line);
   return lines;
@@ -70,7 +75,7 @@ export function measureNode(
   const char = font * advance;
   const shown = node.link ? `@ ${label}` : label;
   const perLine = Math.floor(MAX_TEXT / char);
-  const chars = Math.max(1, shown.length);
+  const chars = Math.max(1, [...shown].length);
   const lines = wrapLines(shown || ' ', perLine);
   const text = Math.ceil(Math.min(chars, perLine) * char);
   const lineHeight = node.link ? 18.85 : style.line;
