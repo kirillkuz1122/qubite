@@ -36,14 +36,15 @@ export function wrapText(text: string, perLine: number): string[] {
   const size = (value: string) => [...value].length;
   const lines: string[] = [];
   let line = '';
-  for (const word of text.split(/\s+/).filter(Boolean)) {
-    const joined = line ? `${line} ${word}` : word;
-    if (size(joined) <= perLine) {
-      line = joined;
+  // Как `white-space: pre-wrap`: пробелы и табы остаются как есть, строка рвётся перед словом,
+  // а пробелы на краю строки «висят» и перенос не вызывают.
+  for (const token of text.match(/\s+|\S+/g) ?? []) {
+    if (/^\s/.test(token) || size(line + token) <= perLine) {
+      line += token;
       continue;
     }
     if (line) lines.push(line);
-    let rest = [...word];
+    let rest = [...token];
     while (rest.length > perLine) {
       lines.push(rest.slice(0, perLine).join(''));
       rest = rest.slice(perLine);

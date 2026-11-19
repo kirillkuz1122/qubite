@@ -28,6 +28,7 @@ import {
 } from './model';
 import { layoutTree, neighbour } from './layout';
 import { wrapText } from './measure';
+import { pngScale } from './export';
 import {
   collocationsTemplate,
   MAX_SYNC_CHARS,
@@ -541,5 +542,20 @@ describe('mind map: история версий (DOC-004)', () => {
     const lines = wrapText('a'.repeat(23) + '😀b', 24);
     expect(lines).toEqual(['a'.repeat(23) + '😀', 'b']);
     for (const line of lines) expect(line).not.toMatch(/[\ud800-\udbff](?![\udc00-\udfff])/);
+  });
+  it('перенос сохраняет пробелы подписи как на экране (pre-wrap)', () => {
+    expect(wrapText('a  +  b', 24)).toEqual(['a  +  b']);
+    expect(wrapText('x\ty\u00a0z', 24)).toEqual(['x\ty\u00a0z']);
+    // Рвётся перед словом; пробелы на краю строки «висят».
+    expect(wrapText('aaaa  bbbb', 8)).toEqual(['aaaa  ', 'bbbb']);
+  });
+
+  it('PNG большой карты мельче, но влезает в пределы canvas', () => {
+    expect(pngScale(800, 600)).toBe(2);
+    const tall = pngScale(764, 35064);
+    expect(764 * tall * 35064 * tall).toBeLessThanOrEqual(16_777_216);
+    expect(35064 * tall).toBeLessThanOrEqual(32_767);
+    expect(tall).toBeGreaterThan(0.25);
+    expect(pngScale(40000, 40000)).toBeLessThan(0.25);
   });
 });

@@ -220,10 +220,23 @@ export function toSvg(drawing: Drawing): string {
 }
 
 /** PNG рисуется шрифтом страницы на <canvas> в 2× — текст совпадает с экраном. */
-export async function toPng(drawing: Drawing, scale = 2): Promise<Blob> {
+/** Пределы canvas: сторона 32 767 px (Chromium, Firefox), площадь — 16 777 216 px (Safari на iOS). */
+const MAX_SIDE = 32_767;
+const MAX_AREA = 16_777_216;
+export const PNG_TOO_BIG = 'Карта слишком большая для картинки PNG — скачайте рисунок SVG.';
+
+/** Масштаб PNG: чётче (2×), пока картинка влезает в пределы canvas; иначе мельче. */
+export function pngScale(w: number, h: number, wanted = 2): number {
+  return Math.min(wanted, MAX_SIDE / w, MAX_SIDE / h, Math.sqrt(MAX_AREA / (w * h)));
+}
+
+export async function toPng(drawing: Drawing, wanted = 2): Promise<Blob> {
+  const scale = pngScale(drawing.w, drawing.h, wanted);
+  // Мельче четверти подписи уже не прочитать — честно говорим и предлагаем SVG.
+  if (scale < 0.25) throw new Error(PNG_TOO_BIG);
   const canvas = document.createElement('canvas');
-  canvas.width = drawing.w * scale;
-  canvas.height = drawing.h * scale;
+  canvas.width = Math.floor(drawing.w * scale);
+  canvas.height = Math.floor(drawing.h * scale);
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Браузер не умеет рисовать картинку');
   ctx.scale(scale, scale);
@@ -262,10 +275,7 @@ export async function toPng(drawing: Drawing, scale = 2): Promise<Blob> {
     }
   }
   return new Promise((resolve, reject) =>
-    canvas.toBlob(
-      (blob) => (blob ? resolve(blob) : reject(new Error('PNG не собрался'))),
-      'image/png',
-    ),
+    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error(PNG_TOO_BIG))), 'image/png'),
   );
 }
 
