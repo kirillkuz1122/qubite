@@ -2,6 +2,9 @@
 
 Записано 27.10.2026, когда старая управляющая сессия передавала дела новой. Сначала прочитай `docs/harness/OWNER.md`.
 
+## Будильник — помни сам
+«Выключи будильник» = поставь метку `будильник:выкл` на PR #89 (`gh api -X POST repos/kirillkuz1122/qubite/issues/89/labels -f 'labels[]=будильник:выкл'`), «включи» = сними её (`gh api -X DELETE repos/kirillkuz1122/qubite/issues/89/labels/будильник:выкл`). Таймер на Pi не трогать, от PR не отписываться (D-848). 19.11 об этом забыл — владелец напомнил.
+
 ## Не читай целиком
 С 29.10 (D-624): `docs/project/STATUS.md` — короткий (≤ 80 строк), его можно читать. `docs/product/DECISIONS.md` — индекс (86 КБ): только grep по номеру, полный текст — `docs/product/decisions/NN.md`. Задачи — GitHub Issues. Архивы (`docs/*/archive/`) — только grep.
 
