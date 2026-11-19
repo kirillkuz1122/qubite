@@ -99,9 +99,19 @@ if [ "$codex" = 1 ]; then
   if ! left; then echo "ВРЕМЯ: Codex не дал итог за 55 минут (можно --no-codex)"; exit 4; fi
   if [ "${c_open:-}" = "true" ]; then
     echo "У CODEX ЗАМЕЧАНИЯ (не закрытые):"
-    gh api "repos/{owner}/{repo}/pulls/$pr/comments" -q \
-      ".[] | select(.user.login==\"chatgpt-codex-connector[bot]\" and .original_commit_id==\"$sha\") | \"\(.path):\(.line // .original_line) — \(.body | gsub(\"<[^>]+>|!\\\\[[^]]*\\\\]\\\\([^)]*\\\\)\"; \"\") | split(\"\\n\") | map(select(length>0)) | .[0:3] | join(\" \"))\"" |
-      head -20
+    # --paginate: у долгих PR комментариев больше 30, и без него список выходил пустым.
+    # shellcheck disable=SC2016
+    brief='\(.path):\(.line // .original_line) — \(.body | gsub("<[^>]+>|!\\[[^]]*\\]\\([^)]*\\)"; "") | split("\n") | map(select(length>0)) | .[0:3] | join(" "))'
+    found=$(gh api "repos/{owner}/{repo}/pulls/$pr/comments" --paginate -q \
+      ".[] | select(.user.login==\"chatgpt-codex-connector[bot]\" and .original_commit_id==\"$sha\") | \"$brief\"" | head -20)
+    if [ -n "$found" ]; then
+      echo "$found"
+    else
+      # Открытое замечание может висеть на прежнем коммите: покажем последние с их коммитом.
+      echo "(по этому коммиту новых нет; последние замечания Codex — проверь, на все ли ответил)"
+      gh api "repos/{owner}/{repo}/pulls/$pr/comments" --paginate -q \
+        ".[] | select(.user.login==\"chatgpt-codex-connector[bot]\") | \"\\(.original_commit_id[0:8]) $brief\"" | tail -5
+    fi
     exit 2
   fi
   echo "Codex: замечаний нет"

@@ -82,6 +82,36 @@ function useTree(doc: Y.Doc): MindNode {
 function useLinks(handle: DocHandle): readonly DocLink[] {
   const [links, setLinks] = useState(handle.links);
   useEffect(() => handle.onLinks(() => setLinks(handle.links)), [handle]);
+  // Названия целей не едут через Yjs: подгружаем их с сервера, как Mentions у документа, —
+  // при открытии, после сохранения, при возврате сети и окна. Иначе на другом устройстве
+  // узел-ссылка показывает «…», а переименованная цель — старое название.
+  useEffect(() => {
+    const source = httpLinkSource();
+    let abort: AbortController | undefined;
+    const refresh = () => {
+      abort?.abort();
+      abort = new AbortController();
+      const request = abort;
+      void source
+        .links(handle.id, request.signal)
+        .then((found) => {
+          if (!request.signal.aborted) void handle.cacheLinks(found).catch(() => {});
+        })
+        .catch(() => {});
+    };
+    const stop = handle.onStatus((status) => {
+      if (status === 'saved') refresh();
+    });
+    refresh();
+    window.addEventListener('online', refresh);
+    window.addEventListener('focus', refresh);
+    return () => {
+      abort?.abort();
+      stop();
+      window.removeEventListener('online', refresh);
+      window.removeEventListener('focus', refresh);
+    };
+  }, [handle]);
   return links;
 }
 
@@ -750,6 +780,11 @@ export function MindMap({ handle, title }: { handle: DocHandle; title: string })
     }
     // Бросили ветку.
     setDrop(null);
+    if (event.type === 'pointercancel') {
+      // Жест прервала система или браузер — ветку не бросали: вернуть на место, модель не трогать.
+      scene.release();
+      return;
+    }
     const onto = target(at.x, at.y, g.ids);
     const node = findNode(tree, g.id);
     try {
@@ -1258,6 +1293,23 @@ function NodeInput({
     el.focus({ preventScroll: true });
     el.setSelectionRange(el.value.length, el.value.length);
   }, []);
+  // Текст узла поменяли с другого устройства или вкладки, пока поле открыто: показываем его,
+  // иначе следующее нажатие отправит старую строку целиком и сотрёт чужую правку.
+  // Каретка остаётся на месте относительно своего текста.
+  const composing = useRef(false);
+  useEffect(() => {
+    const el = input.current;
+    if (!el || composing.current || el.value === node.text) return;
+    const old = el.value;
+    const next = node.text;
+    let same = 0;
+    while (same < old.length && same < next.length && old[same] === next[same]) same++;
+    const shift = (at: number) => (at > same ? Math.max(same, at + next.length - old.length) : at);
+    const start = shift(el.selectionStart);
+    const end = shift(el.selectionEnd);
+    el.value = next;
+    if (document.activeElement === el) el.setSelectionRange(start, end);
+  }, [node.text]);
   return (
     // Правка подписи прямо в узле, как в редакторе документа: общий Field здесь — лишняя рамка.
     <textarea
@@ -1270,6 +1322,13 @@ function NodeInput({
       placeholder={placeholder}
       style={{ width }}
       onInput={(event) => onInput(event.currentTarget.value)}
+      onCompositionStart={() => {
+        composing.current = true;
+      }}
+      onCompositionEnd={(event) => {
+        composing.current = false;
+        onInput(event.currentTarget.value);
+      }}
       onBlur={onDone}
       onKeyDown={(event) => {
         event.stopPropagation();
