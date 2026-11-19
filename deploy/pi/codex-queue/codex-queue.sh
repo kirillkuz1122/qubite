@@ -273,6 +273,14 @@ META="Модель: $MODEL · рассуждение: $EFFORT · лог на Pi:
 # Старые папки заданий и логи — оставить последние.
 cleanup() {
     ls -1dt "$JOBS"/issue-* 2>/dev/null | tail -n +$((KEEP_JOBS + 1)) | xargs -r rm -rf
+    # Задание закрыто (PR влит) — папка больше не нужна. Свежую папку текущего задания не трогаем.
+    local d n state
+    for d in "$JOBS"/issue-*; do
+        [[ -d $d && $d != "$JOB" ]] || continue
+        n=${d##*/issue-}; n=${n%%-*}
+        state=$(gh issue view "$n" -R "$REPO" --json state -q .state 2>/dev/null || true)
+        [[ $state == CLOSED ]] && rm -rf "$d"
+    done
     find "$LOGS" -type f -mtime +30 -delete
 }
 
