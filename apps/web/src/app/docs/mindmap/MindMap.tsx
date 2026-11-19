@@ -5,7 +5,7 @@
  */
 import { useNavigate } from '@tanstack/react-router';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import type * as Y from 'yjs';
+import * as Y from 'yjs';
 import {
   MINDMAP_LOST_KIND,
   type DocHandle,
@@ -37,6 +37,7 @@ import {
   BRANCH_COLORS,
   findNode,
   moveNode,
+  nodeText,
   parentNode,
   readTree,
   removeNode,
@@ -64,6 +65,9 @@ const NARROW_GAP = '(min-width: 600px)';
 /** Долгое нажатие пальцем или пером — перетаскивание (D-1006). */
 export const LONG_PRESS = 400;
 const MOVE = 6;
+
+/** origin своего ввода в поле узла (см. editUndo). */
+const EDIT_ORIGIN = Symbol('mindmap-edit');
 
 function useTree(doc: Y.Doc): MindNode {
   const [tree, setTree] = useState(() => readTree(doc));
@@ -168,8 +172,8 @@ export function MindMap({ handle, title }: { handle: DocHandle; title: string })
   // Новая пустая карта — сразу правка центра (макет «пусто»).
   const [blank] = useState(() => !tree.text && !tree.children.length);
   const [chosen, setSelected] = useState<string | null>(blank ? ROOT : null);
-  const [opened, setEditing] = useState<{ id: string; original: string; fresh: boolean } | null>(
-    blank ? { id: ROOT, original: '', fresh: false } : null,
+  const [opened, setEditing] = useState<{ id: string; fresh: boolean } | null>(
+    blank ? { id: ROOT, fresh: false } : null,
   );
   const [drop, setDrop] = useState<string | null>(null);
   const [sheet, setSheet] = useState<'node' | 'color' | 'link' | null>(null);
@@ -391,11 +395,28 @@ export function MindMap({ handle, title }: { handle: DocHandle; title: string })
       const node = findNode(readTree(doc), id);
       if (!node || node.link) return;
       setSelected(id);
-      setEditing({ id, original: node.text, fresh });
+      setEditing({ id, fresh });
       requestAnimationFrame(() => reveal(id));
     },
     [doc, reveal],
   );
+
+  // Свой ввод в открытом поле — отдельный origin: UndoManager отслеживает только его.
+  const editUndo = useRef<Y.UndoManager | null>(null);
+  const editingId = editing?.id ?? null;
+  useEffect(() => {
+    const text = editingId ? nodeText(doc, editingId) : null;
+    if (!text) return;
+    const undo = new Y.UndoManager(text, {
+      trackedOrigins: new Set([EDIT_ORIGIN]),
+      captureTimeout: Number.POSITIVE_INFINITY,
+    });
+    editUndo.current = undo;
+    return () => {
+      undo.destroy();
+      if (editUndo.current === undo) editUndo.current = null;
+    };
+  }, [doc, editingId]);
 
   const finish = useCallback(
     (cancel: boolean) => {
@@ -408,7 +429,10 @@ export function MindMap({ handle, title }: { handle: DocHandle; title: string })
         // Новый узел без текста или отменённый — не остаётся пустой точкой на карте.
         removeNode(doc, node.id);
         kept = false;
-      } else if (node && cancel) setText(doc, node.id, editing.original);
+      } else if (node && cancel) {
+        // Esc отменяет только здешний ввод: чужие правки, пришедшие за это время, остаются.
+        while (editUndo.current?.canUndo()) editUndo.current.undo();
+      }
       setEditing(null);
       setSelected(kept ? editing.id : parent);
       canvas.current?.focus({ preventScroll: true });
@@ -835,7 +859,7 @@ export function MindMap({ handle, title }: { handle: DocHandle; title: string })
                     node={node}
                     width={view.size.text}
                     placeholder={placeholder(node)}
-                    onInput={(value) => setText(doc, node.id, value)}
+                    onInput={(value) => setText(doc, node.id, value, EDIT_ORIGIN)}
                     onDone={() => finish(false)}
                     onCancel={() => finish(true)}
                     onChild={() => {
