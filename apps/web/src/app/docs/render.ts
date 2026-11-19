@@ -4,13 +4,18 @@ import * as Y from 'yjs';
 import type { DocLink } from '@qubite/sync-client';
 import { DOC_NODES, $exportMarkdown, $extractLinks, $importMarkdown } from './markdown';
 import { DocsProvider } from './provider';
+import { isMindmap, mindmapLinks } from './mindmap/model';
+import { mindmapSyncText } from './mindmap/text';
 
 /** Markdown слитого дерева без экрана. Исходный документ остаётся неизменным. */
 export function renderDocText(source: Y.Doc, links: readonly DocLink[] = []): string {
+  // Карта — свой вид документа: её текст — вложенный список (D-1002).
+  if (isMindmap(source)) return mindmapSyncText(source, links);
   return readDoc(source, () => $exportMarkdown(links));
 }
 
 export function extractDocLinks(source: Y.Doc): string[] {
+  if (isMindmap(source)) return mindmapLinks(source);
   return readDoc(source, $extractLinks);
 }
 

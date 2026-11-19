@@ -116,6 +116,12 @@ function cloneValue(value: unknown): unknown {
     );
     return copy;
   }
+  // Подписи узлов mind map — обычный Y.Text (XmlText проверен выше).
+  if (value instanceof Y.Text) {
+    const copy = new Y.Text();
+    copy.applyDelta(value.toDelta());
+    return copy;
+  }
   // Маркеры TextNode — Y.Map, их форматирование тоже должно сохраниться.
   if (value instanceof Y.Map) {
     const copy = new Y.Map<unknown>();
@@ -141,7 +147,18 @@ export function restoreDocVersion(
     }));
     const attributes = previous.getAttributes();
     const root = doc.get('root', Y.XmlText);
+    // Mind map (DOC-006, D-1001): вид и узлы — рядом с деревом редактора, восстанавливаются целиком.
+    const meta = source.getMap<unknown>('meta');
+    const nodes = source.getMap<unknown>('mindmap');
+    const currentMeta = doc.getMap<unknown>('meta');
+    const currentNodes = doc.getMap<unknown>('mindmap');
     doc.transact(() => {
+      for (const key of [...currentMeta.keys()]) if (!meta.has(key)) currentMeta.delete(key);
+      meta.forEach((value, key) => {
+        if (currentMeta.get(key) !== value) currentMeta.set(key, cloneValue(value));
+      });
+      for (const key of [...currentNodes.keys()]) currentNodes.delete(key);
+      nodes.forEach((value, key) => currentNodes.set(key, cloneValue(value)));
       root.delete(0, root.length);
       for (const key of Object.keys(root.getAttributes())) {
         if (!(key in attributes)) root.removeAttribute(key);
