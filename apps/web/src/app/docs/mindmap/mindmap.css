@@ -371,6 +371,19 @@
   color: var(--q-mute);
 }
 
+/* Предложения AI (D-1008): галочки, ниже — цена вызова мелко. */
+.mm-ai {
+  gap: 12px;
+}
+.mm-ai-cost {
+  font-size: 13px;
+  color: var(--q-dim);
+}
+.mm-sheet-actions {
+  display: flex;
+  gap: 8px;
+}
+
 /* Предложение вернуть узлы, удалённые на другом устройстве, и отказы модели (лимиты). */
 .mm-notice {
   position: absolute;

@@ -5532,6 +5532,65 @@
         }
       }
     },
+    "/api/v1/docs/mindmap/suggest": {
+      "post": {
+        "tags": ["docs"],
+        "summary": "Предложить подузлы ветки mind map через AI-шлюз.",
+        "operationId": "suggest",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SuggestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Предложения (могут быть пустыми)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuggestResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Неверный путь или подузлы",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет права писать в Docs или пользоваться AI",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Бюджет AI исчерпан, повтор или нет модели",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/docs/{id}": {
       "get": {
         "tags": ["planner"],
@@ -16483,6 +16542,51 @@
           "source": {
             "type": "string",
             "description": "`owner`, `chatgpt` или `own_key`."
+          }
+        }
+      },
+      "SuggestRequest": {
+        "type": "object",
+        "description": "Ветка, для которой нужны подузлы.",
+        "required": ["request_id", "path"],
+        "properties": {
+          "existing": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Подписи подузлов, которые уже есть, до 50."
+          },
+          "path": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Подписи от центра до ветки, 1–12 строк до 300 знаков."
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "ID действия: повтор с тем же ID не выполняется и не списывается второй раз."
+          }
+        },
+        "additionalProperties": false
+      },
+      "SuggestResponse": {
+        "type": "object",
+        "description": "Предложенные подузлы и цена вызова.",
+        "required": ["suggestions", "cost_usd_micros"],
+        "properties": {
+          "cost_usd_micros": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Стоимость вызова, микродоллары."
+          },
+          "suggestions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },

@@ -38,6 +38,7 @@ const TASK_LABEL: Record<string, string> = {
   default: 'По умолчанию',
   'inbox.triage': 'Разбор Входящих',
   'english.tutor': 'Репетитор английского',
+  'docs.mindmap': 'Docs: подузлы mind map',
   'voice.stt': 'Голос: распознавание',
   'voice.tts': 'Голос: речь',
 };
@@ -580,7 +581,10 @@ function TaskModels() {
   if (models.isError || tasks.isError)
     return <Note tone="bad">{say(models.error ?? tasks.error)}</Note>;
   const enabled = models.data.filter((m) => m.enabled);
-  const taskIds = [...new Set(['default', 'inbox.triage', ...tasks.data.map((t) => t.task)])];
+  // Задачи, которым можно выбрать модель, даже пока для них нет своей записи на сервере.
+  const taskIds = [
+    ...new Set(['default', 'inbox.triage', 'docs.mindmap', ...tasks.data.map((t) => t.task)]),
+  ];
   return (
     <>
       <div className="cs-panel" aria-label="Модели для задач">

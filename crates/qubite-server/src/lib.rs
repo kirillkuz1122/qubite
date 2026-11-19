@@ -24,6 +24,7 @@ pub mod harness;
 pub mod home;
 pub mod inbox;
 pub mod maintenance;
+pub mod mindmap;
 pub mod modules;
 pub mod notices;
 pub mod notifications;
@@ -382,6 +383,7 @@ impl AppState {
         docs::get_y,
         docs::post_y,
         docs::link_targets,
+        mindmap::suggest,
         docs::doc_backlinks,
         docs::object_backlinks,
         docs::doc_links,
@@ -659,6 +661,8 @@ impl AppState {
         docs::LinkTarget,
         docs::DocLink,
         docs::LinkTargets,
+        mindmap::SuggestRequest,
+        mindmap::SuggestResponse,
         docs::Backlinks,
         docs::DocLinks,
         docs::UpdateReason,
@@ -1128,6 +1132,7 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
         )
         .route("/api/v1/docs", get(projects::list_my_docs))
         .route("/api/v1/docs/link-targets", get(docs::link_targets))
+        .route("/api/v1/docs/mindmap/suggest", post(mindmap::suggest))
         .route("/api/v1/docs/{id}/backlinks", get(docs::doc_backlinks))
         .route(
             "/api/v1/objects/{id}/backlinks",
@@ -1220,12 +1225,14 @@ impl Limits {
 
 /// Запросы, обработчик которых прямо в себе ждёт ответа модели: реплика репетитора, урок,
 /// разбор мысли, разговор с агентом, проба модели в Console. Только `POST` — чтение быстрое.
-const AI_PATHS: [&str; 5] = [
+const AI_PATHS: [&str; 6] = [
     "/api/v1/english/",
     "/api/v1/agent/",
     "/api/v1/inbox",
     "/api/owner/ai/",
     "/api/ai/",
+    // «Предложить подузлы» mind map (D-1008): ждёт модель, как остальные AI-вызовы.
+    "/api/v1/docs/mindmap/suggest",
 ];
 
 fn waits_for_ai(method: &axum::http::Method, path: &str) -> bool {
@@ -1416,6 +1423,8 @@ mod timeout_tests {
         assert!(waits_for_ai(&Method::POST, "/api/v1/agent/chat"));
         assert!(waits_for_ai(&Method::POST, "/api/v1/inbox"));
         assert!(waits_for_ai(&Method::POST, "/api/v1/inbox/voice"));
+        assert!(waits_for_ai(&Method::POST, "/api/v1/docs/mindmap/suggest"));
+        assert!(!waits_for_ai(&Method::POST, "/api/v1/docs/abc/y"));
         assert!(!waits_for_ai(&Method::GET, "/api/v1/english/turn"));
         assert!(!waits_for_ai(&Method::POST, "/api/v1/sync/push"));
         assert!(!waits_for_ai(&Method::POST, "/api/auth/login"));
