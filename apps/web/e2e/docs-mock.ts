@@ -157,8 +157,9 @@ export async function mockDocs(page: Page, existing?: SyncMock) {
           json: {
             update: base64(Y.encodeStateAsUpdate(doc, sv)),
             sv: base64(Y.encodeStateVector(doc)),
-            seed_markdown:
-              doc.get('root', Y.XmlText).length === 0 ? (markdown.get(id) ?? '') : null,
+            // Как сервер (ydoc.rs): seed — пока у документа нет состояния Yjs вовсе.
+            // Дерево редактора может быть пустым и у заполненного документа (mind map).
+            seed_markdown: doc.store.clients.size === 0 ? (markdown.get(id) ?? '') : null,
           },
         });
       }
@@ -170,7 +171,7 @@ export async function mockDocs(page: Page, existing?: SyncMock) {
         reason?: string;
         restore_of?: string;
       };
-      if (body.seed && doc.get('root', Y.XmlText).length > 0)
+      if (body.seed && doc.store.clients.size > 0)
         return route.fulfill({
           status: 409,
           json: { error: 'seed_taken', message: 'Документ уже перенесён' },

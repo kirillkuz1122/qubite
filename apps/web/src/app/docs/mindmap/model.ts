@@ -304,6 +304,13 @@ export function addSibling(doc: Y.Doc, id: string, text = '', origin?: unknown):
   return next;
 }
 
+/** Y.Text подписи узла — для отмены только своих правок (Y.UndoManager). */
+export function nodeText(doc: Y.Doc, id: string): Y.Text | null {
+  const value = nodes(doc).get(id);
+  const text = value instanceof Y.Map ? value.get('text') : null;
+  return text instanceof Y.Text ? text : null;
+}
+
 /** Меняет только отличающуюся середину: одновременная правка того же узла сливается по буквам. */
 export function setText(doc: Y.Doc, id: string, value: string, origin?: unknown): void {
   const text = node(doc, id).get('text');
