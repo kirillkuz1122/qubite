@@ -17,7 +17,7 @@ use qubite_testkit::{
     TestDb,
     fake_http::{Action, FakeHttp, Received},
 };
-use serde_json::{Value, json};
+use serde_json::json;
 use sqlx::PgPool;
 use time::{Date, Duration, OffsetDateTime, format_description::well_known::Rfc3339};
 use uuid::Uuid;
@@ -158,7 +158,7 @@ async fn thought_question_order_and_correction() {
     .await;
     let pool = db.pool();
     collector(pool).await;
-    let address = spawn(state);
+    let address = spawn(state).await;
     let mut owner = common::logged_in(address).await;
 
     let thought = send(&mut owner, address, "Набросок на завтра").await;
@@ -275,7 +275,7 @@ async fn expensive_orders_need_confirmation_and_cannot_be_replayed() {
     )])
     .await;
     collector(db.pool()).await;
-    let address = spawn(state);
+    let address = spawn(state).await;
     let mut owner = common::logged_in(address).await;
     let id = Uuid::now_v7();
     let text = "Поручи агенту собрать сводку";
@@ -308,7 +308,7 @@ async fn expensive_orders_need_confirmation_and_cannot_be_replayed() {
 #[tokio::test]
 async fn dispatch_is_owner_only() {
     let (_test_db, db, state, mock) = fixture_steps(Vec::new()).await;
-    let address = spawn(state);
+    let address = spawn(state).await;
     let email = "other@example.org";
     qubite_auth::accounts::create(
         db.pool(),
@@ -373,7 +373,7 @@ async fn pult_reply_uses_the_original_issue_comment() {
         repo: "o/r".into(),
         api: fake.root_url(),
         proxy: None,
-    }));
+    })).await;
     let mut owner = common::logged_in(address).await;
     let body = json!({
         "id": Uuid::now_v7(), "text": "ответить на #7: По первому варианту", "source": "pult"
@@ -402,7 +402,7 @@ async fn pult_reply_uses_the_original_issue_comment() {
 #[tokio::test]
 async fn recognized_voice_goes_to_dispatch_without_a_second_inbox_item() {
     let (_test_db, _db, state, mock) = fixture_steps(vec![kind("thought")]).await;
-    let address = spawn(state);
+    let address = spawn(state).await;
     let mut owner = common::logged_in(address).await;
     let method = owner
         .send(

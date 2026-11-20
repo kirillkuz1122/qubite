@@ -494,48 +494,63 @@ export function AppShell() {
     setPicked((from + (e.key === 'ArrowDown' ? 1 : -1) + count) % count);
   }
 
-  function commandField(inChat: boolean) {
-    return (
-      <CommandField
-        inputRef={inChat ? chatInput : input}
-        value={value}
-        wide={wide && !inChat}
-        listId={LIST_ID}
-        expanded={!inChat && shown && count > 0}
-        activeId={!inChat && active >= 0 ? suggestOptionId(LIST_ID, active) : undefined}
-        busy={chat.busy}
-        onChange={change}
-        onKeyDown={inChat ? () => {} : onKey}
-        onMenu={(o) => (menuOpen.current = o)}
-        onVoiceText={owner ? (text) => void sendToDispatcher(text, 'voice') : undefined}
-        onVoiceSaved={() => {
-          const r = card.current?.getBoundingClientRect();
-          api.fly(
-            { x: (r?.left ?? innerWidth / 2) + 26, y: (r?.bottom ?? innerHeight - 100) - 30 },
-            'inbox',
-            'yellow',
-            () => api.cheer('elik'),
-          );
-          if (!wide && !voiceNow.current.value) setOpen(false);
-          if (owner) void sync.client?.sync().catch(() => {});
-        }}
-        onFocus={() => {
-          const ref = inChat ? chatInput : input;
-          if (!inChat) setFocused(true);
-          focusOn(() => (ref.current ? caretPoint(ref.current) : null));
-        }}
-        onBlur={() => {
-          focusOn(null);
-          if (inChat) return;
-          setFocused(false);
-          setTimeout(() => {
-            if (voiceNow.current.phase !== 'idle') return;
-            if (!input.current?.value && !menuOpen.current && !wide) setOpen(false);
-          }, 150);
-        }}
-      />
+  const onVoiceText = owner ? (text: string) => void sendToDispatcher(text, 'voice') : undefined;
+  const onVoiceSaved = () => {
+    const r = card.current?.getBoundingClientRect();
+    api.fly(
+      { x: (r?.left ?? innerWidth / 2) + 26, y: (r?.bottom ?? innerHeight - 100) - 30 },
+      'inbox',
+      'yellow',
+      () => api.cheer('elik'),
     );
-  }
+    if (!wide && !voiceNow.current.value) setOpen(false);
+    if (owner) void sync.client?.sync().catch(() => {});
+  };
+  const chatField = (
+    <CommandField
+      inputRef={chatInput}
+      value={value}
+      wide={false}
+      listId={LIST_ID}
+      expanded={false}
+      busy={chat.busy}
+      onChange={change}
+      onKeyDown={() => {}}
+      onMenu={(o) => (menuOpen.current = o)}
+      onVoiceText={onVoiceText}
+      onVoiceSaved={onVoiceSaved}
+      onFocus={() => focusOn(() => (chatInput.current ? caretPoint(chatInput.current) : null))}
+      onBlur={() => focusOn(null)}
+    />
+  );
+  const mainField = (
+    <CommandField
+      inputRef={input}
+      value={value}
+      wide={wide}
+      listId={LIST_ID}
+      expanded={shown && count > 0}
+      activeId={active >= 0 ? suggestOptionId(LIST_ID, active) : undefined}
+      busy={chat.busy}
+      onChange={change}
+      onKeyDown={onKey}
+      onMenu={(o) => (menuOpen.current = o)}
+      onVoiceText={onVoiceText}
+      onVoiceSaved={onVoiceSaved}
+      onFocus={() => {
+        setFocused(true);
+        focusOn(() => (input.current ? caretPoint(input.current) : null));
+      }}
+      onBlur={() => {
+        focusOn(null);
+        setFocused(false);
+        setTimeout(() => {
+          if (voiceNow.current.phase !== 'idle') return;
+          if (!input.current?.value && !menuOpen.current && !wide) setOpen(false);
+        }, 150);
+      }}
+    />
+  );
 
   /* ---------- навигация ---------- */
   const all: NavItem<ShellSectionId>[] = SECTIONS.filter((s) => owner || s.id !== 'pult').map(
@@ -665,7 +680,7 @@ export function AppShell() {
                 submit();
               }}
             >
-              {commandField(true)}
+              {chatField}
               <Button
                 type="submit"
                 size="sm"
@@ -697,7 +712,7 @@ export function AppShell() {
               submit();
             }}
           >
-            {commandField(false)}
+            {mainField}
           </form>
         )
       ) : (
@@ -720,7 +735,7 @@ export function AppShell() {
               submit();
             }}
           >
-            {!chat.open && commandField(false)}
+            {!chat.open && mainField}
           </form>
         </Dock>
       )}
