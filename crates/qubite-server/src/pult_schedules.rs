@@ -142,8 +142,10 @@ fn present_cap<'de, D: Deserializer<'de>, T: Deserialize<'de>>(
 
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct ScheduleRun {
-    /// Имя задачи из расписания.
-    name: String,
+    /// ID задачи из `due` — надёжнее имени: задачу могут переименовать между запросами.
+    schedule_id: Option<Uuid>,
+    /// Имя задачи из расписания (если ID не передан).
+    name: Option<String>,
     /// Повтор запроса с тем же ID не добавляет расход второй раз.
     id: Option<Uuid>,
     #[serde(default, with = "time::serde::rfc3339::option")]
@@ -549,20 +551,30 @@ pub async fn record_schedule_run(
     };
     let body: ScheduleRun =
         serde_json::from_slice(&body).map_err(|_| invalid("Отчёт не подходит"))?;
-    let name = field(&body.name, 60, "Имя — от 1 до 60 знаков")?;
     if body.tokens < 0 || !valid_usd(body.usd) {
         return Err(invalid("Укажите неотрицательный расход"));
     }
     if body.note.as_ref().is_some_and(|s| s.chars().count() > 200) {
         return Err(invalid("Заметка — до 200 знаков"));
     }
-    let schedule_id: Uuid =
-        sqlx::query_scalar("SELECT id FROM pult_schedules WHERE name = $1 FOR UPDATE")
-            .bind(name)
-            .fetch_optional(&mut *tx)
-            .await
-            .map_err(pult::db)?
-            .ok_or_else(missing)?;
+    let schedule_id: Uuid = match (body.schedule_id, body.name.as_deref()) {
+        (Some(id), _) => {
+            sqlx::query_scalar("SELECT id FROM pult_schedules WHERE id = $1 FOR UPDATE")
+                .bind(id)
+                .fetch_optional(&mut *tx)
+                .await
+        }
+        (None, Some(name)) => {
+            let name = field(name, 60, "Имя — от 1 до 60 знаков")?;
+            sqlx::query_scalar("SELECT id FROM pult_schedules WHERE name = $1 FOR UPDATE")
+                .bind(name)
+                .fetch_optional(&mut *tx)
+                .await
+        }
+        (None, None) => return Err(invalid("Укажите schedule_id или имя задачи")),
+    }
+    .map_err(pult::db)?
+    .ok_or_else(missing)?;
     let now: OffsetDateTime = sqlx::query_scalar("SELECT clock_timestamp()")
         .fetch_one(&mut *tx)
         .await

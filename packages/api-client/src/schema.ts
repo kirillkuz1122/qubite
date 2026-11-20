@@ -6081,10 +6081,15 @@ export interface components {
        * @description Повтор запроса с тем же ID не добавляет расход второй раз.
        */
       id?: string | null;
-      /** @description Имя задачи из расписания. */
-      name: string;
+      /** @description Имя задачи из расписания (если ID не передан). */
+      name?: string | null;
       note?: string | null;
       outcome: components['schemas']['ScheduleOutcome'];
+      /**
+       * Format: uuid
+       * @description ID задачи из `due` — надёжнее имени: задачу могут переименовать между запросами.
+       */
+      schedule_id?: string | null;
       /** Format: int64 */
       tokens: number;
       /** Format: double */

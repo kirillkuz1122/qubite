@@ -148,6 +148,31 @@ async fn rolling_token_cap_pauses_and_owner_can_raise_it() {
     assert_eq!(resumed.body["enabled"], true);
     assert_eq!(resumed.body["paused_reason"], Value::Null);
     assert_eq!(resumed.body["tokens_7d"].as_f64(), Some(101.0));
+
+    // Задачу переименовали между `due` и отчётом: отчёт по ID всё равно находит её,
+    // а по старому имени — нет.
+    let renamed = owner
+        .patch_json(address, &path, json!({"name": "Проверка 2"}))
+        .await;
+    assert_eq!(renamed.status, 200, "{:?}", renamed.body);
+    assert_eq!(
+        report(
+            address,
+            &token,
+            &json!({"schedule_id": id, "tokens": 0, "usd": 0, "outcome": "quiet"}),
+        )
+        .await,
+        204
+    );
+    assert_eq!(
+        report(
+            address,
+            &token,
+            &json!({"name": "Проверка", "tokens": 0, "usd": 0, "outcome": "quiet"}),
+        )
+        .await,
+        404
+    );
     assert_eq!(owner.get(address, DUE).await.body[0]["id"], id);
     assert_eq!(
         owner.get(address, "/api/owner/pult").await.body["waiting"],

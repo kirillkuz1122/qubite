@@ -17335,7 +17335,7 @@
       },
       "ScheduleRun": {
         "type": "object",
-        "required": ["name", "tokens", "usd", "outcome"],
+        "required": ["tokens", "usd", "outcome"],
         "properties": {
           "at": {
             "type": ["string", "null"],
@@ -17347,14 +17347,19 @@
             "description": "Повтор запроса с тем же ID не добавляет расход второй раз."
           },
           "name": {
-            "type": "string",
-            "description": "Имя задачи из расписания."
+            "type": ["string", "null"],
+            "description": "Имя задачи из расписания (если ID не передан)."
           },
           "note": {
             "type": ["string", "null"]
           },
           "outcome": {
             "$ref": "#/components/schemas/ScheduleOutcome"
+          },
+          "schedule_id": {
+            "type": ["string", "null"],
+            "format": "uuid",
+            "description": "ID задачи из `due` — надёжнее имени: задачу могут переименовать между запросами."
           },
           "tokens": {
             "type": "integer",
