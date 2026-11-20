@@ -373,7 +373,8 @@ async fn pult_reply_uses_the_original_issue_comment() {
         repo: "o/r".into(),
         api: fake.root_url(),
         proxy: None,
-    })).await;
+    }))
+    .await;
     let mut owner = common::logged_in(address).await;
     let body = json!({
         "id": Uuid::now_v7(), "text": "ответить на #7: По первому варианту", "source": "pult"
