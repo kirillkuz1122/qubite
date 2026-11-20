@@ -228,8 +228,9 @@ fn valid_text(value: &str, limit: usize) -> bool {
 }
 
 fn validate_report(report: &RecoReport) -> Result<(), ApiError> {
-    if !valid_week(&report.week) || report.cards.len() > 10 {
-        return Err(invalid("Нужна ISO-неделя и до 10 карточек"));
+    // Пустой отчёт не запоминает неделю, поэтому его не принимаем: от 1 до 10 карточек.
+    if !valid_week(&report.week) || report.cards.is_empty() || report.cards.len() > 10 {
+        return Err(invalid("Нужна ISO-неделя и от 1 до 10 карточек"));
     }
     let mut refs = HashSet::new();
     for card in &report.cards {

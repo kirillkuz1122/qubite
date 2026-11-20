@@ -1307,8 +1307,10 @@ pub(crate) async fn reco_week(pool: &sqlx::PgPool) -> Result<RecoWeekResponse, A
                 .filter(|(name, number)| {
                     !name.is_empty()
                         && name.bytes().all(|c| c.is_ascii_uppercase())
-                        && !number.is_empty()
-                        && number.bytes().all(|c| c.is_ascii_digit())
+                        && number.bytes().next().is_some_and(|c| c.is_ascii_digit())
+                        && number
+                            .bytes()
+                            .all(|c| c.is_ascii_digit() || c.is_ascii_lowercase())
                 })
                 .map(|(name, number)| format!("{name}-{number}"));
             let (tokens, usd) = total(&session.usage);

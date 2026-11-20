@@ -348,6 +348,8 @@ async fn recos_require_the_right_credential_and_week_uses_collected_data() {
         .await
         .unwrap();
     assert_eq!(empty, json!([]));
+    // Пустой отчёт недели не принимается: он не запомнил бы неделю.
+    assert_eq!(report(address, &token, "2026-W48", vec![]).await, 400);
     let now = OffsetDateTime::now_utc();
     let at = now.format(&Rfc3339).unwrap();
     let day = now.date().to_string();
@@ -359,7 +361,7 @@ async fn recos_require_the_right_credential_and_week_uses_collected_data() {
         "sessions": [{
             "id": "session",
             "title": "Личный заголовок",
-            "branch": "task/AOS-293",
+            "branch": "task/AOS-293b",
             "model": "claude-sonnet-5",
             "started_at": at,
             "last_at": at,
@@ -386,7 +388,7 @@ async fn recos_require_the_right_credential_and_week_uses_collected_data() {
         .unwrap();
     assert_eq!(week["sessions"][0]["tokens"], 42);
     assert_eq!(week["days"][0]["tokens"], 42);
-    assert_eq!(week["top"]["title"], "AOS-293");
+    assert_eq!(week["top"]["title"], "AOS-293b");
     assert!(!week.to_string().contains("Личный заголовок"));
     test_db.drop_db().await;
 }
