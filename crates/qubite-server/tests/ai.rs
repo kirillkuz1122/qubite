@@ -928,7 +928,12 @@ async fn chatgpt_catalog_refresh_updates_sol_without_overwriting_owner_choice() 
             Action::Respond(503, "{}".into()),
             snapshot(&["gpt-6.1-sol"]),
         ],
-        snapshot(&["gpt-6.1-sol", "gpt-6.2-sol", "gpt-6.10-sol", "gpt-preview-sol"]),
+        snapshot(&[
+            "gpt-6.1-sol",
+            "gpt-6.2-sol",
+            "gpt-6.10-sol",
+            "gpt-preview-sol",
+        ]),
     )
     .await;
     let key = qubite_ai::secret::SecretBox::generate_key();

@@ -583,7 +583,10 @@ async fn refresh_chatgpt_catalog(pool: &PgPool, args: &AiArgs) -> anyhow::Result
 }
 
 /// Обновление общего каталога сервера. Приоритет у подписки владельца.
-pub(crate) async fn sync_connected_chatgpt(pool: &PgPool, provider: &ChatGpt) -> anyhow::Result<()> {
+pub(crate) async fn sync_connected_chatgpt(
+    pool: &PgPool,
+    provider: &ChatGpt,
+) -> anyhow::Result<()> {
     if let Some(account) = chatgpt::any_connected(pool).await?
         && let Some(note) = fetch_chatgpt_catalog(pool, provider, account).await?
     {
@@ -682,7 +685,8 @@ pub fn spawn_maintenance(
                 // Каталог OpenRouter доступен даже без ключа. По расписанию
                 // обновляем каталог и цены, сохраняя список разрешённых моделей.
                 if let Some(provider) = &openrouter
-                    && let Err(error) = sync_openrouter_catalog(&pool, provider, &Allowlist::Keep).await
+                    && let Err(error) =
+                        sync_openrouter_catalog(&pool, provider, &Allowlist::Keep).await
                 {
                     tracing::info!(%error, "каталог OpenRouter не обновлён");
                 }
@@ -1135,6 +1139,8 @@ pub async fn run(db: &Database, args: &AiArgs, command: AiCommand) -> anyhow::Re
                     if enabled { "да" } else { "нет" }
                 ));
             }
+            // Сбой ChatGPT виден и при непустой таблице: в ней прошлый каталог.
+            out.push_str(note.trim_start());
             Ok(out)
         }
         AiCommand::Model {

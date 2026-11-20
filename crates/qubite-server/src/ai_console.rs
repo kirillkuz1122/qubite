@@ -22,8 +22,7 @@ use axum::{
 use qubite_ai::{
     LoopGuard, MICROS_PER_USD,
     admin::{self, LimitScope, Metric, Period},
-    budget,
-    catalog,
+    budget, catalog,
     chatgpt::{self, ChatGpt, ChatGptConfig},
     openrouter::OpenRouter,
     secret::SecretBox,

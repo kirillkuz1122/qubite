@@ -202,9 +202,14 @@ async fn apply_snapshot(
             continue; // весь каталог в базу не тащим — только нужные модели
         }
         if !id.as_bytes().first().is_some_and(u8::is_ascii_alphanumeric)
-            || !id.bytes().all(|b| b.is_ascii_alphanumeric() || b"_.:/-".contains(&b))
+            || !id
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b"_.:/-".contains(&b))
         {
-            tracing::warn!(model = entry.external_id, "имя модели не подходит для ID Qubite");
+            tracing::warn!(
+                model = entry.external_id,
+                "имя модели не подходит для ID Qubite"
+            );
             continue;
         }
         if report.updated.contains(&id) {
@@ -304,7 +309,9 @@ async fn record_availability(conn: &mut sqlx::PgConnection, id: &str, enabled: b
             action: "ai.model_enabled_set".into(),
             target_kind: "ai_model".into(),
             target_id: Some(id.into()),
-            after: Some(serde_json::json!({ "enabled": enabled, "from_catalog": chatgpt::PROVIDER_ID })),
+            after: Some(
+                serde_json::json!({ "enabled": enabled, "from_catalog": chatgpt::PROVIDER_ID }),
+            ),
             reason: Some("каталог подписки ChatGPT".into()),
             ..NewAuditEntry::default()
         },
