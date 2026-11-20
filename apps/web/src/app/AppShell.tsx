@@ -473,7 +473,13 @@ export function AppShell() {
   function submit(i = active) {
     if (chat.busy) return;
     if (chat.open) {
-      if (parsed && !autoDispatch && parsed.kind === 'search') {
+      const projectHit =
+        !cmd.parsed && cmd.hits[0]?.run.type === 'project.new' ? cmd.hits[0] : null;
+      if (projectHit) {
+        // «/проект …», «новый проект …» — тоже локально, не уходит модели
+        chat.close();
+        run(projectHit);
+      } else if (parsed && !autoDispatch && parsed.kind === 'search') {
         // явный поиск («/п …», «найди …») остаётся локальным и в открытой беседе
         const hit = cmd.hits[0];
         if (hit) {
