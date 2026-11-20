@@ -148,6 +148,43 @@ export const LOOKS = {
     mass: 2.4,
     damping: 21,
   },
+  kyubi: {
+    name: 'Кьюби',
+    color: C.orange,
+    h: 12,
+    cells: () => disc(5.5, 6.5),
+    eyes: [
+      [-2, 8.3],
+      [2, 8.3],
+    ],
+    mouth: 6.1,
+    // кубит: кольцо-экватор сферы Блоха и стрелка-состояние |ψ⟩; в «думает» — суперпозиция
+    bloch: true,
+    superpose: true,
+    topExtra: 3,
+    mass: 1.8,
+    damping: 19,
+  },
+  utya: {
+    name: 'Утя',
+    color: C.yellow,
+    h: 12,
+    // уточка в профиль, смотрит вправо; клюв открывается, когда она говорит, радуется или зевает
+    cells: (F) => {
+      const open = F && ['grin', 'yawn', 'o-small'].includes(F.mouth);
+      const rows = open
+        ? ['........yyyy...', '.......yyyyyyoo', '.......yyyyyy..', '.......yyyyyy..', '.......yyyyyooo', 'y.....yyyyyy...', 'yy.yyyyyyyyyy..', 'yyyyyyyyyyyyyy.', 'yyyyywwwwyyyyy.', '.yyyyyywwwyyyy.', '..yyyyyyyyyyy..', '....yyyyyyy....']
+        : ['........yyyy...', '.......yyyyyy..', '.......yyyyyyoo', '.......yyyyyooo', '........yyyyy..', 'y.....yyyyyy...', 'yy.yyyyyyyyyy..', 'yyyyyyyyyyyyyy.', 'yyyyywwwwyyyyy.', '.yyyyyywwwyyyy.', '..yyyyyyyyyyy..', '....yyyyyyy....'];
+      const col = { y: null, o: C.orange, w: C.peach };
+      const cells = [];
+      rows.forEach((row, j) => [...row].forEach((ch, i) => ch !== '.' && cells.push([i - 7, rows.length - 1 - j, col[ch]])));
+      return cells;
+    },
+    eyes: [[3, 9.4]],
+    mouth: null,
+    mass: 1.5,
+    damping: 16,
+  },
 };
 
 /* ---------- позы и кадры ---------- */
@@ -190,6 +227,14 @@ export function frame(lookId, frameId, { pitch = 8, cols = 26, rows = 26, t = 0,
   const L = LOOKS[lookId];
   // over — поправки на лету (дыхание, взгляд за курсором, наклон при беге)
   const F = { ...(FRAMES.find((f) => f.id === frameId) ?? FRAMES[0]), ...(over ?? {}) };
+  if (L.superpose && F.id === 'think' && !F.inner) {
+    // суперпозиция: два полупрозрачных Кьюби со стрелками в разные стороны, между ними — «или»
+    const opt = { pitch, cols, rows, t };
+    const left = frame(lookId, 'think', { ...opt, over: { ...over, inner: true, shift: -6.6, alpha: 0.72, arrow: [-0.5, 1], props: [], lean: 0 } });
+    const right = frame(lookId, 'think', { ...opt, over: { ...over, inner: true, shift: 6.6, alpha: 0.72, arrow: [0.5, -1], props: [], lean: 0, look: [-0.6, -0.8] } });
+    const mid = [-2, -1, 0, 1, 2].map((k) => ({ k: 'dot', x: (cols * pitch) / 2 + k * pitch * 0.9, y: rows * pitch - 9.7 * pitch, r: pitch * 0.2, color: C.yellow, alpha: 0.7 }));
+    return { w: left.w, h: left.h, ops: [...left.ops, ...right.ops, ...mid] };
+  }
   const W = cols * pitch;
   const H = rows * pitch;
   const ops = [];
@@ -200,7 +245,7 @@ export function frame(lookId, frameId, { pitch = 8, cols = 26, rows = 26, t = 0,
   const lean = F.lean ?? 0;
   const dy = F.dy ?? 0;
   // где стоит фигура: тихий — в правом нижнем углу, остальные — по центру
-  const cx = F.id === 'quiet' ? W - 7 * pitch : F.id === 'play' ? W / 2 - 3 * pitch : W / 2;
+  const cx = (F.id === 'quiet' ? W - 7 * pitch : F.id === 'play' ? W / 2 - 3 * pitch : W / 2) + (F.shift ?? 0) * pitch;
   const base = H - 3.2 * pitch;
   const a = F.alpha ?? 1;
   const pt = (x, y) => ({
@@ -216,7 +261,9 @@ export function frame(lookId, frameId, { pitch = 8, cols = 26, rows = 26, t = 0,
     for (let i = -2; i <= 2; i++) free(cx + i * pitch * 1.2, base + pitch * 0.9, pitch * 0.32, C.faint, 0.8 * a);
   }
 
-  for (const [x, y] of L.cells()) dot(x, y, DOT, L.color);
+  if (L.bloch) bloch(dot, F, false, a);
+  for (const [x, y, c] of L.cells(F)) dot(x, y, DOT, c ?? L.color);
+  if (L.bloch) bloch(dot, F, true, a, t);
   if (L.tail) {
     const wag = F.id === 'play' || F.id === 'joy' ? -0.8 : F.id === 'sad' || F.id === 'hurt' ? 1.4 : 0;
     L.tail.forEach(([x, y], k) => dot(x + (wag * k) / 5, y - (F.id === 'sad' ? k * 0.55 : 0), DOT, L.color));
@@ -237,6 +284,35 @@ export function frame(lookId, frameId, { pitch = 8, cols = 26, rows = 26, t = 0,
   face(ops, L, F, pt, p, a);
   props(ops, L, F, { pt, p, pitch, W, H, cx, base, a, t });
   return { w: W, h: H, ops };
+}
+
+/** Куда смотрит стрелка-состояние Кьюби в каждом кадре (вверх — «да», вниз — сон и грусть). */
+const ARROW = {
+  sleep: [0.9, -0.6], listen: [1, 0.35], doing: null, confirm: [0.8, 1], error: [-0.9, -0.5], quiet: [-0.7, 1],
+  play: [1, 0.5], joy: [0, 1], sad: [-0.3, -1], hurt: [-1, 0.15], yawn: [-1, 0.25], stretch: [0, 1], idle: [0.6, 1], tuck: [-0.7, 1],
+};
+
+/** Сфера Блоха: задняя половина кольца — до тела, передняя и стрелка — после. */
+function bloch(dot, F, front, a, t = 0) {
+  const cy = 6.2;
+  // у «двойников» суперпозиции кольца нет — иначе две сферы сливаются в кашу
+  for (let k = 0; k < (F.inner ? 0 : 28); k++) {
+    const ang = (k / 28) * Math.PI * 2;
+    const x = Math.cos(ang) * 8.6;
+    const y = Math.sin(ang) * 2;
+    if ((y < 0) === front) dot(x, cy + y, 0.28, front ? C.ink : C.mute, a * (front ? 1 : 0.45));
+  }
+  if (!front) return;
+  let [ax, ay] = F.arrow ?? ARROW[F.id] ?? [0.6, 1];
+  if (F.id === 'doing' && !F.arrow) [ax, ay] = [Math.cos(t * 2 + 1), Math.sin(t * 2 + 1)]; // делает — стрелка крутится
+  const len = Math.hypot(ax, ay);
+  const n = F.id === 'stretch' ? 8 : 6;
+  for (let k = 1; k <= n; k++) {
+    const d = 5.5 + k * 0.9;
+    const tip = k === n;
+    const tipColor = F.id === 'error' ? C.red : F.id === 'listen' || F.id === 'confirm' ? C.orange : C.yellow;
+    dot((ax / len) * d, 6.5 + (ay / len) * d, tip ? 0.62 : 0.26, tip ? tipColor : C.ink, a);
+  }
 }
 
 function face(ops, L, F, pt, p, a) {
@@ -295,6 +371,7 @@ function face(ops, L, F, pt, p, a) {
     const q = pt(0, L.mouth + 0.9);
     ops.push({ k: 'dot', x: q.x, y: q.y, r: p * 0.34, color: C.orange, alpha: a });
   }
+  if (L.mouth == null) return; // у Ути вместо рта — клюв в клетках тела
   const m = F.mouth ?? 'flat';
   const shapes = {
     flat: [[-0.5, 0], [0.5, 0]],
@@ -329,7 +406,7 @@ function face(ops, L, F, pt, p, a) {
 /** Значки из точек вокруг фигуры: облако, солнце, «z», «?» … Всё — точки и дуги. */
 function props(ops, L, F, { pt, p, pitch, W, cx, base, a, t }) {
   const free = (x, y, r, color, alpha = a) => ops.push({ k: 'dot', x, y, r, color, alpha });
-  const top = pt(0, L.h + (L.antenna ? 2 : 0) + (L.cells().some((c) => c[1] > 11) ? 1.5 : 0));
+  const top = pt(0, L.h + (L.antenna ? 2 : 0) + (L.topExtra ?? 0) + (L.cells().some((c) => c[1] > 11) ? 1.5 : 0));
   const grid = (pattern, ox, oy, s, color) => {
     pattern.forEach((row, j) =>
       [...row].forEach((ch, i) => {
