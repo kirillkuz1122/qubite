@@ -4207,6 +4207,396 @@
         }
       }
     },
+    "/api/pult/recos": {
+      "get": {
+        "tags": ["pult"],
+        "operationId": "list_recos",
+        "responses": {
+          "200": {
+            "description": "Карточки и корзина",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PultRecos"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Только для владельца",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет входа",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pult/recos/apply": {
+      "post": {
+        "tags": ["pult"],
+        "operationId": "apply_recos",
+        "responses": {
+          "201": {
+            "description": "Задание в очереди",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecoBatch"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Только для владельца",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет входа",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Корзина пуста",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pult/recos/batches": {
+      "get": {
+        "tags": ["pult"],
+        "operationId": "list_reco_batches",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Статус задания (по умолчанию queued)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Список заданий",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RecoBatch"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Токен сборщика не подошёл",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нужен токен сборщика",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет входа",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pult/recos/batches/{id}/taken": {
+      "post": {
+        "tags": ["pult"],
+        "operationId": "take_reco_batch",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Задание",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Задание взято"
+          },
+          "401": {
+            "description": "Токен сборщика не подошёл",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нужен токен сборщика",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Задания нет или нет входа",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Задание уже взято",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pult/recos/report": {
+      "post": {
+        "tags": ["pult"],
+        "operationId": "report_recos",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecoReport"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Карточки приняты"
+          },
+          "400": {
+            "description": "Некорректный отчёт",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Токен сборщика не подошёл",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нужен токен сборщика",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет входа",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pult/recos/week": {
+      "get": {
+        "tags": ["pult"],
+        "operationId": "reco_week",
+        "responses": {
+          "200": {
+            "description": "Сводка текущей ISO-недели",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecoWeekResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Токен сборщика не подошёл",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нужен токен сборщика",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Нет входа",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pult/recos/{id}": {
+      "patch": {
+        "tags": ["pult"],
+        "operationId": "patch_reco",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Карточка",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecoPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Решение сохранено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecoCard"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Только для владельца",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Карточки нет или нет входа",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Карточка уже в задании",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/pult/report": {
       "post": {
         "tags": ["pult"],
@@ -16588,6 +16978,38 @@
           }
         }
       },
+      "PultRecos": {
+        "type": "object",
+        "required": ["cards", "counts", "older_basket", "basket_count"],
+        "properties": {
+          "basket_count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "basket_saving": {
+            "type": ["string", "null"]
+          },
+          "cards": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecoCard"
+            }
+          },
+          "counts": {
+            "$ref": "#/components/schemas/RecoCounts"
+          },
+          "older_basket": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecoCard"
+            }
+          },
+          "week": {
+            "type": ["string", "null"]
+          }
+        }
+      },
       "PultSchedule": {
         "type": "object",
         "required": [
@@ -16957,6 +17379,289 @@
             "$ref": "#/components/schemas/CommandKind"
           }
         }
+      },
+      "RecoArms": {
+        "type": "string",
+        "enum": ["apps", "routines", "memory", "skills", "jokers"]
+      },
+      "RecoBatch": {
+        "type": "object",
+        "required": ["id", "brief", "card_ids", "status", "created_at"],
+        "properties": {
+          "brief": {
+            "type": "string"
+          },
+          "card_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RecoBatchStatus"
+          },
+          "taken_at": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          }
+        }
+      },
+      "RecoBatchStatus": {
+        "type": "string",
+        "enum": ["queued", "taken"]
+      },
+      "RecoCard": {
+        "type": "object",
+        "required": [
+          "id",
+          "week",
+          "ref",
+          "arms",
+          "title",
+          "noticed",
+          "will_do",
+          "effort",
+          "files",
+          "joker",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "arms": {
+            "$ref": "#/components/schemas/RecoArms"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "effort": {
+            "$ref": "#/components/schemas/RecoEffort"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "joker": {
+            "type": "boolean"
+          },
+          "noticed": {
+            "type": "string"
+          },
+          "ref": {
+            "type": "string"
+          },
+          "saving": {
+            "type": ["string", "null"]
+          },
+          "status": {
+            "$ref": "#/components/schemas/RecoStatus"
+          },
+          "title": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "week": {
+            "type": "string"
+          },
+          "will_do": {
+            "type": "string"
+          }
+        }
+      },
+      "RecoCounts": {
+        "type": "object",
+        "required": ["all", "apps", "routines", "memory", "skills", "jokers"],
+        "properties": {
+          "all": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "apps": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "jokers": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "memory": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "routines": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "skills": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "RecoDecision": {
+        "type": "string",
+        "enum": ["new", "basket", "no", "later"]
+      },
+      "RecoEffort": {
+        "type": "string",
+        "enum": ["S", "M", "L"]
+      },
+      "RecoInput": {
+        "type": "object",
+        "required": ["ref", "arms", "title", "noticed", "will_do", "effort", "files", "joker"],
+        "properties": {
+          "arms": {
+            "$ref": "#/components/schemas/RecoArms"
+          },
+          "effort": {
+            "$ref": "#/components/schemas/RecoEffort"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "joker": {
+            "type": "boolean"
+          },
+          "noticed": {
+            "type": "string"
+          },
+          "ref": {
+            "type": "string"
+          },
+          "saving": {
+            "type": ["string", "null"]
+          },
+          "title": {
+            "type": "string"
+          },
+          "will_do": {
+            "type": "string"
+          }
+        }
+      },
+      "RecoPatch": {
+        "type": "object",
+        "required": ["status"],
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/RecoDecision"
+          }
+        }
+      },
+      "RecoReport": {
+        "type": "object",
+        "required": ["week", "cards"],
+        "properties": {
+          "cards": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecoInput"
+            }
+          },
+          "week": {
+            "type": "string"
+          }
+        }
+      },
+      "RecoSession": {
+        "type": "object",
+        "required": ["source", "model", "tokens"],
+        "properties": {
+          "model": {
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ReportSource"
+          },
+          "task": {
+            "type": ["string", "null"]
+          },
+          "tokens": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "usd": {
+            "type": ["number", "null"],
+            "format": "double"
+          }
+        }
+      },
+      "RecoStatus": {
+        "type": "string",
+        "enum": ["new", "basket", "no", "later", "applied"]
+      },
+      "RecoWeek": {
+        "type": "object",
+        "required": ["week", "sessions", "days"],
+        "properties": {
+          "days": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PultDay"
+            }
+          },
+          "sessions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecoSession"
+            }
+          },
+          "top": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PultTop"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "week": {
+            "type": "string"
+          }
+        }
+      },
+      "RecoWeekResponse": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/RecoWeek"
+          },
+          {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecoWeek"
+            }
+          }
+        ]
       },
       "RegisterRequest": {
         "type": "object",

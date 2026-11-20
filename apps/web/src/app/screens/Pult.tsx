@@ -16,10 +16,11 @@ import {
   WaitCard,
 } from '../PultParts';
 import { agentCounts, usePult, type AgentStatus, type PultBoard } from '../pult';
+import { PultRecos } from './PultRecos';
 import { PultTasks } from './PultTasks';
 import '../pult.css';
 
-const TABS = ['light', 'agents', 'map', 'tasks'] as const;
+const TABS = ['light', 'agents', 'map', 'recos', 'tasks'] as const;
 type Tab = (typeof TABS)[number];
 type Filter = 'all' | Exclude<AgentStatus, 'idle'>;
 const FILTERS: readonly Filter[] = ['all', 'waiting', 'running', 'done'];
@@ -31,7 +32,8 @@ export function PultScreen() {
   const search = new URLSearchParams(useLocation({ select: (location) => location.searchStr }));
   const navigate = useNavigate();
   const tab = TABS.find((t) => t === search.get('tab')) ?? 'light';
-  const board = usePult(owner && tab !== 'tasks');
+  const needsBoard = tab !== 'tasks' && tab !== 'recos';
+  const board = usePult(owner && needsBoard);
   const agent = search.get('agent');
   const schedule = search.get('schedule');
   const setTab = (next: Tab) => void navigate({ to: '/pult', search: () => ({ tab: next }) });
@@ -70,6 +72,7 @@ export function PultScreen() {
             { value: 'light', label: 'Светофор' },
             { value: 'agents', label: 'Агенты' },
             { value: 'map', label: 'Карта' },
+            { value: 'recos', label: 'Recos' },
             { value: 'tasks', label: 'Задачи' },
           ]}
         />
@@ -88,8 +91,9 @@ export function PultScreen() {
       )}
       <Swap view={tab} order={TABS}>
         {tab === 'tasks' && <PultTasks scheduleId={schedule} onEdit={editSchedule} />}
-        {tab !== 'tasks' && board.isPending && <p className="pult-small">Собираем Светофор…</p>}
-        {tab !== 'tasks' && board.isError && (
+        {tab === 'recos' && <PultRecos />}
+        {needsBoard && board.isPending && <p className="pult-small">Собираем Светофор…</p>}
+        {needsBoard && board.isError && (
           <Note tone="bad">
             {say(board.error)}{' '}
             <Button size="sm" variant="quiet" onClick={() => void board.refetch()}>
@@ -217,6 +221,9 @@ function Light({
             </Button>
             <Button size="sm" onClick={() => onTab('map')}>
               Карта
+            </Button>
+            <Button size="sm" onClick={() => onTab('recos')}>
+              Recos
             </Button>
             <Button size="sm" onClick={() => onTab('tasks')}>
               Задачи

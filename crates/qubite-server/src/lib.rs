@@ -34,6 +34,7 @@ pub mod opportunities;
 pub mod platform;
 pub mod projects;
 pub mod pult;
+pub mod pult_recos;
 pub mod pult_schedules;
 pub mod registration;
 pub mod routes;
@@ -260,6 +261,13 @@ impl AppState {
         pult::create_collector,
         pult::delete_collector,
         pult::receive_report,
+        pult_recos::list_recos,
+        pult_recos::patch_reco,
+        pult_recos::apply_recos,
+        pult_recos::report_recos,
+        pult_recos::reco_week,
+        pult_recos::list_reco_batches,
+        pult_recos::take_reco_batch,
         pult_schedules::list_schedules,
         pult_schedules::create_schedule,
         pult_schedules::patch_schedule,
@@ -519,6 +527,21 @@ impl AppState {
         pult::ReportSession,
         pult::ReportDay,
         pult::Usage,
+        pult_recos::RecoArms,
+        pult_recos::RecoEffort,
+        pult_recos::RecoStatus,
+        pult_recos::RecoDecision,
+        pult_recos::RecoPatch,
+        pult_recos::RecoInput,
+        pult_recos::RecoReport,
+        pult_recos::RecoCard,
+        pult_recos::RecoCounts,
+        pult_recos::PultRecos,
+        pult_recos::RecoBatchStatus,
+        pult_recos::RecoBatch,
+        pult::RecoWeek,
+        pult::RecoWeekResponse,
+        pult::RecoSession,
         pult_schedules::PultSchedule,
         pult_schedules::PultSchedules,
         pult_schedules::NewSchedule,
@@ -846,6 +869,19 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
         .route(
             "/api/pult/report",
             post(pult::receive_report).layer(DefaultBodyLimit::max(512 * 1024)),
+        )
+        .route("/api/pult/recos", get(pult_recos::list_recos))
+        .route("/api/pult/recos/{id}", patch(pult_recos::patch_reco))
+        .route("/api/pult/recos/apply", post(pult_recos::apply_recos))
+        .route(
+            "/api/pult/recos/report",
+            post(pult_recos::report_recos).layer(DefaultBodyLimit::max(128 * 1024)),
+        )
+        .route("/api/pult/recos/week", get(pult_recos::reco_week))
+        .route("/api/pult/recos/batches", get(pult_recos::list_reco_batches))
+        .route(
+            "/api/pult/recos/batches/{id}/taken",
+            post(pult_recos::take_reco_batch),
         )
         .route(
             "/api/pult/schedules",

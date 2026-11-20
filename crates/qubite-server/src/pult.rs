@@ -1245,6 +1245,109 @@ pub(crate) async fn command_day(
     }))
 }
 
+#[derive(Serialize, ToSchema)]
+pub struct RecoWeek {
+    week: String,
+    sessions: Vec<RecoSession>,
+    days: Vec<PultDay>,
+    top: Option<PultTop>,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct RecoSession {
+    source: ReportSource,
+    model: String,
+    tokens: u64,
+    usd: Option<f64>,
+    task: Option<String>,
+}
+
+#[derive(Serialize, ToSchema)]
+#[serde(untagged)]
+pub enum RecoWeekResponse {
+    Summary(RecoWeek),
+    Empty(Vec<RecoWeek>),
+}
+
+pub(crate) async fn reco_week(pool: &sqlx::PgPool) -> Result<RecoWeekResponse, ApiError> {
+    let rows: Vec<serde_json::Value> =
+        sqlx::query_scalar("SELECT body FROM pult_reports ORDER BY received_at DESC, collector_id")
+            .fetch_all(pool)
+            .await
+            .map_err(db)?;
+    let now = OffsetDateTime::now_utc();
+    let today = now.date();
+    let (year, week, _) = today.to_iso_week_date();
+    let monday = today - Duration::days(i64::from(today.weekday().number_days_from_monday()));
+    let first = monday.to_string();
+    let last = today.to_string();
+    let mut by_day: BTreeMap<String, Vec<Usage>> = BTreeMap::new();
+    let mut by_task: BTreeMap<String, u64> = BTreeMap::new();
+    let mut seen = std::collections::HashSet::new();
+    let mut sessions = Vec::new();
+    for row in rows {
+        let Ok(report) = serde_json::from_value::<Report>(row) else {
+            continue;
+        };
+        for day in report.days {
+            if day.date >= first && day.date <= last {
+                by_day.entry(day.date).or_default().extend(day.usage);
+            }
+        }
+        for session in report.sessions {
+            // Токены сессии накопительные. Берём сессии, начатые на этой неделе.
+            let started = session.started_at.to_offset(time::UtcOffset::UTC).date();
+            let cloud = report.source == ReportSource::Cloud;
+            if started < monday || session.started_at > now || !seen.insert((cloud, session.id)) {
+                continue;
+            }
+            // Уходят номера рабочих задач и расход, без заголовков запросов, путей и ссылок.
+            let task = task_id(&session.branch)
+                .and_then(|id| id.split_once('-'))
+                .filter(|(name, number)| {
+                    !name.is_empty()
+                        && name.bytes().all(|c| c.is_ascii_uppercase())
+                        && !number.is_empty()
+                        && number.bytes().all(|c| c.is_ascii_digit())
+                })
+                .map(|(name, number)| format!("{name}-{number}"));
+            let (tokens, usd) = total(&session.usage);
+            if let Some(task) = &task {
+                let sum = by_task.entry(task.clone()).or_default();
+                *sum = sum.saturating_add(tokens);
+            }
+            sessions.push(RecoSession {
+                source: report.source,
+                model: session.model,
+                tokens,
+                usd,
+                task,
+            });
+        }
+    }
+    if sessions.is_empty() && by_day.is_empty() {
+        return Ok(RecoWeekResponse::Empty(Vec::new()));
+    }
+    let days = by_day
+        .into_iter()
+        .map(|(date, usage)| {
+            let (tokens, usd) = total(&usage);
+            PultDay { date, tokens, usd }
+        })
+        .collect();
+    let top = by_task
+        .into_iter()
+        .filter(|(_, tokens)| *tokens > 0)
+        .max_by_key(|(_, tokens)| *tokens)
+        .map(|(title, tokens)| PultTop { title, tokens });
+    Ok(RecoWeekResponse::Summary(RecoWeek {
+        week: format!("{year:04}-W{week:02}"),
+        sessions,
+        days,
+        top,
+    }))
+}
+
 /// Стоимость сравнимой сессии и её доля недельного лимита по сводке сборщика.
 pub(crate) async fn command_estimate(
     state: &AppState,

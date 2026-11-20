@@ -1318,6 +1318,118 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/pult/recos': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['list_recos'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/pult/recos/apply': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['apply_recos'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/pult/recos/batches': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['list_reco_batches'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/pult/recos/batches/{id}/taken': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['take_reco_batch'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/pult/recos/report': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['report_recos'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/pult/recos/week': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['reco_week'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/pult/recos/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch: operations['patch_reco'];
+    trace?: never;
+  };
   '/api/pult/report': {
     parameters: {
       query?: never;
@@ -5746,6 +5858,15 @@ export interface components {
       number: number;
       url: string;
     };
+    PultRecos: {
+      /** Format: int32 */
+      basket_count: number;
+      basket_saving?: string | null;
+      cards: components['schemas']['RecoCard'][];
+      counts: components['schemas']['RecoCounts'];
+      older_basket: components['schemas']['RecoCard'][];
+      week?: string | null;
+    };
     PultSchedule: {
       /** Format: double */
       cap_percent?: number | null;
@@ -5900,6 +6021,94 @@ export interface components {
     ReclassifyRequest: {
       kind: components['schemas']['CommandKind'];
     };
+    /** @enum {string} */
+    RecoArms: 'apps' | 'routines' | 'memory' | 'skills' | 'jokers';
+    RecoBatch: {
+      brief: string;
+      card_ids: string[];
+      /** Format: date-time */
+      created_at: string;
+      /** Format: uuid */
+      id: string;
+      status: components['schemas']['RecoBatchStatus'];
+      /** Format: date-time */
+      taken_at?: string | null;
+    };
+    /** @enum {string} */
+    RecoBatchStatus: 'queued' | 'taken';
+    RecoCard: {
+      arms: components['schemas']['RecoArms'];
+      /** Format: date-time */
+      created_at: string;
+      effort: components['schemas']['RecoEffort'];
+      files: string[];
+      /** Format: uuid */
+      id: string;
+      joker: boolean;
+      noticed: string;
+      ref: string;
+      saving?: string | null;
+      status: components['schemas']['RecoStatus'];
+      title: string;
+      /** Format: date-time */
+      updated_at: string;
+      week: string;
+      will_do: string;
+    };
+    RecoCounts: {
+      /** Format: int32 */
+      all: number;
+      /** Format: int32 */
+      apps: number;
+      /** Format: int32 */
+      jokers: number;
+      /** Format: int32 */
+      memory: number;
+      /** Format: int32 */
+      routines: number;
+      /** Format: int32 */
+      skills: number;
+    };
+    /** @enum {string} */
+    RecoDecision: 'new' | 'basket' | 'no' | 'later';
+    /** @enum {string} */
+    RecoEffort: 'S' | 'M' | 'L';
+    RecoInput: {
+      arms: components['schemas']['RecoArms'];
+      effort: components['schemas']['RecoEffort'];
+      files: string[];
+      joker: boolean;
+      noticed: string;
+      ref: string;
+      saving?: string | null;
+      title: string;
+      will_do: string;
+    };
+    RecoPatch: {
+      status: components['schemas']['RecoDecision'];
+    };
+    RecoReport: {
+      cards: components['schemas']['RecoInput'][];
+      week: string;
+    };
+    RecoSession: {
+      model: string;
+      source: components['schemas']['ReportSource'];
+      task?: string | null;
+      /** Format: int64 */
+      tokens: number;
+      /** Format: double */
+      usd?: number | null;
+    };
+    /** @enum {string} */
+    RecoStatus: 'new' | 'basket' | 'no' | 'later' | 'applied';
+    RecoWeek: {
+      days: components['schemas']['PultDay'][];
+      sessions: components['schemas']['RecoSession'][];
+      top?: components['schemas']['PultTop'] | null;
+      week: string;
+    };
+    RecoWeekResponse: components['schemas']['RecoWeek'] | components['schemas']['RecoWeek'][];
     RegisterRequest: {
       /** @description Токен виджета CAPTCHA (нужен при открытой регистрации без приглашения). */
       captcha_token?: string | null;
@@ -9963,6 +10172,357 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['PlatformStatus'];
+        };
+      };
+    };
+  };
+  list_recos: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Карточки и корзина */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PultRecos'];
+        };
+      };
+      /** @description Только для владельца */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет входа */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  apply_recos: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Задание в очереди */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RecoBatch'];
+        };
+      };
+      /** @description Только для владельца */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет входа */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Корзина пуста */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  list_reco_batches: {
+    parameters: {
+      query?: {
+        /** @description Статус задания (по умолчанию queued) */
+        status?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Список заданий */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RecoBatch'][];
+        };
+      };
+      /** @description Токен сборщика не подошёл */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нужен токен сборщика */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет входа */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  take_reco_batch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Задание */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Задание взято */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Токен сборщика не подошёл */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нужен токен сборщика */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Задания нет или нет входа */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Задание уже взято */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  report_recos: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['RecoReport'];
+      };
+    };
+    responses: {
+      /** @description Карточки приняты */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Некорректный отчёт */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Токен сборщика не подошёл */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нужен токен сборщика */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет входа */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  reco_week: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Сводка текущей ISO-недели */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RecoWeekResponse'];
+        };
+      };
+      /** @description Токен сборщика не подошёл */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нужен токен сборщика */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет входа */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  patch_reco: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Карточка */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['RecoPatch'];
+      };
+    };
+    responses: {
+      /** @description Решение сохранено */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RecoCard'];
+        };
+      };
+      /** @description Только для владельца */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Карточки нет или нет входа */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Карточка уже в задании */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
         };
       };
     };
