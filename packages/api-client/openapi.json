@@ -4249,6 +4249,315 @@
         }
       }
     },
+    "/api/pult/schedules": {
+      "get": {
+        "tags": ["pult"],
+        "operationId": "list_schedules",
+        "responses": {
+          "200": {
+            "description": "Расписание и расход за 7 дней",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PultSchedules"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Только для владельца",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["pult"],
+        "operationId": "create_schedule",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewSchedule"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Задача создана",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PultSchedule"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Некорректные поля",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Только для владельца",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Имя уже занято",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pult/schedules/due": {
+      "get": {
+        "tags": ["pult"],
+        "summary": "Список разрешённых задач. Время запуска выбирает раннер.",
+        "operationId": "due_schedules",
+        "responses": {
+          "200": {
+            "description": "Задачи, разрешённые к запуску",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PultSchedule"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Только для владельца",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pult/schedules/runs": {
+      "post": {
+        "tags": ["pult"],
+        "summary": "Принять отчёт владельца или сборщика, в том числе о запуске задачи на паузе.",
+        "operationId": "record_schedule_run",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScheduleRun"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Запуск учтён"
+          },
+          "400": {
+            "description": "Некорректный отчёт",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Токен сборщика не подошёл",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Только для владельца или сборщика",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Задачи нет",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "ID уже использован другой задачей",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pult/schedules/{id}": {
+      "delete": {
+        "tags": ["pult"],
+        "operationId": "delete_schedule",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Задача",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Задача удалена"
+          },
+          "403": {
+            "description": "Только для владельца",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Задачи нет",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": ["pult"],
+        "operationId": "patch_schedule",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Задача",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SchedulePatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Задача обновлена",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PultSchedule"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Некорректные поля",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Только для владельца",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Задачи нет",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Потолок достигнут или имя уже занято",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/ready": {
       "get": {
         "tags": ["system"],
@@ -15059,6 +15368,42 @@
         },
         "additionalProperties": false
       },
+      "NewSchedule": {
+        "type": "object",
+        "required": ["name", "kind", "schedule_text", "days", "where_run"],
+        "properties": {
+          "cap_tokens": {
+            "type": ["integer", "null"],
+            "format": "int64"
+          },
+          "cap_usd": {
+            "type": ["number", "null"],
+            "format": "double"
+          },
+          "days": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ScheduleKind"
+          },
+          "model": {
+            "type": ["string", "null"]
+          },
+          "name": {
+            "type": "string"
+          },
+          "schedule_text": {
+            "type": "string"
+          },
+          "where_run": {
+            "$ref": "#/components/schemas/SchedulePlace"
+          }
+        }
+      },
       "NoticeAnswer": {
         "type": "object",
         "description": "Ответ кнопкой.",
@@ -16243,6 +16588,126 @@
           }
         }
       },
+      "PultSchedule": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "schedule_text",
+          "days",
+          "where_run",
+          "enabled",
+          "tokens_7d",
+          "usd_7d",
+          "cap_status"
+        ],
+        "properties": {
+          "cap_percent": {
+            "type": ["number", "null"],
+            "format": "double"
+          },
+          "cap_status": {
+            "$ref": "#/components/schemas/ScheduleCap"
+          },
+          "cap_tokens": {
+            "type": ["integer", "null"],
+            "format": "int64"
+          },
+          "cap_usd": {
+            "type": ["number", "null"],
+            "format": "double"
+          },
+          "days": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "description": "Понедельник = 0, воскресенье = 6."
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ScheduleKind"
+          },
+          "last_at": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "last_note": {
+            "type": ["string", "null"]
+          },
+          "last_outcome": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ScheduleOutcome"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "model": {
+            "type": ["string", "null"]
+          },
+          "name": {
+            "type": "string"
+          },
+          "paused_reason": {
+            "type": ["string", "null"]
+          },
+          "schedule_text": {
+            "type": "string"
+          },
+          "tokens_7d": {
+            "type": "number",
+            "format": "double"
+          },
+          "usd_7d": {
+            "type": "number",
+            "format": "double"
+          },
+          "where_run": {
+            "$ref": "#/components/schemas/SchedulePlace"
+          }
+        }
+      },
+      "PultSchedules": {
+        "type": "object",
+        "required": ["schedules", "million_tokens_7d", "usd_7d", "active", "quiet"],
+        "properties": {
+          "active": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "million_tokens_7d": {
+            "type": "number",
+            "format": "double"
+          },
+          "quiet": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "schedules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PultSchedule"
+            }
+          },
+          "usd_7d": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
       "PultSource": {
         "type": "object",
         "description": "Источник данных и его состояние — чтобы «нет данных» было честным и понятным.",
@@ -16325,17 +16790,17 @@
       },
       "PultWaiting": {
         "type": "object",
-        "description": "Решение, которого ждёт агент (вопрос в issue).",
-        "required": ["key", "number", "title", "text", "options", "url", "updated_at"],
+        "description": "Вопрос агента или задача, поставленная на паузу.",
+        "required": ["key", "title", "text", "options", "url", "updated_at"],
         "properties": {
           "key": {
             "type": "string",
-            "description": "Ключ агента — открыть карточку."
+            "description": "Ключ агента или ID задачи по расписанию."
           },
           "number": {
-            "type": "integer",
+            "type": ["integer", "null"],
             "format": "int64",
-            "description": "Номер issue — ответить кнопкой через Command.",
+            "description": "Номер issue для ответа через Command. У паузы расписания его нет.",
             "minimum": 0
           },
           "options": {
@@ -16831,6 +17296,75 @@
           }
         },
         "additionalProperties": false
+      },
+      "ScheduleCap": {
+        "type": "string",
+        "enum": ["ok", "warn", "reached"]
+      },
+      "ScheduleKind": {
+        "type": "string",
+        "enum": ["active", "quiet"]
+      },
+      "ScheduleOutcome": {
+        "type": "string",
+        "enum": ["found", "quiet", "failed"]
+      },
+      "SchedulePatch": {
+        "type": "object",
+        "properties": {
+          "cap_tokens": {
+            "type": ["integer", "null"],
+            "format": "int64"
+          },
+          "cap_usd": {
+            "type": ["number", "null"],
+            "format": "double"
+          },
+          "enabled": {
+            "type": ["boolean", "null"]
+          },
+          "name": {
+            "type": ["string", "null"]
+          }
+        },
+        "additionalProperties": false
+      },
+      "SchedulePlace": {
+        "type": "string",
+        "enum": ["pi", "cloud", "ci"]
+      },
+      "ScheduleRun": {
+        "type": "object",
+        "required": ["name", "tokens", "usd", "outcome"],
+        "properties": {
+          "at": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "id": {
+            "type": ["string", "null"],
+            "format": "uuid",
+            "description": "Повтор запроса с тем же ID не добавляет расход второй раз."
+          },
+          "name": {
+            "type": "string",
+            "description": "Имя задачи из расписания."
+          },
+          "note": {
+            "type": ["string", "null"]
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/ScheduleOutcome"
+          },
+          "tokens": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "usd": {
+            "type": "number",
+            "format": "double"
+          }
+        }
       },
       "ServerInfo": {
         "type": "object",

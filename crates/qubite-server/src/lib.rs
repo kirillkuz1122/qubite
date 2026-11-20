@@ -34,6 +34,7 @@ pub mod opportunities;
 pub mod platform;
 pub mod projects;
 pub mod pult;
+pub mod pult_schedules;
 pub mod registration;
 pub mod routes;
 pub mod sync;
@@ -259,6 +260,12 @@ impl AppState {
         pult::create_collector,
         pult::delete_collector,
         pult::receive_report,
+        pult_schedules::list_schedules,
+        pult_schedules::create_schedule,
+        pult_schedules::patch_schedule,
+        pult_schedules::delete_schedule,
+        pult_schedules::due_schedules,
+        pult_schedules::record_schedule_run,
         ai::owner_ai_models,
         ai::owner_ai_catalog,
         ai::owner_ai_update_model,
@@ -512,6 +519,15 @@ impl AppState {
         pult::ReportSession,
         pult::ReportDay,
         pult::Usage,
+        pult_schedules::PultSchedule,
+        pult_schedules::PultSchedules,
+        pult_schedules::NewSchedule,
+        pult_schedules::SchedulePatch,
+        pult_schedules::ScheduleRun,
+        pult_schedules::ScheduleKind,
+        pult_schedules::SchedulePlace,
+        pult_schedules::ScheduleOutcome,
+        pult_schedules::ScheduleCap,
         ai::AiModelItem,
         ai::AiCatalogItem,
         ai::AiModelChange,
@@ -830,6 +846,19 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
         .route(
             "/api/pult/report",
             post(pult::receive_report).layer(DefaultBodyLimit::max(512 * 1024)),
+        )
+        .route(
+            "/api/pult/schedules",
+            get(pult_schedules::list_schedules).post(pult_schedules::create_schedule),
+        )
+        .route(
+            "/api/pult/schedules/{id}",
+            patch(pult_schedules::patch_schedule).delete(pult_schedules::delete_schedule),
+        )
+        .route("/api/pult/schedules/due", get(pult_schedules::due_schedules))
+        .route(
+            "/api/pult/schedules/runs",
+            post(pult_schedules::record_schedule_run).layer(DefaultBodyLimit::max(16 * 1024)),
         )
         .route(
             "/api/owner/accounts/{account_id}/grants",

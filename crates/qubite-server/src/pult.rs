@@ -403,13 +403,13 @@ pub struct PultCounts {
     done: u32,
 }
 
-/// Решение, которого ждёт агент (вопрос в issue).
+/// Вопрос агента или задача, поставленная на паузу.
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct PultWaiting {
-    /// Ключ агента — открыть карточку.
+    /// Ключ агента или ID задачи по расписанию.
     key: String,
-    /// Номер issue — ответить кнопкой через Command.
-    number: u64,
+    /// Номер issue для ответа через Command. У паузы расписания его нет.
+    number: Option<u64>,
     title: String,
     text: String,
     /// Варианты ответа, первый — рекомендация.
@@ -628,7 +628,7 @@ async fn gather(state: &AppState, fresh: bool) -> Result<Gathered, ApiError> {
     })
 }
 
-fn db(e: sqlx::Error) -> ApiError {
+pub(crate) fn db(e: sqlx::Error) -> ApiError {
     ApiError::from(qubite_auth::Error::Db(e))
 }
 
@@ -938,7 +938,7 @@ fn agents(g: &Gathered, now: OffsetDateTime) -> (Vec<PultAgent>, Vec<PultWaiting
                     harness::parse_question(issue.body.as_deref().unwrap_or_default());
                 waiting.push(PultWaiting {
                     key: agent.key.clone(),
-                    number: issue.number,
+                    number: Some(issue.number),
                     title: issue.title.clone(),
                     text,
                     options,
@@ -1475,7 +1475,23 @@ pub async fn pult_board(
     _owner: Owner,
     Query(query): Query<PultQuery>,
 ) -> Result<Json<PultBoard>, ApiError> {
-    Ok(Json(refresh(&state, query.fresh).await?.0))
+    let (mut board, _) = refresh(&state, query.fresh).await?;
+    for schedule in crate::pult_schedules::paused(state.db.pool()).await? {
+        board.waiting.push(PultWaiting {
+            key: schedule.id.to_string(),
+            number: None,
+            title: schedule.name,
+            text: "Задача на паузе: достигнут недельный потолок.".into(),
+            options: Vec::new(),
+            url: format!("/pult?tab=tasks&schedule={}", schedule.id),
+            updated_at: schedule.updated_at,
+        });
+        board.counts.waiting += 1;
+    }
+    board
+        .waiting
+        .sort_by_key(|w| std::cmp::Reverse(w.updated_at));
+    Ok(Json(board))
 }
 
 /// Карточка агента и его история (последние 50 событий).
@@ -1687,6 +1703,29 @@ fn unauthorized() -> ApiError {
     )
 }
 
+pub(crate) fn collector_token(headers: &HeaderMap) -> Option<&str> {
+    headers
+        .get(axum::http::header::AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "))
+        .map(str::trim)
+        .filter(|t| t.starts_with("qpult_"))
+}
+
+pub(crate) async fn authenticate_collector(
+    conn: &mut sqlx::PgConnection,
+    token: &str,
+) -> Result<Uuid, ApiError> {
+    sqlx::query_scalar(
+        "UPDATE pult_collectors SET last_seen_at = now() WHERE token_hash = $1 RETURNING id",
+    )
+    .bind(qubite_auth::token_hash(token))
+    .fetch_optional(conn)
+    .await
+    .map_err(db)?
+    .ok_or_else(unauthorized)
+}
+
 /// Принять сводку сборщика (токен `Authorization: Bearer qpult_…`, не сессия).
 #[utoipa::path(post, path = "/api/pult/report", tag = "pult",
     request_body = Report,
@@ -1700,22 +1739,12 @@ pub async fn receive_report(
     headers: HeaderMap,
     body: axum::body::Bytes,
 ) -> Result<StatusCode, ApiError> {
-    let token = headers
-        .get(axum::http::header::AUTHORIZATION)
-        .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.strip_prefix("Bearer "))
-        .map(str::trim)
-        .filter(|t| t.starts_with("qpult_"))
-        .ok_or_else(unauthorized)?;
+    let token = collector_token(&headers).ok_or_else(unauthorized)?;
     let pool = state.db.pool();
-    let id: Option<Uuid> = sqlx::query_scalar(
-        "UPDATE pult_collectors SET last_seen_at = now() WHERE token_hash = $1 RETURNING id",
-    )
-    .bind(qubite_auth::token_hash(token))
-    .fetch_optional(pool)
-    .await
-    .map_err(db)?;
-    let id = id.ok_or_else(unauthorized)?;
+    let id = {
+        let mut conn = pool.acquire().await.map_err(db)?;
+        authenticate_collector(&mut conn, token).await?
+    };
     // тело разбираем только после токена: чужой запрос не тратит сервер и получает 401
     let report: Report = serde_json::from_slice(&body).map_err(|e| {
         ApiError::new(

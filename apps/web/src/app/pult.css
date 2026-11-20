@@ -638,3 +638,112 @@
   white-space: pre-wrap;
   word-break: break-all;
 }
+
+/* Задачи по расписанию */
+.pult-tasks .pult-count .pult-small {
+  white-space: normal;
+}
+.pult-tasks .pult-num {
+  overflow-wrap: anywhere;
+}
+.pult-task-actions,
+.pult-task-name,
+.pult-task-checks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.pult-task-name > .q-btn {
+  padding-inline: 0;
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: start;
+  color: var(--q-ink);
+}
+.pult-task-days {
+  display: inline-grid;
+  grid-template-columns: repeat(7, auto);
+  gap: 4px;
+}
+.pult-task-days > span {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+}
+.pult-task-days .pult-dot {
+  margin: 0;
+}
+.pult-task-meter {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  min-width: 0;
+}
+.pult-task-table {
+  border-spacing: 0;
+  inline-size: 100%;
+  text-align: start;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.pult-task-table :is(th, td) {
+  padding: 8px;
+  text-align: start;
+}
+.pult-task-table th {
+  font-weight: 500;
+  color: var(--q-mute);
+}
+.pult-task-table tr > td {
+  border-block-start: 1px solid var(--q-line);
+}
+.pult-task-switch {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-inline-size: 0;
+}
+.pult-task-switch:disabled {
+  opacity: 0.6;
+}
+.pult-task-card {
+  grid-template-columns: minmax(0, 1fr) minmax(0, auto);
+  align-items: center;
+}
+.pult-task-card .pult-task-switch {
+  justify-self: end;
+}
+.pult-task-card .pult-task-spend {
+  text-align: end;
+}
+.pult-task-card > :last-child {
+  text-align: end;
+}
+@media (max-width: 420px) {
+  .pult-tasks .pult-num {
+    font-size: 24px;
+  }
+  .pult-task-card {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .pult-task-card > :first-child,
+  .pult-task-card > .pult-task-switch {
+    grid-row: 1;
+  }
+  .pult-task-card > :first-child {
+    grid-column: 1 / -1;
+    padding-inline-end: 64px;
+  }
+  .pult-task-card > .pult-task-switch {
+    grid-column: 2;
+    align-self: start;
+  }
+}
+.pult-tasks .sec-h {
+  flex-wrap: wrap;
+  gap: 12px;
+}
