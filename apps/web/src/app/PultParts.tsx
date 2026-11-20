@@ -328,12 +328,14 @@ export function WaitCard({
   w,
   now,
   main,
+  compact = false,
   onOpen,
 }: {
   w: PultWaiting;
   now: Date;
   /** у первой карточки на экране — главная кнопка */
   main: boolean;
+  compact?: boolean;
   onOpen: () => void;
 }) {
   const a = useAnswer(w);
@@ -376,9 +378,11 @@ export function WaitCard({
               {o}
             </Button>
           ))}
-          <Button size="sm" variant={first ? 'quiet' : 'outline'} onClick={onOpen}>
-            Открыть
-          </Button>
+          {(!compact || w.options.length < 2) && (
+            <Button size="sm" variant={first ? 'quiet' : 'outline'} onClick={onOpen}>
+              Открыть
+            </Button>
+          )}
         </div>
         {a.error && <Note tone="bad">{a.error}</Note>}
       </article>
