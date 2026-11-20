@@ -6,7 +6,7 @@ use qubite_objects::{NewAuditEntry, audit};
 use serde::Serialize;
 use sqlx::PgPool;
 
-use crate::{AiError, Result, openrouter::CatalogEntry};
+use crate::{Result, chatgpt, openrouter::CatalogEntry};
 
 /// Стартовый allowlist OpenRouter (D-201): дешёвые и быстрые модели без
 /// «размышлений» — для разбора мыслей и коротких ответов.
@@ -120,7 +120,44 @@ pub async fn apply(
     entries: &[CatalogEntry],
     allowlist: &Allowlist,
 ) -> Result<SyncReport> {
+    apply_snapshot(pool, provider_id, entries, allowlist, None).await
+}
+
+/// Обновить каталог подписки и записать каждое изменение доступности в аудит.
+pub async fn apply_chatgpt(pool: &PgPool, catalog: &chatgpt::ModelCatalog) -> Result<SyncReport> {
+    apply_snapshot(
+        pool,
+        chatgpt::PROVIDER_ID,
+        &catalog.entries,
+        &Allowlist::Keep,
+        Some(&catalog.listed),
+    )
+    .await
+}
+
+async fn apply_snapshot(
+    pool: &PgPool,
+    provider_id: &str,
+    entries: &[CatalogEntry],
+    allowlist: &Allowlist,
+    listed: Option<&[String]>,
+) -> Result<SyncReport> {
     let mut tx = pool.begin().await?;
+    // Таймер, вход и CLI могут обновлять один каталог одновременно.
+    sqlx::query("SELECT id FROM ai_providers WHERE id = $1 FOR NO KEY UPDATE")
+        .bind(provider_id)
+        .execute(&mut *tx)
+        .await?;
+    let previously_listed: Vec<String> = if listed.is_some() {
+        sqlx::query_scalar(
+            "SELECT lower(external_id) FROM ai_catalog WHERE provider_id = $1 AND listed",
+        )
+        .bind(provider_id)
+        .fetch_all(&mut *tx)
+        .await?
+    } else {
+        Vec::new()
+    };
     // Каталог целиком — из него owner выбирает модели (D-210).
     sqlx::query("DELETE FROM ai_catalog WHERE provider_id = $1")
         .bind(provider_id)
@@ -129,18 +166,19 @@ pub async fn apply(
     for entry in entries {
         sqlx::query(
             "INSERT INTO ai_catalog (provider_id, external_id, context_tokens, price_in_per_mtok, \
-             price_out_per_mtok) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING",
+             price_out_per_mtok, listed) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT DO NOTHING",
         )
         .bind(provider_id)
         .bind(&entry.external_id)
         .bind(entry.context_tokens.max(0))
         .bind(entry.price_in_per_mtok)
         .bind(entry.price_out_per_mtok)
+        .bind(listed.is_some_and(|models| models.contains(&entry.external_id)))
         .execute(&mut *tx)
         .await?;
     }
     let known: Vec<(String, bool)> =
-        sqlx::query_as("SELECT external_id, enabled FROM ai_models WHERE provider_id = $1")
+        sqlx::query_as("SELECT id, enabled FROM ai_models WHERE provider_id = $1 FOR UPDATE")
             .bind(provider_id)
             .fetch_all(&mut *tx)
             .await?;
@@ -151,15 +189,32 @@ pub async fn apply(
     let mut report = SyncReport::default();
 
     for entry in entries {
-        let existing = known.iter().find(|(id, _)| id == &entry.external_id);
+        let id = model_id_for(provider_id, &entry.external_id);
+        let existing = known.iter().find(|(known_id, _)| known_id == &id);
+        let was_enabled = existing.is_some_and(|(_, enabled)| *enabled);
+        let newly_listed = listed.is_some_and(|models| models.contains(&entry.external_id))
+            && !previously_listed.contains(&model_id(&entry.external_id));
         let enabled = match &wanted {
             Some(list) => list.contains(&entry.external_id.as_str()),
-            None => existing.is_some_and(|(_, enabled)| *enabled),
+            None => was_enabled || newly_listed,
         };
         if existing.is_none() && !enabled {
             continue; // весь каталог в базу не тащим — только нужные модели
         }
-        let id = model_id_for(provider_id, &entry.external_id);
+        if !id.as_bytes().first().is_some_and(u8::is_ascii_alphanumeric)
+            || !id
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b"_.:/-".contains(&b))
+        {
+            tracing::warn!(
+                model = entry.external_id,
+                "имя модели не подходит для ID Qubite"
+            );
+            continue;
+        }
+        if report.updated.contains(&id) {
+            continue;
+        }
         let written = sqlx::query(
             "INSERT INTO ai_models (id, provider_id, external_id, price_in_per_mtok, \
              price_out_per_mtok, context_tokens, enabled) VALUES ($1, $2, $3, $4, $5, $6, $7) \
@@ -177,28 +232,38 @@ pub async fn apply(
         .bind(entry.context_tokens.max(0))
         .bind(enabled)
         .execute(&mut *tx)
-        .await;
-        match written {
-            Ok(done) if done.rows_affected() == 1 => {
-                report.updated.push(id.clone());
-                if enabled {
-                    report.enabled.push(id);
-                }
-            }
-            Ok(_) => tracing::warn!(
+        .await?;
+        if written.rows_affected() == 0 {
+            tracing::warn!(
                 model = id,
                 "модель с таким ID принадлежит другому провайдеру"
-            ),
-            Err(sqlx::Error::Database(db)) if db.code().as_deref() == Some("23514") => {
-                tracing::warn!(
-                    model = entry.external_id,
-                    "имя модели не подходит для ID Qubite"
-                );
-            }
-            Err(error) => return Err(AiError::Db(error)),
+            );
+            continue;
+        }
+        if newly_listed && !was_enabled {
+            record_availability(&mut tx, &id, true).await?;
+        }
+        report.updated.push(id.clone());
+        if enabled {
+            report.enabled.push(id);
         }
     }
 
+    if listed.is_some() {
+        let removed: Vec<String> = sqlx::query_scalar(
+            "UPDATE ai_models m SET enabled = false WHERE m.provider_id = $1 AND m.enabled \
+             AND NOT ('realtime' = ANY(m.capabilities)) AND NOT EXISTS (\
+               SELECT 1 FROM ai_catalog c WHERE c.provider_id = m.provider_id \
+               AND lower(c.external_id) = lower(m.external_id)\
+             ) RETURNING m.id",
+        )
+        .bind(provider_id)
+        .fetch_all(&mut *tx)
+        .await?;
+        for id in removed {
+            record_availability(&mut tx, &id, false).await?;
+        }
+    }
     if let Some(list) = &wanted {
         for external in list {
             if !report
@@ -235,6 +300,53 @@ pub async fn apply(
     .await?;
     tx.commit().await?;
     Ok(report)
+}
+
+async fn record_availability(conn: &mut sqlx::PgConnection, id: &str, enabled: bool) -> Result<()> {
+    audit::record(
+        conn,
+        NewAuditEntry {
+            action: "ai.model_enabled_set".into(),
+            target_kind: "ai_model".into(),
+            target_id: Some(id.into()),
+            after: Some(
+                serde_json::json!({ "enabled": enabled, "from_catalog": chatgpt::PROVIDER_ID }),
+            ),
+            reason: Some("каталог подписки ChatGPT".into()),
+            ..NewAuditEntry::default()
+        },
+    )
+    .await?;
+    Ok(())
+}
+
+/// Самая новая включённая модель Sol. Части версии сравниваются числами.
+pub async fn latest_sol(pool: &PgPool) -> Result<Option<String>> {
+    let ids: Vec<String> = sqlx::query_scalar(
+        "SELECT m.id FROM ai_models m JOIN ai_providers p ON p.id = m.provider_id \
+         WHERE m.provider_id = $1 AND m.enabled AND p.enabled AND m.id LIKE 'chatgpt:gpt-%-sol'",
+    )
+    .bind(chatgpt::PROVIDER_ID)
+    .fetch_all(pool)
+    .await?;
+    Ok(ids
+        .into_iter()
+        .filter_map(|id| {
+            let version = id.strip_prefix("chatgpt:gpt-")?.strip_suffix("-sol")?;
+            let parts = version
+                .split('.')
+                .map(|part| {
+                    if part.bytes().all(|b| b.is_ascii_digit()) {
+                        part.parse::<u64>().ok()
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Option<Vec<_>>>()?;
+            Some((parts, id))
+        })
+        .max()
+        .map(|(_, id)| id))
 }
 
 /// Есть ли у провайдера хоть одна модель в базе (первый запуск или нет).
