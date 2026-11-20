@@ -1,4 +1,5 @@
 import { Button, DotIcon, EmptyState, Note, Segmented, Swap, WIDE, useMedia } from '@qubite/ui';
+import { useLocation, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { say, useMe } from '../../auth/client';
 import { SecHead } from '../parts';
@@ -15,32 +16,35 @@ import {
   WaitCard,
 } from '../PultParts';
 import { agentCounts, usePult, type AgentStatus, type PultBoard } from '../pult';
+import { PultTasks } from './PultTasks';
 import '../pult.css';
 
-type Tab = 'light' | 'agents' | 'map';
-const TABS: readonly Tab[] = ['light', 'agents', 'map'];
+const TABS = ['light', 'agents', 'map', 'tasks'] as const;
+type Tab = (typeof TABS)[number];
 type Filter = 'all' | Exclude<AgentStatus, 'idle'>;
 const FILTERS: readonly Filter[] = ['all', 'waiting', 'running', 'done'];
 
-/** Открыть сразу раздел и агента по ссылке: `/pult?tab=agents&agent=gh-245`. */
-function fromUrl() {
-  const q = new URLSearchParams(globalThis.location?.search ?? '');
-  const tab = TABS.find((t) => t === q.get('tab')) ?? 'light';
-  return { tab, agent: q.get('agent') };
-}
-
-/**
- * Пульт агентов (HAR-002, AOS-5): Светофор · Агенты · Карта (D-955). Только владелец (D-949).
- * ПК — вкладки сверху; телефон — Светофор, внизу «Ещё в Пульте», назад — «‹ Пульт».
- * Recos, задачи по расписанию, навыки и память — следующими этапами.
- */
 export function PultScreen() {
   const me = useMe().data;
   const owner = !!me?.is_owner;
-  const board = usePult(owner);
   const wide = useMedia(WIDE);
-  const [tab, setTab] = useState<Tab>(() => fromUrl().tab);
-  const [agent, setAgent] = useState<string | null>(() => fromUrl().agent);
+  const search = new URLSearchParams(useLocation({ select: (location) => location.searchStr }));
+  const navigate = useNavigate();
+  const tab = TABS.find((t) => t === search.get('tab')) ?? 'light';
+  const board = usePult(owner && tab !== 'tasks');
+  const agent = search.get('agent');
+  const schedule = search.get('schedule');
+  const setTab = (next: Tab) => void navigate({ to: '/pult', search: () => ({ tab: next }) });
+  const setAgent = (key: string | null) =>
+    void navigate({
+      to: '/pult',
+      search: () => ({ tab: 'agents', agent: key ?? undefined }),
+    });
+  const editSchedule = (id: string | null) =>
+    void navigate({
+      to: '/pult',
+      search: () => ({ tab: 'tasks', schedule: id ?? undefined }),
+    });
   const [filter, setFilter] = useState<Filter>('all');
   const [connect, setConnect] = useState(false);
 
@@ -49,25 +53,10 @@ export function PultScreen() {
     return (
       <EmptyState kind="proto" title="Такой страницы нет" hint="Пульт — только для владельца." />
     );
-  if (board.isPending) return <p className="pult-small">Собираем Светофор…</p>;
-  if (board.isError)
-    return (
-      <Note tone="bad">
-        {say(board.error)}{' '}
-        <Button size="sm" variant="quiet" onClick={() => void board.refetch()}>
-          Ещё раз
-        </Button>
-      </Note>
-    );
-  const b = board.data;
-  const openAgent = (key: string) => {
-    setAgent(key);
-    setTab('agents');
-  };
+  const b = board.isSuccess ? board.data : undefined;
   const openList = (f: Filter) => {
     setFilter(f);
     setAgent(null);
-    setTab('agents');
   };
 
   return (
@@ -81,6 +70,7 @@ export function PultScreen() {
             { value: 'light', label: 'Светофор' },
             { value: 'agents', label: 'Агенты' },
             { value: 'map', label: 'Карта' },
+            { value: 'tasks', label: 'Задачи' },
           ]}
         />
       ) : (
@@ -97,17 +87,28 @@ export function PultScreen() {
         )
       )}
       <Swap view={tab} order={TABS}>
-        {tab === 'light' && (
+        {tab === 'tasks' && <PultTasks scheduleId={schedule} onEdit={editSchedule} />}
+        {tab !== 'tasks' && board.isPending && <p className="pult-small">Собираем Светофор…</p>}
+        {tab !== 'tasks' && board.isError && (
+          <Note tone="bad">
+            {say(board.error)}{' '}
+            <Button size="sm" variant="quiet" onClick={() => void board.refetch()}>
+              Ещё раз
+            </Button>
+          </Note>
+        )}
+        {b && tab === 'light' && (
           <Light
             b={b}
             wide={wide}
-            onOpen={openAgent}
+            onOpen={setAgent}
+            onSchedule={editSchedule}
             onList={openList}
             onTab={setTab}
             onConnect={() => setConnect(true)}
           />
         )}
-        {tab === 'agents' && (
+        {b && tab === 'agents' && (
           <Agents
             b={b}
             wide={wide}
@@ -117,7 +118,7 @@ export function PultScreen() {
             onAgent={setAgent}
           />
         )}
-        {tab === 'map' && <PultMap board={b} wide={wide} onOpenAgent={openAgent} />}
+        {b && tab === 'map' && <PultMap board={b} wide={wide} onOpenAgent={setAgent} />}
       </Swap>
       <ConnectSheet open={connect} onClose={() => setConnect(false)} />
     </div>
@@ -129,6 +130,7 @@ function Light({
   b,
   wide,
   onOpen,
+  onSchedule,
   onList,
   onTab,
   onConnect,
@@ -136,12 +138,14 @@ function Light({
   b: PultBoard;
   wide: boolean;
   onOpen: (key: string) => void;
+  onSchedule: (id: string) => void;
   onList: (f: Filter) => void;
   onTab: (t: Tab) => void;
   onConnect: () => void;
 }) {
   const now = new Date(b.now);
-  const waiting = wide ? b.waiting : b.waiting.slice(0, 2);
+  const [allWaiting, setAllWaiting] = useState(false);
+  const waiting = wide || allWaiting ? b.waiting : b.waiting.slice(0, 2);
   const live = b.agents.filter((a) => a.status !== 'idle').slice(0, 5);
   return (
     <div className="pult-light">
@@ -157,7 +161,7 @@ function Light({
       <section className="pult-a-wait" aria-label="Ждёт тебя">
         <SecHead text="ЖДЁТ ТЕБЯ" label="Ждёт тебя">
           {b.waiting.length > waiting.length ? (
-            <Button size="sm" variant="quiet" className="more" onClick={() => onList('waiting')}>
+            <Button size="sm" variant="quiet" className="more" onClick={() => setAllWaiting(true)}>
               все {b.waiting.length}
             </Button>
           ) : (
@@ -172,11 +176,11 @@ function Light({
           <div className="pult-stack">
             {waiting.map((w, i) => (
               <WaitCard
-                key={w.number}
+                key={w.key}
                 w={w}
                 now={now}
                 main={i === 0}
-                onOpen={() => onOpen(w.key)}
+                onOpen={() => (w.number == null ? onSchedule(w.key) : onOpen(w.key))}
               />
             ))}
           </div>
@@ -213,6 +217,9 @@ function Light({
             </Button>
             <Button size="sm" onClick={() => onTab('map')}>
               Карта
+            </Button>
+            <Button size="sm" onClick={() => onTab('tasks')}>
+              Задачи
             </Button>
           </div>
         </section>

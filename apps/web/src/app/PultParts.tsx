@@ -307,7 +307,7 @@ function useAnswer(w: PultWaiting) {
   const request = useRef<{ answer: string; id: string } | null>(null);
   const send = async (answer: string): Promise<boolean> => {
     const text = answer.trim();
-    if (pending.current || !text) return false;
+    if (w.number == null || pending.current || !text) return false;
     pending.current = true;
     setBusy(true);
     setError(null);
@@ -357,7 +357,8 @@ export function WaitCard({
           <span>{w.title}</span>
         </h3>
         <p className="pult-small">
-          #{w.number} · {ago(w.updated_at, now)}
+          {w.number != null && `#${w.number} · `}
+          {ago(w.updated_at, now)}
         </p>
         {w.text && <p className="pult-text">{w.text}</p>}
         <div className="pult-acts">
@@ -389,7 +390,7 @@ export function WaitCard({
           ))}
           {(!compact || w.options.length < 2) && (
             <Button size="sm" variant={first ? 'quiet' : 'outline'} onClick={onOpen}>
-              Открыть
+              {w.number == null ? 'Изменить потолок' : 'Открыть'}
             </Button>
           )}
         </div>
