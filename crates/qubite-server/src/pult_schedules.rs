@@ -15,7 +15,7 @@ use uuid::Uuid;
 
 use crate::{
     AppState,
-    auth::{ApiError, ApiErrorBody},
+    auth::{ApiError, ApiErrorBody, Authenticated},
     modules::Owner,
     pult,
 };
@@ -26,11 +26,14 @@ impl FromRequestParts<AppState> for ScheduleOwner {
     type Rejection = ApiError;
 
     async fn from_request_parts(parts: &mut Parts, state: &AppState) -> Result<Self, ApiError> {
+        // Без входа — как у остальных закрытых маршрутов (политика: «нет такой страницы»);
+        // вошедшему не владельцу честно отвечаем 403.
+        let signed_in = parts.extensions.get::<Authenticated>().is_some();
         Owner::from_request_parts(parts, state)
             .await
             .map(Self)
             .map_err(|error| {
-                if error.status == StatusCode::NOT_FOUND {
+                if signed_in && error.status == StatusCode::NOT_FOUND {
                     ApiError::new(StatusCode::FORBIDDEN, "owner_only", "Только для владельца")
                 } else {
                     error
