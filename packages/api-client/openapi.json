@@ -1608,6 +1608,244 @@
         }
       }
     },
+    "/api/command/dispatch": {
+      "post": {
+        "tags": ["agent"],
+        "summary": "Разобрать одно сообщение Command или подтвердить ранее предложенный запуск.",
+        "operationId": "dispatch_command",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DispatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Ответ диспетчера",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DispatchResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Неверный запрос",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет доступа",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Конфликт или отказ шлюза",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "GitHub не ответил",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Шлюз Command недоступен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/command/dispatch/{id}/reclassify": {
+      "post": {
+        "tags": ["agent"],
+        "summary": "Исправить сортировку сообщения и запомнить пример для следующего разбора.",
+        "operationId": "reclassify",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Сообщение Command",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReclassifyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Ответ после исправления",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DispatchResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Неверный запрос",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет доступа",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Сообщение не найдено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Конфликт или отказ шлюза",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/command/voice": {
+      "post": {
+        "tags": ["agent"],
+        "operationId": "command_voice",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoiceCaptureRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Текст для Command или аудио во Входящих",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommandTranscript"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Неверная запись",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет доступа",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/health": {
       "get": {
         "tags": ["system"],
@@ -12139,6 +12377,23 @@
           }
         }
       },
+      "CommandKind": {
+        "type": "string",
+        "enum": ["thought", "question", "order"]
+      },
+      "CommandSource": {
+        "type": "string",
+        "enum": ["web", "voice", "pult", "desktop", "android"]
+      },
+      "CommandTranscript": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": ["string", "null"],
+            "description": "Текст для dispatch. При отсутствии текста аудио осталось во Входящих."
+          }
+        }
+      },
       "ConfirmRequest": {
         "type": "object",
         "required": ["password"],
@@ -12317,6 +12572,71 @@
             "description": "Всегда `Bearer`."
           }
         }
+      },
+      "DispatchRequest": {
+        "type": "object",
+        "required": ["text", "source"],
+        "properties": {
+          "confirm": {
+            "type": "boolean",
+            "description": "Только для уже показанного поручения с тем же id."
+          },
+          "id": {
+            "type": ["string", "null"],
+            "format": "uuid",
+            "description": "Идентификатор сообщения. Повторы безопасны с тем же id, текстом и источником."
+          },
+          "source": {
+            "$ref": "#/components/schemas/CommandSource"
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      },
+      "DispatchResult": {
+        "type": "object",
+        "required": ["id", "kind", "confidence", "status", "message", "model", "cost_usd"],
+        "properties": {
+          "confidence": {
+            "type": "number",
+            "format": "double"
+          },
+          "cost_usd": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Фактическая цена показанного вызова модели, микродоллары."
+          },
+          "estimate_percent": {
+            "type": ["number", "null"],
+            "format": "double"
+          },
+          "estimate_usd": {
+            "type": ["number", "null"],
+            "format": "double",
+            "description": "Оценка запуска в долларах по данным Пульта."
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/CommandKind"
+          },
+          "message": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/DispatchStatus"
+          }
+        }
+      },
+      "DispatchStatus": {
+        "type": "string",
+        "enum": ["done", "needs_confirm"]
       },
       "DocLink": {
         "type": "object",
@@ -15667,6 +15987,10 @@
               }
             ]
           },
+          "session_url": {
+            "type": ["string", "null"],
+            "description": "Ссылка, переданная сборщиком сессий."
+          },
           "source": {
             "type": "string",
             "description": "Где: «облако», «ПК arch»."
@@ -16011,7 +16335,7 @@
           "number": {
             "type": "integer",
             "format": "int64",
-            "description": "Номер issue — ответить кнопкой (`/api/owner/work/questions/{n}/answer`).",
+            "description": "Номер issue — ответить кнопкой через Command.",
             "minimum": 0
           },
           "options": {
@@ -16157,6 +16481,15 @@
           "version": {
             "type": "string",
             "description": "Версия Qubite."
+          }
+        }
+      },
+      "ReclassifyRequest": {
+        "type": "object",
+        "required": ["kind"],
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/CommandKind"
           }
         }
       },
@@ -16370,6 +16703,10 @@
           "project": {
             "type": "string",
             "description": "Папка проекта (последняя часть пути)."
+          },
+          "session_url": {
+            "type": ["string", "null"],
+            "description": "Ссылка на сессию, если сборщик её знает."
           },
           "started_at": {
             "type": "string",

@@ -11,7 +11,7 @@
  * (кнопка свободна), а в фоне её распознаёт Whisper на компьютере (`voice-local.ts`); текст
  * уходит полем `text` вместе со звуком. Whisper не ответил — уходит только звук с причиной.
  */
-import { HttpError } from '@qubite/sync-client';
+import { HttpError, uuidv7 } from '@qubite/sync-client';
 import {
   useCallback,
   useEffect,
@@ -21,9 +21,10 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { Fail, useMe } from '../auth/client';
+import { api } from '../api';
+import { Fail, must, useMe } from '../auth/client';
 import { toBase64 } from './english-view';
-import { useInbox, type VoiceSaved } from './inbox-context';
+import { useInbox, type NewVoice, type VoiceSaved } from './inbox-context';
 import { useVoiceKey, useVoicePrefs } from './voice-api';
 import { localWhisperUrl, transcribeLocal } from './voice-local';
 import { VoiceCtx, type VoiceApi, type VoiceOrigin } from './voice-context';
@@ -60,6 +61,7 @@ export function VoiceProvider({
   /** номер попытки: ответ микрофона на отменённую попытку выбрасывается */
   const attempt = useRef(0);
   const saved = useRef<((s: VoiceSaved) => void) | null>(null);
+  const transcript = useRef<((text: string) => void) | null>(null);
   const latest = useRef({ phase: state.phase, save: inbox.voice });
   useEffect(() => {
     latest.current = { phase: state.phase, save: inbox.voice };
@@ -81,13 +83,36 @@ export function VoiceProvider({
           return;
         }
         const audio_base64 = toBase64(new Uint8Array(await take.audio.arrayBuffer()));
+        const payload: NewVoice = {
+          audio_base64,
+          mime: take.mime,
+          duration_ms: take.ms,
+          ...(take.text ? { text: take.text } : {}),
+        };
+        const sendText = transcript.current;
+        if (sendText) {
+          const heard =
+            url === null ? take.text : (await transcribeLocal(url, take.audio, take.mime)).text;
+          if (heard?.trim()) {
+            dispatch({ type: 'sent' });
+            sendText(heard);
+            return;
+          }
+          const id = uuidv7();
+          try {
+            const result = await must(api.POST('/api/command/voice', { body: { ...payload, id } }));
+            dispatch({ type: 'sent' });
+            if (result.text) sendText(result.text);
+            else saved.current?.({ id, kept: 'server' });
+            return;
+          } catch {
+            payload.id = id;
+            /* нет сети или сервер не ответил: запись не теряем — кладём во Входящие,
+               они сохранят звук на устройстве и повторят отправку (как до диспетчера) */
+          }
+        }
         const result = await latest.current.save(
-          {
-            audio_base64,
-            mime: take.mime,
-            duration_ms: take.ms,
-            ...(take.text ? { text: take.text } : {}),
-          },
+          payload,
           url === null ? undefined : () => transcribeLocal(url, take.audio, take.mime),
         );
         dispatch({ type: 'sent' });
@@ -105,7 +130,7 @@ export function VoiceProvider({
   }, []);
 
   const start = useCallback(
-    (from: VoiceOrigin, onSaved?: (s: VoiceSaved) => void) => {
+    (from: VoiceOrigin, onSaved?: (s: VoiceSaved) => void, onText?: (text: string) => void) => {
       if (session.current || latest.current.phase !== 'idle') return;
       setOrigin(from);
       if (me.data === null) {
@@ -127,6 +152,7 @@ export function VoiceProvider({
       }
       const token = ++attempt.current;
       saved.current = onSaved ?? null;
+      transcript.current = onText ?? null;
       whisper.current = method === 'local' ? localWhisperUrl() : null;
       dispatch({ type: 'start' });
       record({

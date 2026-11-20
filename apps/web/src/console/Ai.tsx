@@ -37,6 +37,9 @@ import {
 const TASK_LABEL: Record<string, string> = {
   default: 'По умолчанию',
   'inbox.triage': 'Разбор Входящих',
+  'command.dispatch': 'Command: сортировка',
+  'command.answer': 'Command: ответы',
+  'agent.chat': 'Разговор с агентом',
   'english.tutor': 'Репетитор английского',
   'docs.mindmap': 'Docs: подузлы mind map',
   'voice.stt': 'Голос: распознавание',
@@ -583,7 +586,15 @@ function TaskModels() {
   const enabled = models.data.filter((m) => m.enabled);
   // Задачи, которым можно выбрать модель, даже пока для них нет своей записи на сервере.
   const taskIds = [
-    ...new Set(['default', 'inbox.triage', 'docs.mindmap', ...tasks.data.map((t) => t.task)]),
+    ...new Set([
+      'default',
+      'inbox.triage',
+      'docs.mindmap',
+      'command.dispatch',
+      'command.answer',
+      'agent.chat',
+      ...tasks.data.map((t) => t.task),
+    ]),
   ];
   return (
     <>

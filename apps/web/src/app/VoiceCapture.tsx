@@ -129,16 +129,24 @@ export function CommandVoiceLive({ wide }: { wide: boolean }) {
 }
 
 /** Микрофон строки Command: не уводит фокус из поля, во время записи — «стоп». */
-export function CommandMic({ onSaved }: { onSaved?: (saved: VoiceSaved) => void }) {
+export function CommandMic({
+  onSaved,
+  onText,
+  disabled = false,
+}: {
+  onSaved?: (saved: VoiceSaved) => void;
+  onText?: ((text: string) => void) | undefined;
+  disabled?: boolean;
+}) {
   const v = useVoice();
   const recording = v.phase === 'recording';
   return (
     <MicButton
       keepFocus
       recording={recording}
-      disabled={v.phase === 'sending' || v.phase === 'asking'}
+      disabled={disabled || v.phase === 'sending' || v.phase === 'asking'}
       label={micLabel(v)}
-      onClick={() => (recording ? v.stop() : v.start('command', onSaved))}
+      onClick={() => (recording ? v.stop() : v.start('command', onSaved, onText))}
     />
   );
 }

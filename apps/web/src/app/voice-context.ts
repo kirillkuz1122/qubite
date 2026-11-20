@@ -15,7 +15,11 @@ export interface VoiceApi extends VoiceState {
   /** выбран «свой ключ», а ключ не задан: запись сохранится только звуком */
   noKey: boolean;
   /** включить микрофон и записывать; `onSaved` — запись сохранена (на сервере или устройстве) */
-  start(origin: VoiceOrigin, onSaved?: (saved: VoiceSaved) => void): void;
+  start(
+    origin: VoiceOrigin,
+    onSaved?: (saved: VoiceSaved) => void,
+    onText?: (text: string) => void,
+  ): void;
   /** закончить и отправить */
   stop(): void;
   /** бросить запись, ничего не отправлять */

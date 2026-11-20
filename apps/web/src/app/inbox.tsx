@@ -208,7 +208,7 @@ export function InboxProvider({
 
   const voice = useCallback(
     async (take: NewVoice, recognize?: () => Promise<Recognized>): Promise<VoiceSaved> => {
-      const recording: VoiceCapture = { id: uuidv7(), source: 'web', ...take };
+      const recording: VoiceCapture = { source: 'web', ...take, id: take.id ?? uuidv7() };
       const q = await queue.current;
       if (!q) {
         // хранилища на устройстве нет — только сразу на сервер (без сети — ошибка человеку)

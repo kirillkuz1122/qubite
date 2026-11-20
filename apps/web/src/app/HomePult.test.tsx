@@ -148,9 +148,8 @@ describe('Ждёт тебя в Пульте на Главной', () => {
     show();
 
     fireEvent.click(await screen.findByRole('button', { name: 'Да' }));
-    expect(post).toHaveBeenCalledExactlyOnceWith('/api/owner/work/questions/{number}/answer', {
-      params: { path: { number: 262 } },
-      body: { answer: 'Да' },
+    expect(post).toHaveBeenCalledExactlyOnceWith('/api/command/dispatch', {
+      body: { source: 'pult', id: expect.any(String), text: 'ответить на #262: Да' },
     });
     await waitFor(() => expect(screen.queryByRole('region', { name: LABEL })).toBeNull(), {
       timeout: 3000,

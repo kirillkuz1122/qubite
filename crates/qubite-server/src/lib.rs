@@ -13,6 +13,7 @@ pub mod ai_console;
 pub mod auth;
 pub mod calendar;
 pub mod changes;
+mod command;
 pub mod console;
 pub mod deploy;
 pub mod docs;
@@ -249,6 +250,9 @@ impl AppState {
         console::server_info,
         harness::work_board,
         harness::work_answer,
+        command::dispatch_command,
+        command::reclassify,
+        inbox::command_voice,
         pult::pult_board,
         pult::pult_agent,
         pult::list_collectors,
@@ -474,6 +478,13 @@ impl AppState {
         harness::WorkUsage,
         harness::AnswerRequest,
         harness::AnswerPosted,
+        command::CommandSource,
+        command::CommandKind,
+        command::DispatchStatus,
+        command::DispatchRequest,
+        command::DispatchResult,
+        command::ReclassifyRequest,
+        inbox::CommandTranscript,
         pult::PultBoard,
         pult::PultLimits,
         pult::PultWindow,
@@ -793,6 +804,17 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
         .route(
             "/api/owner/work/questions/{number}/answer",
             post(harness::work_answer),
+        )
+        .route(
+            "/api/command/voice",
+            post(inbox::command_voice).layer(DefaultBodyLimit::max(
+                qubite_ai::voice::MAX_AUDIO_BYTES.div_ceil(3) * 4 + 128 * 1024,
+            )),
+        )
+        .route("/api/command/dispatch", post(command::dispatch_command))
+        .route(
+            "/api/command/dispatch/{id}/reclassify",
+            post(command::reclassify),
         )
         .route("/api/owner/pult", get(pult::pult_board))
         .route("/api/owner/pult/agents/{key}", get(pult::pult_agent))
@@ -1246,7 +1268,8 @@ impl Limits {
 
 /// Запросы, обработчик которых прямо в себе ждёт ответа модели: реплика репетитора, урок,
 /// разбор мысли, разговор с агентом, проба модели в Console. Только `POST` — чтение быстрое.
-const AI_PATHS: [&str; 6] = [
+const AI_PATHS: [&str; 7] = [
+    "/api/command/",
     "/api/v1/english/",
     "/api/v1/agent/",
     "/api/v1/inbox",

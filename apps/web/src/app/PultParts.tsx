@@ -14,10 +14,12 @@ import {
   useSlide,
   useToast,
 } from '@qubite/ui';
+import { uuidv7 } from '@qubite/sync-client';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLayoutEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { api } from '../api';
 import { must, say } from '../auth/client';
+import { answerFromPult } from './command-dispatch';
 import { SecHead } from './parts';
 import {
   PULT,
@@ -295,17 +297,17 @@ function useAnswer(w: PultWaiting) {
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   /** `true` — ответ дошёл; при ошибке окно не закрывается, ошибка видна в нём. */
+  const pending = useRef(false);
+  const request = useRef<{ answer: string; id: string } | null>(null);
   const send = async (answer: string): Promise<boolean> => {
-    if (busy || !answer.trim()) return false;
+    const text = answer.trim();
+    if (pending.current || !text) return false;
+    pending.current = true;
     setBusy(true);
     setError(null);
+    if (request.current?.answer !== text) request.current = { answer: text, id: uuidv7() };
     try {
-      await must(
-        api.POST('/api/owner/work/questions/{number}/answer', {
-          params: { path: { number: w.number } },
-          body: { answer: answer.trim() },
-        }),
-      );
+      await answerFromPult(w.number, text, request.current.id);
       setSent(true);
       toast.show('Ответ ушёл агенту');
       window.setTimeout(() => {
@@ -317,6 +319,7 @@ function useAnswer(w: PultWaiting) {
       setError(say(err));
       return false;
     } finally {
+      pending.current = false;
       setBusy(false);
     }
   };
@@ -639,6 +642,12 @@ export function AgentCard({
           <Button variant="fill" onClick={() => setAnswer(true)}>
             Ответить
           </Button>
+        )}
+        {a.session_url && (
+          <a className="q-btn pult-link" href={a.session_url} target="_blank" rel="noreferrer">
+            <span className="q-dot" aria-hidden="true" />
+            Открыть сессию
+          </a>
         )}
         {a.url && (
           <Button onClick={() => window.open(a.url ?? '', '_blank', 'noopener')}>

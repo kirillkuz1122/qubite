@@ -2946,3 +2946,8 @@ html[data-motion='less'] .rec-dot {
   font-size: 12px;
   color: var(--q-orange-ink);
 }
+
+/* Меню «+» в строке Command открывается поверх окна беседы (Sheet, z-index 80) */
+.q-menu {
+  z-index: 90;
+}

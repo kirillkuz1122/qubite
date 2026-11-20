@@ -21,6 +21,7 @@
 pub mod brain;
 pub mod chat;
 pub mod digest;
+pub mod dispatch;
 pub mod duration;
 pub mod english;
 pub mod files;

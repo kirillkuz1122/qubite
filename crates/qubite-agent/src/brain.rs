@@ -391,13 +391,17 @@ pub(crate) async fn run_rounds(
     auth: &qubite_policy::Authorized<UseAi>,
     who: &Who,
     model_task: &str,
+    dispatch_model: Option<String>,
     task: &str,
     allowed: &[&str],
     mut data: Vec<Untrusted>,
     job: Option<Uuid>,
     request_prefix: &str,
 ) -> std::result::Result<Turn, AiError> {
-    let model = gateway.model_for(model_task).await?;
+    let model = match dispatch_model {
+        Some(model) => model,
+        None => gateway.model_for(model_task).await?,
+    };
     let now = {
         let mut conn = pool.acquire().await?;
         local_now(&mut conn)
@@ -512,6 +516,11 @@ pub async fn chat_turn(
     let account = chat::account_of(&mut conn, message_id)
         .await?
         .ok_or(Error::NotFound)?;
+    let dispatch_model: Option<String> =
+        sqlx::query_scalar("SELECT dispatch_model FROM agent_messages WHERE id = $1")
+            .bind(message_id)
+            .fetch_one(&mut *conn)
+            .await?;
     drop(conn);
 
     let fail = async |text: String, run: Option<Uuid>| -> Result<Option<Message>> {
@@ -586,6 +595,7 @@ pub async fn chat_turn(
         &auth,
         &who,
         CHAT_TASK,
+        dispatch_model,
         task,
         CHAT_TOOLS,
         data,
@@ -711,6 +721,7 @@ pub async fn review(
         &auth,
         &Who::agent(&run),
         REVIEW_TASK,
+        None,
         REVIEW_TASK_TEXT,
         REVIEW_TOOLS,
         data,
@@ -841,6 +852,7 @@ pub async fn learn(
         &auth,
         &Who::agent(&run),
         REVIEW_TASK,
+        None,
         if why.is_some() {
             LEARN_REVERT_TEXT
         } else {

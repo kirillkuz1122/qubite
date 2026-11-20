@@ -1862,6 +1862,7 @@ dependencies = [
  "qubite-notify",
  "qubite-oauth",
  "qubite-objects",
+ "qubite-parse",
  "qubite-planner",
  "qubite-policy",
  "qubite-route",
