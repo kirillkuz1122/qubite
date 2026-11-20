@@ -1335,6 +1335,72 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/pult/schedules': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['list_schedules'];
+    put?: never;
+    post: operations['create_schedule'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/pult/schedules/due': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Список разрешённых задач. Время запуска выбирает раннер. */
+    get: operations['due_schedules'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/pult/schedules/runs': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Принять отчёт владельца или сборщика, в том числе о запуске задачи на паузе. */
+    post: operations['record_schedule_run'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/pult/schedules/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete: operations['delete_schedule'];
+    options?: never;
+    head?: never;
+    patch: operations['patch_schedule'];
+    trace?: never;
+  };
   '/api/ready': {
     parameters: {
       query?: never;
@@ -5193,6 +5259,18 @@ export interface components {
       body?: string;
       title: string;
     };
+    NewSchedule: {
+      /** Format: int64 */
+      cap_tokens?: number | null;
+      /** Format: double */
+      cap_usd?: number | null;
+      days: number[];
+      kind: components['schemas']['ScheduleKind'];
+      model?: string | null;
+      name: string;
+      schedule_text: string;
+      where_run: components['schemas']['SchedulePlace'];
+    };
     /** @description Ответ кнопкой. */
     NoticeAnswer: {
       /** @description `id` кнопки из `options` сообщения. */
@@ -5668,6 +5746,45 @@ export interface components {
       number: number;
       url: string;
     };
+    PultSchedule: {
+      /** Format: double */
+      cap_percent?: number | null;
+      cap_status: components['schemas']['ScheduleCap'];
+      /** Format: int64 */
+      cap_tokens?: number | null;
+      /** Format: double */
+      cap_usd?: number | null;
+      /** @description Понедельник = 0, воскресенье = 6. */
+      days: number[];
+      enabled: boolean;
+      /** Format: uuid */
+      id: string;
+      kind: components['schemas']['ScheduleKind'];
+      /** Format: date-time */
+      last_at?: string | null;
+      last_note?: string | null;
+      last_outcome?: components['schemas']['ScheduleOutcome'] | null;
+      model?: string | null;
+      name: string;
+      paused_reason?: string | null;
+      schedule_text: string;
+      /** Format: double */
+      tokens_7d: number;
+      /** Format: double */
+      usd_7d: number;
+      where_run: components['schemas']['SchedulePlace'];
+    };
+    PultSchedules: {
+      /** Format: int32 */
+      active: number;
+      /** Format: double */
+      million_tokens_7d: number;
+      /** Format: int32 */
+      quiet: number;
+      schedules: components['schemas']['PultSchedule'][];
+      /** Format: double */
+      usd_7d: number;
+    };
     /** @description Источник данных и его состояние — чтобы «нет данных» было честным и понятным. */
     PultSource: {
       /** Format: date-time */
@@ -5702,15 +5819,15 @@ export interface components {
       /** Format: int64 */
       tokens: number;
     };
-    /** @description Решение, которого ждёт агент (вопрос в issue). */
+    /** @description Вопрос агента или задача, поставленная на паузу. */
     PultWaiting: {
-      /** @description Ключ агента — открыть карточку. */
+      /** @description Ключ агента или ID задачи по расписанию. */
       key: string;
       /**
        * Format: int64
-       * @description Номер issue — ответить кнопкой через Command.
+       * @description Номер issue для ответа через Command. У паузы расписания его нет.
        */
-      number: number;
+      number?: number | null;
       /** @description Варианты ответа, первый — рекомендация. */
       options: string[];
       text: string;
@@ -5939,6 +6056,44 @@ export interface components {
       lat: number;
       /** Format: double */
       lon: number;
+    };
+    /** @enum {string} */
+    ScheduleCap: 'ok' | 'warn' | 'reached';
+    /** @enum {string} */
+    ScheduleKind: 'active' | 'quiet';
+    /** @enum {string} */
+    ScheduleOutcome: 'found' | 'quiet' | 'failed';
+    SchedulePatch: {
+      /** Format: int64 */
+      cap_tokens?: number | null;
+      /** Format: double */
+      cap_usd?: number | null;
+      enabled?: boolean | null;
+      name?: string | null;
+    };
+    /** @enum {string} */
+    SchedulePlace: 'pi' | 'cloud' | 'ci';
+    ScheduleRun: {
+      /** Format: date-time */
+      at?: string | null;
+      /**
+       * Format: uuid
+       * @description Повтор запроса с тем же ID не добавляет расход второй раз.
+       */
+      id?: string | null;
+      /** @description Имя задачи из расписания (если ID не передан). */
+      name?: string | null;
+      note?: string | null;
+      outcome: components['schemas']['ScheduleOutcome'];
+      /**
+       * Format: uuid
+       * @description ID задачи из `due` — надёжнее имени: задачу могут переименовать между запросами.
+       */
+      schedule_id?: string | null;
+      /** Format: int64 */
+      tokens: number;
+      /** Format: double */
+      usd: number;
     };
     ServerInfo: {
       /** Format: int64 */
@@ -9843,6 +9998,284 @@ export interface operations {
       };
       /** @description Нет токена или он отключён */
       401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  list_schedules: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Расписание и расход за 7 дней */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PultSchedules'];
+        };
+      };
+      /** @description Только для владельца */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  create_schedule: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['NewSchedule'];
+      };
+    };
+    responses: {
+      /** @description Задача создана */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PultSchedule'];
+        };
+      };
+      /** @description Некорректные поля */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Только для владельца */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Имя уже занято */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  due_schedules: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Задачи, разрешённые к запуску */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PultSchedule'][];
+        };
+      };
+      /** @description Только для владельца */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  record_schedule_run: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ScheduleRun'];
+      };
+    };
+    responses: {
+      /** @description Запуск учтён */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Некорректный отчёт */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Токен сборщика не подошёл */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Только для владельца или сборщика */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Задачи нет */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description ID уже использован другой задачей */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  delete_schedule: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Задача */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Задача удалена */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Только для владельца */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Задачи нет */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  patch_schedule: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Задача */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SchedulePatch'];
+      };
+    };
+    responses: {
+      /** @description Задача обновлена */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PultSchedule'];
+        };
+      };
+      /** @description Некорректные поля */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Только для владельца */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Задачи нет */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Потолок достигнут или имя уже занято */
+      409: {
         headers: {
           [name: string]: unknown;
         };

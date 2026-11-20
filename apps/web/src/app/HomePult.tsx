@@ -50,7 +50,7 @@ export function PultWaitingPart({ onLayout }: { onLayout: () => void }) {
           <div className="pult-stack">
             {data.waiting.slice(0, MAX_CARDS).map((w, i) => (
               <WaitCard
-                key={w.number}
+                key={w.key}
                 w={w}
                 now={new Date(data.now)}
                 main={i === 0}
@@ -58,7 +58,10 @@ export function PultWaitingPart({ onLayout }: { onLayout: () => void }) {
                 onOpen={() =>
                   void navigate({
                     to: '/pult',
-                    search: () => ({ tab: 'agents', agent: w.key }),
+                    search: () =>
+                      w.number == null
+                        ? { tab: 'tasks', schedule: w.key }
+                        : { tab: 'agents', agent: w.key },
                   })
                 }
               />
