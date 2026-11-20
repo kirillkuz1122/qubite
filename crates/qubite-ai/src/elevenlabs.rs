@@ -471,7 +471,7 @@ impl VoiceProvider for ElevenLabs {
 
 /// Тело `multipart/form-data`: текстовые поля и файл `file`. Своё, чтобы не
 /// тянуть лишнюю зависимость ради одного запроса.
-fn multipart(fields: &[(&str, &str)], file: &[u8], mime: &str) -> (String, Vec<u8>) {
+pub(crate) fn multipart(fields: &[(&str, &str)], file: &[u8], mime: &str) -> (String, Vec<u8>) {
     let boundary = format!("qubite-{}", uuid::Uuid::new_v4().simple());
     let mut body = Vec::with_capacity(file.len() + 512);
     for (name, value) in fields {
