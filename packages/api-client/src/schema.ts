@@ -5564,7 +5564,7 @@ export interface components {
        */
       context?: number | null;
       effort?: string | null;
-      /** @description `gh-245` или `pc-<сессия>`. */
+      /** @description `gh-245`, `pc-<сессия>` или `cloud-<сессия>`. */
       key: string;
       /**
        * Format: int64
@@ -5815,7 +5815,7 @@ export interface components {
       /** @description `closed`, `invite_only` или `open`. */
       mode: string;
     };
-    /** @description Сводка сборщика с ПК (`scripts/pult-collect.py`). Версия формата — 1. */
+    /** @description Сводка с ПК или из облака. Версия формата — 1. */
     Report: {
       /**
        * Format: date-time
@@ -5827,10 +5827,11 @@ export interface components {
       /** @description Имя машины, как его показывать («arch»). До 64 знаков. */
       host: string;
       limits?: components['schemas']['ReportLimits'] | null;
-      /** @description Сессии за последние 7 дней (до 100). */
+      /** @description Последние сессии (до 100). */
       sessions?: components['schemas']['ReportSession'][];
       /** @description Имена навыков (до 100) — для карты. */
       skills?: string[];
+      source?: components['schemas']['ReportSource'];
       /**
        * Format: int32
        * @description Версия формата, сейчас 1.
@@ -5889,6 +5890,8 @@ export interface components {
       /** @description Последний ход закончен — сессия ждёт человека. */
       waiting?: boolean;
     };
+    /** @enum {string} */
+    ReportSource: 'pc' | 'cloud';
     ReportWindow: {
       /**
        * Format: date-time

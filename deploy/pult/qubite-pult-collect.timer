@@ -1,0 +1,10 @@
+[Unit]
+Description=Qubite: сводка Пульта каждые две минуты
+
+[Timer]
+OnCalendar=*-*-* *:00/2:00
+AccuracySec=1s
+Persistent=true
+
+[Install]
+WantedBy=timers.target
