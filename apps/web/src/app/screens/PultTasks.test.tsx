@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { LookProvider } from '@qubite/ui';
 import { PultTasks } from './PultTasks';
 
 type Schedule = components['schemas']['PultSchedule'];
@@ -67,7 +68,9 @@ function show() {
   const client = new QueryClient();
   render(
     <QueryClientProvider client={client}>
-      <PultTasks onEdit={vi.fn()} />
+      <LookProvider>
+        <PultTasks onEdit={vi.fn()} />
+      </LookProvider>
     </QueryClientProvider>,
   );
 }
