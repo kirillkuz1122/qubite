@@ -526,6 +526,24 @@ pub async fn dispatch_command(
                                 map.insert("recurrence".into(), rule);
                             }
                         }
+                        // «#проект»: связываем по имени, как делал прежний путь `planner.add`
+                        if let Some(name) = parsed.project.as_deref() {
+                            let project: Option<Uuid> = sqlx::query_scalar(
+                                "SELECT id FROM objects WHERE owner_id = $1 AND type = $2 \
+                                 AND deleted_at IS NULL \
+                                 AND lower(replace(title, 'ё', 'е')) = lower(replace($3, 'ё', 'е')) \
+                                 ORDER BY created_at LIMIT 1",
+                            )
+                            .bind(account)
+                            .bind(qubite_planner::PROJECT_TYPE)
+                            .bind(name)
+                            .fetch_optional(&mut *tx)
+                            .await
+                            .map_err(db)?;
+                            if let Some(project) = project {
+                                map.insert("project_id".into(), json!(project));
+                            }
+                        }
                         // Planner ждёт слова, а разбор отдаёт число: 1 — `!`, 2 — `!!`
                         match parsed.priority {
                             2.. => {

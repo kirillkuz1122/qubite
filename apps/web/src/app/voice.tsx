@@ -24,7 +24,7 @@ import {
 import { api } from '../api';
 import { Fail, must, useMe } from '../auth/client';
 import { toBase64 } from './english-view';
-import { useInbox, type VoiceSaved } from './inbox-context';
+import { useInbox, type NewVoice, type VoiceSaved } from './inbox-context';
 import { useVoiceKey, useVoicePrefs } from './voice-api';
 import { localWhisperUrl, transcribeLocal } from './voice-local';
 import { VoiceCtx, type VoiceApi, type VoiceOrigin } from './voice-context';
@@ -83,7 +83,7 @@ export function VoiceProvider({
           return;
         }
         const audio_base64 = toBase64(new Uint8Array(await take.audio.arrayBuffer()));
-        const payload = {
+        const payload: NewVoice = {
           audio_base64,
           mime: take.mime,
           duration_ms: take.ms,
@@ -106,6 +106,7 @@ export function VoiceProvider({
             else saved.current?.({ id, kept: 'server' });
             return;
           } catch {
+            payload.id = id;
             /* нет сети или сервер не ответил: запись не теряем — кладём во Входящие,
                они сохранят звук на устройстве и повторят отправку (как до диспетчера) */
           }
