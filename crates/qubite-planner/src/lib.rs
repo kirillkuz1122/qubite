@@ -575,6 +575,19 @@ pub async fn list_tasks(
     rows.into_iter().map(Task::try_from).collect()
 }
 
+/// Короткая сводка дел на конкретный день для Command.
+pub async fn day_tasks(conn: &mut PgConnection, owner: Uuid, date: Date) -> Result<Vec<Task>> {
+    let rows: Vec<TaskRow> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
+        "{TASK_SELECT} WHERE o.owner_id = $1 AND o.deleted_at IS NULL AND t.due_date = $2 \
+         ORDER BY t.due_time NULLS LAST, o.created_at, o.id LIMIT 12"
+    )))
+    .bind(owner)
+    .bind(date)
+    .fetch_all(conn)
+    .await?;
+    rows.into_iter().map(Task::try_from).collect()
+}
+
 /// Выполненные дела с длительностью, свежие первыми, — история для оценки
 /// длительности (отбор до лимита, чтобы старые дела без неё не вытесняли её).
 pub async fn done_with_duration(

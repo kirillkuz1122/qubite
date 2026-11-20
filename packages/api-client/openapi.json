@@ -1608,6 +1608,244 @@
         }
       }
     },
+    "/api/command/dispatch": {
+      "post": {
+        "tags": ["agent"],
+        "summary": "Разобрать одно сообщение Command или подтвердить ранее предложенный запуск.",
+        "operationId": "dispatch_command",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DispatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Ответ диспетчера",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DispatchResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Неверный запрос",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет доступа",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Конфликт или отказ шлюза",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "GitHub не ответил",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Шлюз Command недоступен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/command/dispatch/{id}/reclassify": {
+      "post": {
+        "tags": ["agent"],
+        "summary": "Исправить сортировку сообщения и запомнить пример для следующего разбора.",
+        "operationId": "reclassify",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Сообщение Command",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReclassifyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Ответ после исправления",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DispatchResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Неверный запрос",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет доступа",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Сообщение не найдено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Конфликт или отказ шлюза",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/command/voice": {
+      "post": {
+        "tags": ["agent"],
+        "operationId": "command_voice",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoiceCaptureRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Текст для Command или аудио во Входящих",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommandTranscript"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Неверная запись",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет доступа",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/health": {
       "get": {
         "tags": ["system"],
@@ -3645,7 +3883,7 @@
           {
             "name": "key",
             "in": "path",
-            "description": "Ключ агента: gh-N или pc-<сессия>",
+            "description": "Ключ агента: gh-N, pc-<сессия> или cloud-<сессия>",
             "required": true,
             "schema": {
               "type": "string"
@@ -10045,6 +10283,139 @@
         }
       }
     },
+    "/api/v1/voice/key": {
+      "get": {
+        "tags": ["inbox"],
+        "operationId": "get_key",
+        "responses": {
+          "200": {
+            "description": "Сведения о ключе без самого ключа",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceKey"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет права записи",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["inbox"],
+        "operationId": "set_key",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoiceKeyInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Ключ зашифрован и сохранён",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceKey"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Неверный ключ, модель или адрес",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет права записи",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Хранение секретов не настроено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["inbox"],
+        "operationId": "delete_key",
+        "responses": {
+          "204": {
+            "description": "Ключ удалён"
+          },
+          "401": {
+            "description": "Нужно войти",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет права записи",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/voice/prefs": {
       "get": {
         "tags": ["inbox"],
@@ -12006,6 +12377,23 @@
           }
         }
       },
+      "CommandKind": {
+        "type": "string",
+        "enum": ["thought", "question", "order"]
+      },
+      "CommandSource": {
+        "type": "string",
+        "enum": ["web", "voice", "pult", "desktop", "android"]
+      },
+      "CommandTranscript": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": ["string", "null"],
+            "description": "Текст для dispatch. При отсутствии текста аудио осталось во Входящих."
+          }
+        }
+      },
       "ConfirmRequest": {
         "type": "object",
         "required": ["password"],
@@ -12184,6 +12572,71 @@
             "description": "Всегда `Bearer`."
           }
         }
+      },
+      "DispatchRequest": {
+        "type": "object",
+        "required": ["text", "source"],
+        "properties": {
+          "confirm": {
+            "type": "boolean",
+            "description": "Только для уже показанного поручения с тем же id."
+          },
+          "id": {
+            "type": ["string", "null"],
+            "format": "uuid",
+            "description": "Идентификатор сообщения. Повторы безопасны с тем же id, текстом и источником."
+          },
+          "source": {
+            "$ref": "#/components/schemas/CommandSource"
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      },
+      "DispatchResult": {
+        "type": "object",
+        "required": ["id", "kind", "confidence", "status", "message", "model", "cost_usd"],
+        "properties": {
+          "confidence": {
+            "type": "number",
+            "format": "double"
+          },
+          "cost_usd": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Фактическая цена показанного вызова модели, микродоллары."
+          },
+          "estimate_percent": {
+            "type": ["number", "null"],
+            "format": "double"
+          },
+          "estimate_usd": {
+            "type": ["number", "null"],
+            "format": "double",
+            "description": "Оценка запуска в долларах по данным Пульта."
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/CommandKind"
+          },
+          "message": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/DispatchStatus"
+          }
+        }
+      },
+      "DispatchStatus": {
+        "type": "string",
+        "enum": ["done", "needs_confirm"]
       },
       "DocLink": {
         "type": "object",
@@ -15510,7 +15963,7 @@
           },
           "key": {
             "type": "string",
-            "description": "`gh-245` или `pc-<сессия>`."
+            "description": "`gh-245`, `pc-<сессия>` или `cloud-<сессия>`."
           },
           "minutes": {
             "type": ["integer", "null"],
@@ -15533,6 +15986,10 @@
                 "type": "null"
               }
             ]
+          },
+          "session_url": {
+            "type": ["string", "null"],
+            "description": "Ссылка, переданная сборщиком сессий."
           },
           "source": {
             "type": "string",
@@ -15878,7 +16335,7 @@
           "number": {
             "type": "integer",
             "format": "int64",
-            "description": "Номер issue — ответить кнопкой (`/api/owner/work/questions/{n}/answer`).",
+            "description": "Номер issue — ответить кнопкой через Command.",
             "minimum": 0
           },
           "options": {
@@ -16027,6 +16484,15 @@
           }
         }
       },
+      "ReclassifyRequest": {
+        "type": "object",
+        "required": ["kind"],
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/CommandKind"
+          }
+        }
+      },
       "RegisterRequest": {
         "type": "object",
         "required": ["email", "password"],
@@ -16096,7 +16562,7 @@
       },
       "Report": {
         "type": "object",
-        "description": "Сводка сборщика с ПК (`scripts/pult-collect.py`). Версия формата — 1.",
+        "description": "Сводка с ПК или из облака. Версия формата — 1.",
         "required": ["version", "host", "at"],
         "properties": {
           "at": {
@@ -16119,7 +16585,7 @@
             "oneOf": [
               {
                 "$ref": "#/components/schemas/ReportLimits",
-                "description": "Лимиты подписки из строки состояния Claude Code; нет — `null`."
+                "description": "Лимиты подписки из строки состояния или событий Claude Code; нет — `null`."
               },
               {
                 "type": "null"
@@ -16131,7 +16597,7 @@
             "items": {
               "$ref": "#/components/schemas/ReportSession"
             },
-            "description": "Сессии за последние 7 дней (до 100)."
+            "description": "Последние сессии (до 100)."
           },
           "skills": {
             "type": "array",
@@ -16139,6 +16605,9 @@
               "type": "string"
             },
             "description": "Имена навыков (до 100) — для карты."
+          },
+          "source": {
+            "$ref": "#/components/schemas/ReportSource"
           },
           "version": {
             "type": "integer",
@@ -16238,6 +16707,10 @@
             "type": "string",
             "description": "Папка проекта (последняя часть пути)."
           },
+          "session_url": {
+            "type": ["string", "null"],
+            "description": "Ссылка на сессию, если сборщик её знает."
+          },
           "started_at": {
             "type": "string",
             "format": "date-time"
@@ -16258,6 +16731,10 @@
             "description": "Последний ход закончен — сессия ждёт человека."
           }
         }
+      },
+      "ReportSource": {
+        "type": "string",
+        "enum": ["pc", "cloud"]
       },
       "ReportWindow": {
         "type": "object",
@@ -16871,6 +17348,47 @@
             "type": "boolean"
           }
         }
+      },
+      "VoiceKey": {
+        "type": "object",
+        "description": "Только безопасные сведения; без настройки все поля кроме configured — null.",
+        "required": ["configured"],
+        "properties": {
+          "base_url": {
+            "type": ["string", "null"]
+          },
+          "configured": {
+            "type": "boolean"
+          },
+          "last4": {
+            "type": ["string", "null"]
+          },
+          "model": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "VoiceKeyInput": {
+        "type": "object",
+        "description": "Сам ключ никогда не сериализуется и не попадает в Debug.",
+        "required": ["api_key"],
+        "properties": {
+          "api_key": {
+            "type": "string",
+            "writeOnly": true,
+            "maxLength": 4096,
+            "minLength": 16
+          },
+          "base_url": {
+            "type": ["string", "null"],
+            "maxLength": 2048
+          },
+          "model": {
+            "type": ["string", "null"],
+            "maxLength": 256
+          }
+        },
+        "additionalProperties": false
       },
       "VoiceMethod": {
         "type": "string",

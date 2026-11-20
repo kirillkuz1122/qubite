@@ -19,7 +19,7 @@ set -euo pipefail
 REPO="${CODEX_QUEUE_REPO:-kirillkuz1122/qubite}"
 OWNER="${CODEX_QUEUE_OWNER:-kirillkuz1122}"
 HOME_DIR="${CODEX_QUEUE_HOME:-$HOME/codex-queue}"
-DEFAULT_MODEL="${CODEX_QUEUE_MODEL:-gpt-6.1-sol}" # метки codex-model:sol | terra (D-640)
+DEFAULT_MODEL="${CODEX_QUEUE_MODEL:-gpt-6.2-sol}" # метки codex-model:sol | terra (D-640)
 DEFAULT_EFFORT="${CODEX_QUEUE_EFFORT:-high}"
 CODEX_TIMEOUT="${CODEX_QUEUE_TIMEOUT:-75m}"
 MAX_LOAD="${CODEX_QUEUE_MAX_LOAD:-6}"            # load average за минуту; Codex ждёт сеть, а не CPU
@@ -135,7 +135,7 @@ trap 'fail "скрипт упал на строке $LINENO"' ERR
 labels=$(retry gh issue view "$N" -R "$REPO" --json labels -q '.labels[].name')
 m=$(sed -n 's/^codex-model://p' <<<"$labels" | head -1)
 case $m in
-    sol) MODEL=gpt-6.1-sol ;;
+    sol) MODEL=gpt-6.2-sol ;;
     terra) MODEL=gpt-6.1-terra ;;
     *) MODEL=$(grep -E '^gpt-[a-z0-9.-]{1,30}$' <<<"$m" || echo "$DEFAULT_MODEL") ;;
 esac

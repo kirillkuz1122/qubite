@@ -23,6 +23,7 @@ use qubite_objects::{NewAuditEntry, audit};
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use utoipa::{IntoParams, ToSchema};
+use uuid::Uuid;
 
 use crate::{
     AppState,
@@ -41,7 +42,7 @@ pub const LABEL_QUESTION: &str = "вопрос";
 pub const LABEL_QUEUE: &str = "ready";
 pub const LABEL_USAGE: &str = "лимит";
 /// Самый длинный ответ владельца.
-const ANSWER_MAX: usize = 2000;
+pub(crate) const ANSWER_MAX: usize = 2000;
 
 /// Настройки `qubite serve`: токен, репозиторий, адрес API.
 #[derive(Clone, Default)]
@@ -617,11 +618,22 @@ pub async fn work_answer(
     Path(number): Path<u64>,
     Json(body): Json<AnswerRequest>,
 ) -> Result<Json<AnswerPosted>, ApiError> {
+    post_work_answer(&state, owner.0.account_id(), number, &body.answer)
+        .await
+        .map(Json)
+}
+
+pub(crate) async fn post_work_answer(
+    state: &AppState,
+    account: Uuid,
+    number: u64,
+    answer: &str,
+) -> Result<AnswerPosted, ApiError> {
     let work = &state.work;
     if !work.configured() {
         return Err(not_configured());
     }
-    let answer = body.answer.trim();
+    let answer = answer.trim();
     if answer.is_empty() || answer.chars().count() > ANSWER_MAX {
         return Err(ApiError::new(
             StatusCode::BAD_REQUEST,
@@ -674,7 +686,7 @@ pub async fn work_answer(
     audit::record(
         &mut conn,
         NewAuditEntry {
-            actor_id: Some(owner.0.account_id()),
+            actor_id: Some(account),
             action: "work.question_answered".into(),
             target_kind: "github_issue".into(),
             target_id: Some(number.to_string()),
@@ -684,9 +696,9 @@ pub async fn work_answer(
     )
     .await
     .map_err(|e| ApiError::from(qubite_auth::Error::Audit(e)))?;
-    Ok(Json(AnswerPosted {
+    Ok(AnswerPosted {
         url: created.html_url,
-    }))
+    })
 }
 
 #[cfg(test)]

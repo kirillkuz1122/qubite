@@ -1,0 +1,7 @@
+[Unit]
+Description=Qubite: сводка Пульта с ПК
+
+[Service]
+Type=oneshot
+EnvironmentFile=-%h/.config/qubite/pult.env
+ExecStart=/usr/bin/python3 %h/.local/share/qubite/pult_collect.py once

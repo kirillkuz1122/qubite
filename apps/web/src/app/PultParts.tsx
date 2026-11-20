@@ -14,10 +14,12 @@ import {
   useSlide,
   useToast,
 } from '@qubite/ui';
+import { uuidv7 } from '@qubite/sync-client';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLayoutEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { api } from '../api';
 import { must, say } from '../auth/client';
+import { answerFromPult } from './command-dispatch';
 import { SecHead } from './parts';
 import {
   PULT,
@@ -141,7 +143,7 @@ export function Limits({
 }) {
   const now = new Date(board.now);
   const l = board.limits;
-  const pc = board.sources.find((s) => s.id === 'pc');
+  const pcConnected = board.sources.some((s) => s.id === 'pc' && s.ok);
   const none = !l.five_hour && !l.seven_day;
   return (
     <section className="panel pult-box pult-limits" aria-label="Лимиты подписки">
@@ -157,10 +159,9 @@ export function Limits({
       {none ? (
         <div className="pult-none">
           <p className="pult-small">
-            Лимитов пока нет: {pc?.note ?? 'сборщик на ПК их не прислал'}. Их сообщает строка
-            состояния Claude Code на ПК.
+            Лимитов пока нет. Состояние сводок с ПК и из облака указано в источниках.
           </p>
-          {!pc?.ok && (
+          {!pcConnected && (
             <div>
               <Button size="sm" onClick={onConnect}>
                 Подключить ПК
@@ -225,10 +226,7 @@ export function Spend({ board }: { board: PultBoard }) {
         <div className="pult-cap">
           <span>Расход за 7 дней</span>
         </div>
-        <p className="pult-small">
-          Нет данных: расход считает сборщик на ПК по журналам Claude Code. Облачные сессии свои
-          токены серверу не сообщают.
-        </p>
+        <p className="pult-small">Нет сводок о расходе за неделю.</p>
       </section>
     );
   const days = week(s.days);
@@ -239,7 +237,7 @@ export function Spend({ board }: { board: PultBoard }) {
     <section className="panel pult-box pult-spend" aria-label="Расход за 7 дней">
       <div className="pult-cap">
         <span>Расход за 7 дней</span>
-        <span>по ценам API</span>
+        {days.length > 0 && <span>по ценам API</span>}
       </div>
       <div className="pult-spend-top">
         {s.week_used != null ? (
@@ -247,34 +245,44 @@ export function Spend({ board }: { board: PultBoard }) {
             <b className="pult-num">{pct(s.week_used)}</b>
             <span>недельного лимита</span>
           </>
-        ) : (
+        ) : days.length > 0 ? (
           <>
             <b className="pult-num">{tokens(s.tokens)}</b>
             <span>токенов</span>
           </>
+        ) : null}
+        {days.length > 0 && (
+          <span className="pult-small">
+            {s.week_used != null && `${tokens(s.tokens)} токенов · `}≈ {usd(s.usd)}
+          </span>
         )}
-        <span className="pult-small">
-          {s.week_used != null && `${tokens(s.tokens)} токенов · `}≈ {usd(s.usd)}
-        </span>
       </div>
-      <div className="pult-bars" role="img" aria-label="Токены по дням">
-        {days.map((d) => {
-          const lit = d.tokens > 0 ? Math.max(1, Math.round((d.tokens / max) * H)) : 0;
-          const tone = d.date === today ? 'orange' : 'sky';
-          return (
-            <div key={d.date} className="pult-bar" title={`${tokens(d.tokens)} · ≈ ${usd(d.usd)}`}>
-              <span className="pult-bar-dots">
-                {Array.from({ length: H }, (_, i) => (
-                  <i key={i} className={H - i <= lit ? `pult-bg-${tone}` : undefined} />
-                ))}
-              </span>
-              <span className={d.date === today ? 'pult-ink-orange' : undefined}>
-                {weekdayShort(d.date)}
-              </span>
-            </div>
-          );
-        })}
-      </div>
+      {days.length === 0 ? (
+        <p className="pult-small">Данных по дням пока нет. Их присылает сборщик на ПК.</p>
+      ) : (
+        <div className="pult-bars" role="img" aria-label="Токены по дням">
+          {days.map((d) => {
+            const lit = d.tokens > 0 ? Math.max(1, Math.round((d.tokens / max) * H)) : 0;
+            const tone = d.date === today ? 'orange' : 'sky';
+            return (
+              <div
+                key={d.date}
+                className="pult-bar"
+                title={`${tokens(d.tokens)} · ≈ ${usd(d.usd)}`}
+              >
+                <span className="pult-bar-dots">
+                  {Array.from({ length: H }, (_, i) => (
+                    <i key={i} className={H - i <= lit ? `pult-bg-${tone}` : undefined} />
+                  ))}
+                </span>
+                <span className={d.date === today ? 'pult-ink-orange' : undefined}>
+                  {weekdayShort(d.date)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
       {(s.top || s.cache_saved != null) && (
         <p className="pult-small">
           {s.top && `Больше всего — ${s.top.title} (${tokens(s.top.tokens)}). `}
@@ -295,17 +303,17 @@ function useAnswer(w: PultWaiting) {
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   /** `true` — ответ дошёл; при ошибке окно не закрывается, ошибка видна в нём. */
+  const pending = useRef(false);
+  const request = useRef<{ answer: string; id: string } | null>(null);
   const send = async (answer: string): Promise<boolean> => {
-    if (busy || !answer.trim()) return false;
+    const text = answer.trim();
+    if (pending.current || !text) return false;
+    pending.current = true;
     setBusy(true);
     setError(null);
+    if (request.current?.answer !== text) request.current = { answer: text, id: uuidv7() };
     try {
-      await must(
-        api.POST('/api/owner/work/questions/{number}/answer', {
-          params: { path: { number: w.number } },
-          body: { answer: answer.trim() },
-        }),
-      );
+      await answerFromPult(w.number, text, request.current.id);
       setSent(true);
       toast.show('Ответ ушёл агенту');
       window.setTimeout(() => {
@@ -317,6 +325,7 @@ function useAnswer(w: PultWaiting) {
       setError(say(err));
       return false;
     } finally {
+      pending.current = false;
       setBusy(false);
     }
   };
@@ -328,12 +337,14 @@ export function WaitCard({
   w,
   now,
   main,
+  compact = false,
   onOpen,
 }: {
   w: PultWaiting;
   now: Date;
   /** у первой карточки на экране — главная кнопка */
   main: boolean;
+  compact?: boolean;
   onOpen: () => void;
 }) {
   const a = useAnswer(w);
@@ -376,9 +387,11 @@ export function WaitCard({
               {o}
             </Button>
           ))}
-          <Button size="sm" variant={first ? 'quiet' : 'outline'} onClick={onOpen}>
-            Открыть
-          </Button>
+          {(!compact || w.options.length < 2) && (
+            <Button size="sm" variant={first ? 'quiet' : 'outline'} onClick={onOpen}>
+              Открыть
+            </Button>
+          )}
         </div>
         {a.error && <Note tone="bad">{a.error}</Note>}
       </article>
@@ -636,6 +649,12 @@ export function AgentCard({
             Ответить
           </Button>
         )}
+        {a.session_url && (
+          <a className="q-btn pult-link" href={a.session_url} target="_blank" rel="noreferrer">
+            <span className="q-dot" aria-hidden="true" />
+            Открыть сессию
+          </a>
+        )}
         {a.url && (
           <Button onClick={() => window.open(a.url ?? '', '_blank', 'noopener')}>
             Открыть задачу
@@ -679,7 +698,7 @@ export function AgentCard({
 
 // ---------------------------------------------------------------- источники и ПК
 
-/** Откуда данные: GitHub и сборщики на ПК — честно, что есть и чего нет (D-980). */
+/** Состояние источников Пульта (D-980). */
 export function Sources({ board, onConnect }: { board: PultBoard; onConnect: () => void }) {
   const qc = useQueryClient();
   const collectors = useCollectors(true);

@@ -1,0 +1,112 @@
+.q-wide:has(.command-chat-popover) {
+  align-items: flex-end;
+  padding-bottom: 24px;
+  padding-left: calc(248px + 24px);
+}
+
+.q-wide .command-chat {
+  width: min(660px, 100%);
+}
+
+.q-wide .command-chat-expanded {
+  width: min(880px, 100%);
+}
+
+.q-sheet.command-chat-overlay,
+.command-chat-overlay .q-sheet-head,
+.command-chat-overlay .q-sheet-footer {
+  background: color-mix(in srgb, var(--q-panel) 92%, transparent);
+}
+
+.q-sheet.command-chat-overlay {
+  max-height: 64dvh;
+}
+
+.q-sheet.command-chat-full {
+  height: 100dvh;
+  max-height: 100dvh;
+  border: 0;
+  border-radius: 0;
+}
+
+.command-chat-full .q-sheet-head {
+  padding-top: max(8px, env(safe-area-inset-top));
+}
+
+.command-chat-full .q-sheet-body {
+  flex: 1;
+}
+
+.command-turns,
+.command-turn {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.command-expand {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.command-bubble,
+.command-byline {
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.command-bubble {
+  width: fit-content;
+  max-width: 100%;
+  padding: 12px 16px;
+  border-radius: calc(var(--q-round) * 16px);
+  background: var(--q-panel-2);
+}
+
+.command-user {
+  justify-self: end;
+  max-width: 85%;
+}
+
+.command-agent {
+  border: 1px solid var(--q-line);
+}
+
+.command-byline,
+.command-actions {
+  font-size: 13px;
+  color: var(--q-mute);
+}
+
+.command-byline {
+  margin-bottom: 8px;
+}
+
+.command-byline span {
+  color: var(--q-sky-ink);
+}
+
+.command-byline .q-dot {
+  background: var(--q-sky);
+}
+
+.command-actions,
+.command-composer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.command-actions {
+  flex-wrap: wrap;
+}
+
+.command-composer .cmd-swap {
+  flex: 1;
+  min-width: 0;
+}
+
+body:has(.command-chat) .q-toast-wrap {
+  z-index: 81;
+}

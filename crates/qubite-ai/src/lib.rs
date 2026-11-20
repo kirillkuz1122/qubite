@@ -23,6 +23,7 @@ pub mod catalog;
 pub mod chatgpt;
 pub mod elevenlabs;
 pub mod guard;
+pub mod openai_voice;
 pub mod openrouter;
 pub mod provider;
 pub mod realtime;
@@ -566,7 +567,7 @@ impl Gateway {
         }
         if catalog::split_model_id(requested).0 == chatgpt::PROVIDER_ID {
             return Ok((
-                self.subscription_model(Some(requested)).await?,
+                self.subscription_model(Some(requested), false).await?,
                 PaidBy::Subscription,
                 None,
             ));
@@ -578,7 +579,7 @@ impl Gateway {
                 .await?;
         match source {
             Some((kind, chosen)) if kind == "chatgpt" => Ok((
-                self.subscription_model(chosen.as_deref()).await?,
+                self.subscription_model(chosen.as_deref(), true).await?,
                 PaidBy::Subscription,
                 None,
             )),
@@ -624,11 +625,15 @@ impl Gateway {
     /// разрешённая owner, иначе первая из каталога. Allowlist owner для подписки
     /// не нужен — она не тратит деньги платформы (D-531); строка модели
     /// заводится выключенной, чтобы вызов было к чему привязать.
-    async fn subscription_model(&self, chosen: Option<&str>) -> Result<ModelRow> {
+    async fn subscription_model(
+        &self,
+        chosen: Option<&str>,
+        allow_fallback: bool,
+    ) -> Result<ModelRow> {
         let external: Option<String> = sqlx::query_scalar(
             "SELECT external_id FROM ( \
                SELECT m.external_id, 0 AS rank FROM ai_models m \
-                 WHERE m.provider_id = 'chatgpt' AND m.id = $1 \
+                 WHERE m.provider_id = 'chatgpt' AND m.id = $1 AND m.enabled \
                    AND NOT ('realtime' = ANY(m.capabilities)) \
                UNION ALL SELECT c.external_id, 1 FROM ai_catalog c \
                  WHERE c.provider_id = 'chatgpt' AND 'chatgpt:' || lower(c.external_id) = $1 \
@@ -636,12 +641,16 @@ impl Gateway {
                  WHERE m.provider_id = 'chatgpt' AND m.enabled \
                    AND NOT ('realtime' = ANY(m.capabilities)) \
                UNION ALL SELECT c.external_id, 3 FROM ai_catalog c WHERE c.provider_id = 'chatgpt' \
-             ) x ORDER BY rank, external_id LIMIT 1",
+             ) x WHERE $2 OR rank < 2 ORDER BY rank, external_id LIMIT 1",
         )
         .bind(chosen.unwrap_or(""))
+        .bind(allow_fallback)
         .fetch_optional(&self.pool)
         .await?;
         let Some(external) = external else {
+            if !allow_fallback {
+                return Err(AiError::ModelNotAllowed);
+            }
             return Err(AiError::SourceNotReady(
                 "модели подписки ChatGPT ещё не получены — войдите через ChatGPT ещё раз".into(),
             ));
@@ -682,6 +691,15 @@ impl Gateway {
         .fetch_optional(&self.pool)
         .await?
         .ok_or_else(|| AiError::NoModelForTask(task.into()))
+    }
+
+    /// Для задач, где автоматическая подстановка общей модели может поднять цену.
+    pub async fn configured_model_for(&self, task: &str) -> Result<String> {
+        sqlx::query_scalar("SELECT model_id FROM ai_model_defaults WHERE task = $1")
+            .bind(task)
+            .fetch_optional(&self.pool)
+            .await?
+            .ok_or_else(|| AiError::NoModelForTask(task.into()))
     }
 
     /// «Отпечаток» запроса: HMAC частей с длинами (части не склеятся в другую).

@@ -13,6 +13,7 @@ pub mod ai_console;
 pub mod auth;
 pub mod calendar;
 pub mod changes;
+mod command;
 pub mod console;
 pub mod deploy;
 pub mod docs;
@@ -36,6 +37,10 @@ pub mod pult;
 pub mod registration;
 pub mod routes;
 pub mod sync;
+pub mod voice_key;
+
+#[cfg(test)]
+extern crate self as qubite_server;
 
 use std::{sync::Arc, time::Duration};
 
@@ -64,6 +69,9 @@ pub struct AppState {
     pub changes: Arc<changes::ChangeHub>,
     /// AI-шлюз — единственная дверь к платным моделям (AI_COST_GUARD).
     pub ai: Arc<qubite_ai::Gateway>,
+    /// Заглушка личного STT существует только в тестовой сборке.
+    #[cfg(test)]
+    pub(crate) own_key_voice: Option<Arc<dyn qubite_ai::VoiceProvider>>,
     /// Вход через Яндекс, VK, Google, Telegram.
     pub oauth: Arc<qubite_oauth::OAuth>,
     /// Каналы напоминаний: push (ключ VAPID) и Telegram (токен бота).
@@ -103,6 +111,8 @@ impl AppState {
             sync: sync::registry(),
             changes: Arc::new(changes::ChangeHub::default()),
             ai: Arc::new(ai),
+            #[cfg(test)]
+            own_key_voice: None,
             oauth: Arc::new(qubite_oauth::OAuth::new(
                 qubite_oauth::OAuthSettings::default(),
             )),
@@ -240,6 +250,9 @@ impl AppState {
         console::server_info,
         harness::work_board,
         harness::work_answer,
+        command::dispatch_command,
+        command::reclassify,
+        inbox::command_voice,
         pult::pult_board,
         pult::pult_agent,
         pult::list_collectors,
@@ -276,6 +289,9 @@ impl AppState {
         inbox::capture,
         inbox::voice_prefs,
         inbox::set_voice_prefs,
+        voice_key::get_key,
+        voice_key::set_key,
+        voice_key::delete_key,
         inbox::capture_voice,
         inbox::detail,
         inbox::download_audio,
@@ -462,6 +478,13 @@ impl AppState {
         harness::WorkUsage,
         harness::AnswerRequest,
         harness::AnswerPosted,
+        command::CommandSource,
+        command::CommandKind,
+        command::DispatchStatus,
+        command::DispatchRequest,
+        command::DispatchResult,
+        command::ReclassifyRequest,
+        inbox::CommandTranscript,
         pult::PultBoard,
         pult::PultLimits,
         pult::PultWindow,
@@ -483,6 +506,7 @@ impl AppState {
         pult::AgentPlace,
         pult::Ci,
         pult::Report,
+        pult::ReportSource,
         pult::ReportLimits,
         pult::ReportWindow,
         pult::ReportSession,
@@ -517,6 +541,8 @@ impl AppState {
         inbox::InboxItemDetail,
         inbox::CaptureRequest,
         inbox::VoicePrefs,
+        voice_key::VoiceKey,
+        voice_key::VoiceKeyInput,
         inbox::VoiceMethod,
         inbox::VoiceCaptureRequest,
         inbox::VoiceCaptureResponse,
@@ -780,6 +806,17 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
             "/api/owner/work/questions/{number}/answer",
             post(harness::work_answer),
         )
+        .route(
+            "/api/command/voice",
+            post(inbox::command_voice).layer(DefaultBodyLimit::max(
+                qubite_ai::voice::MAX_AUDIO_BYTES.div_ceil(3) * 4 + 128 * 1024,
+            )),
+        )
+        .route("/api/command/dispatch", post(command::dispatch_command))
+        .route(
+            "/api/command/dispatch/{id}/reclassify",
+            post(command::reclassify),
+        )
         .route("/api/owner/pult", get(pult::pult_board))
         .route("/api/owner/pult/agents/{key}", get(pult::pult_agent))
         .route(
@@ -871,6 +908,13 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
         .route(
             "/api/v1/voice/prefs",
             get(inbox::voice_prefs).put(inbox::set_voice_prefs),
+        )
+        .route(
+            "/api/v1/voice/key",
+            get(voice_key::get_key)
+                .put(voice_key::set_key)
+                .delete(voice_key::delete_key)
+                .layer(DefaultBodyLimit::max(16 * 1024)),
         )
         .route(
             "/api/v1/inbox/voice",
@@ -1225,7 +1269,8 @@ impl Limits {
 
 /// Запросы, обработчик которых прямо в себе ждёт ответа модели: реплика репетитора, урок,
 /// разбор мысли, разговор с агентом, проба модели в Console. Только `POST` — чтение быстрое.
-const AI_PATHS: [&str; 6] = [
+const AI_PATHS: [&str; 7] = [
+    "/api/command/",
     "/api/v1/english/",
     "/api/v1/agent/",
     "/api/v1/inbox",

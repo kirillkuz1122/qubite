@@ -540,6 +540,56 @@ export interface paths {
     patch: operations['patch_event'];
     trace?: never;
   };
+  '/api/command/dispatch': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Разобрать одно сообщение Command или подтвердить ранее предложенный запуск. */
+    post: operations['dispatch_command'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/command/dispatch/{id}/reclassify': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Исправить сортировку сообщения и запомнить пример для следующего разбора. */
+    post: operations['reclassify'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/command/voice': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['command_voice'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/health': {
     parameters: {
       query?: never;
@@ -3068,6 +3118,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/voice/key': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['get_key'];
+    put: operations['set_key'];
+    post?: never;
+    delete: operations['delete_key'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/voice/prefs': {
     parameters: {
       query?: never;
@@ -3947,6 +4013,14 @@ export interface components {
       /** @description Положить в `~/.config/qubite/pult.env` как `QUBITE_PULT_TOKEN=…`. Больше не покажем. */
       token: string;
     };
+    /** @enum {string} */
+    CommandKind: 'thought' | 'question' | 'order';
+    /** @enum {string} */
+    CommandSource: 'web' | 'voice' | 'pult' | 'desktop' | 'android';
+    CommandTranscript: {
+      /** @description Текст для dispatch. При отсутствии текста аудио осталось во Входящих. */
+      text?: string | null;
+    };
     ConfirmRequest: {
       password: string;
     };
@@ -4032,6 +4106,41 @@ export interface components {
       /** @description Всегда `Bearer`. */
       token_type: string;
     };
+    DispatchRequest: {
+      /** @description Только для уже показанного поручения с тем же id. */
+      confirm?: boolean;
+      /**
+       * Format: uuid
+       * @description Идентификатор сообщения. Повторы безопасны с тем же id, текстом и источником.
+       */
+      id?: string | null;
+      source: components['schemas']['CommandSource'];
+      text: string;
+    };
+    DispatchResult: {
+      /** Format: double */
+      confidence: number;
+      /**
+       * Format: int64
+       * @description Фактическая цена показанного вызова модели, микродоллары.
+       */
+      cost_usd: number;
+      /** Format: double */
+      estimate_percent?: number | null;
+      /**
+       * Format: double
+       * @description Оценка запуска в долларах по данным Пульта.
+       */
+      estimate_usd?: number | null;
+      /** Format: uuid */
+      id: string;
+      kind: components['schemas']['CommandKind'];
+      message: string;
+      model: string;
+      status: components['schemas']['DispatchStatus'];
+    };
+    /** @enum {string} */
+    DispatchStatus: 'done' | 'needs_confirm';
     DocLink: {
       deleted: boolean;
       /** Format: uuid */
@@ -5455,7 +5564,7 @@ export interface components {
        */
       context?: number | null;
       effort?: string | null;
-      /** @description `gh-245` или `pc-<сессия>`. */
+      /** @description `gh-245`, `pc-<сессия>` или `cloud-<сессия>`. */
       key: string;
       /**
        * Format: int64
@@ -5466,6 +5575,8 @@ export interface components {
       model?: string | null;
       place: components['schemas']['AgentPlace'];
       pr?: components['schemas']['PultPr'] | null;
+      /** @description Ссылка, переданная сборщиком сессий. */
+      session_url?: string | null;
       /** @description Где: «облако», «ПК arch». */
       source: string;
       status: components['schemas']['AgentStatus'];
@@ -5597,7 +5708,7 @@ export interface components {
       key: string;
       /**
        * Format: int64
-       * @description Номер issue — ответить кнопкой (`/api/owner/work/questions/{n}/answer`).
+       * @description Номер issue — ответить кнопкой через Command.
        */
       number: number;
       /** @description Варианты ответа, первый — рекомендация. */
@@ -5669,6 +5780,9 @@ export interface components {
       /** @description Версия Qubite. */
       version: string;
     };
+    ReclassifyRequest: {
+      kind: components['schemas']['CommandKind'];
+    };
     RegisterRequest: {
       /** @description Токен виджета CAPTCHA (нужен при открытой регистрации без приглашения). */
       captcha_token?: string | null;
@@ -5701,7 +5815,7 @@ export interface components {
       /** @description `closed`, `invite_only` или `open`. */
       mode: string;
     };
-    /** @description Сводка сборщика с ПК (`scripts/pult-collect.py`). Версия формата — 1. */
+    /** @description Сводка с ПК или из облака. Версия формата — 1. */
     Report: {
       /**
        * Format: date-time
@@ -5713,10 +5827,11 @@ export interface components {
       /** @description Имя машины, как его показывать («arch»). До 64 знаков. */
       host: string;
       limits?: components['schemas']['ReportLimits'] | null;
-      /** @description Сессии за последние 7 дней (до 100). */
+      /** @description Последние сессии (до 100). */
       sessions?: components['schemas']['ReportSession'][];
       /** @description Имена навыков (до 100) — для карты. */
       skills?: string[];
+      source?: components['schemas']['ReportSource'];
       /**
        * Format: int32
        * @description Версия формата, сейчас 1.
@@ -5764,6 +5879,8 @@ export interface components {
       model_at?: string | null;
       /** @description Папка проекта (последняя часть пути). */
       project?: string;
+      /** @description Ссылка на сессию, если сборщик её знает. */
+      session_url?: string | null;
       /** Format: date-time */
       started_at: string;
       /** @description Название: своё имя сессии или начало первого запроса (до 120 знаков). */
@@ -5773,6 +5890,8 @@ export interface components {
       /** @description Последний ход закончен — сессия ждёт человека. */
       waiting?: boolean;
     };
+    /** @enum {string} */
+    ReportSource: 'pc' | 'cloud';
     ReportWindow: {
       /**
        * Format: date-time
@@ -6049,6 +6168,19 @@ export interface components {
       /** @description Почему осталась только запись; null, если текст получен. */
       reason?: string | null;
       transcribed: boolean;
+    };
+    /** @description Только безопасные сведения; без настройки все поля кроме configured — null. */
+    VoiceKey: {
+      base_url?: string | null;
+      configured: boolean;
+      last4?: string | null;
+      model?: string | null;
+    };
+    /** @description Сам ключ никогда не сериализуется и не попадает в Debug. */
+    VoiceKeyInput: {
+      api_key: string;
+      base_url?: string | null;
+      model?: string | null;
     };
     /**
      * @description Где распознавать запись (D-686).
@@ -7522,6 +7654,207 @@ export interface operations {
       };
       /** @description Конфликт версии */
       409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  dispatch_command: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['DispatchRequest'];
+      };
+    };
+    responses: {
+      /** @description Ответ диспетчера */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['DispatchResult'];
+        };
+      };
+      /** @description Неверный запрос */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет доступа */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Конфликт или отказ шлюза */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description GitHub не ответил */
+      502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Шлюз Command недоступен */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  reclassify: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Сообщение Command */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ReclassifyRequest'];
+      };
+    };
+    responses: {
+      /** @description Ответ после исправления */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['DispatchResult'];
+        };
+      };
+      /** @description Неверный запрос */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет доступа */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Сообщение не найдено */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Конфликт или отказ шлюза */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  command_voice: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['VoiceCaptureRequest'];
+      };
+    };
+    responses: {
+      /** @description Текст для Command или аудио во Входящих */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CommandTranscript'];
+        };
+      };
+      /** @description Неверная запись */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет доступа */
+      403: {
         headers: {
           [name: string]: unknown;
         };
@@ -9198,7 +9531,7 @@ export interface operations {
       query?: never;
       header?: never;
       path: {
-        /** @description Ключ агента: gh-N или pc-<сессия> */
+        /** @description Ключ агента: gh-N, pc-<сессия> или cloud-<сессия> */
         key: string;
       };
       cookie?: never;
@@ -14426,6 +14759,140 @@ export interface operations {
       };
       /** @description Бот не настроен */
       409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  get_key: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Сведения о ключе без самого ключа */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['VoiceKey'];
+        };
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет права записи */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  set_key: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['VoiceKeyInput'];
+      };
+    };
+    responses: {
+      /** @description Ключ зашифрован и сохранён */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['VoiceKey'];
+        };
+      };
+      /** @description Неверный ключ, модель или адрес */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет права записи */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Хранение секретов не настроено */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+    };
+  };
+  delete_key: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Ключ удалён */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Нужно войти */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiErrorBody'];
+        };
+      };
+      /** @description Нет права записи */
+      403: {
         headers: {
           [name: string]: unknown;
         };

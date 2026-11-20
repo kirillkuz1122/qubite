@@ -1120,6 +1120,7 @@ async fn think(
         auth,
         &Who::agent(run),
         WAKE_TASK,
+        None,
         &task,
         tools,
         data,

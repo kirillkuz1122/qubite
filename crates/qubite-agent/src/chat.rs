@@ -213,9 +213,19 @@ pub struct NewMessage {
 /// транзакцией. Нужно право `write` в модуле `agent` (без гранта агента нет).
 pub async fn post(pool: &PgPool, new: NewMessage) -> Result<Message> {
     let mut tx = pool.begin().await?;
+    let message = post_in(&mut tx, new, None).await?;
+    tx.commit().await?;
+    Ok(message)
+}
+
+/// Запись и постановка задачи внутри транзакции вызывающего кода.
+pub async fn post_in(
+    conn: &mut PgConnection,
+    new: NewMessage,
+    model: Option<&str>,
+) -> Result<Message> {
     let module = ModuleId::new(MODULE)?;
-    qubite_policy::decide_in::<Write>(&mut tx, &Subject::account(new.account, None), &module)
-        .await?;
+    qubite_policy::decide_in::<Write>(conn, &Subject::account(new.account, None), &module).await?;
     let text = new.text.trim();
     if text.is_empty() {
         return Err(Error::Invalid("пустое сообщение".into()));
@@ -228,7 +238,7 @@ pub async fn post(pool: &PgPool, new: NewMessage) -> Result<Message> {
     // Пароли и коды не уходят ни в разговор, ни в модель.
     let (text, _) = files::redact(text);
     if let Some(file) = new.file_id
-        && files::by_id(&mut tx, new.account, file).await?.is_none()
+        && files::by_id(conn, new.account, file).await?.is_none()
     {
         return Err(Error::NotFound);
     }
@@ -236,8 +246,8 @@ pub async fn post(pool: &PgPool, new: NewMessage) -> Result<Message> {
     let (chat, message) = new.telegram.unzip();
     sqlx::query(
         "INSERT INTO agent_messages (id, account_id, role, channel, text, file_id, \
-         telegram_chat, telegram_message, status) \
-         VALUES ($1, $2, 'owner', $3, $4, $5, $6, $7, 'pending')",
+         telegram_chat, telegram_message, status, dispatch_model) \
+         VALUES ($1, $2, 'owner', $3, $4, $5, $6, $7, 'pending', $8)",
     )
     .bind(id)
     .bind(new.account)
@@ -246,19 +256,18 @@ pub async fn post(pool: &PgPool, new: NewMessage) -> Result<Message> {
     .bind(new.file_id)
     .bind(chat)
     .bind(message)
-    .execute(&mut *tx)
+    .bind(model)
+    .execute(&mut *conn)
     .await?;
     qubite_jobs::enqueue_in(
-        &mut tx,
+        conn,
         qubite_jobs::NewJob::new(CHAT_JOB, json!({ "message_id": id }))
             .idempotency_key(format!("{CHAT_JOB}:{id}"))
             .max_attempts(2),
     )
     .await
     .map_err(|error| Error::Invalid(error.to_string()))?;
-    let message = get(&mut tx, id).await?.ok_or(Error::NotFound)?;
-    tx.commit().await?;
-    Ok(message)
+    get(conn, id).await?.ok_or(Error::NotFound)
 }
 
 /// Ответ агента на сообщение; твоё сообщение — «готово» или «не вышло».

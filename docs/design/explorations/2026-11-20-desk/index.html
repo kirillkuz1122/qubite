@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Настольный помощник — живые варианты</title>
+<style>
+  /* Проба для выбора облика (DESK-001, этап 0), не код приложения. Цвета — значения токенов тёмной темы. */
+  body { margin: 0; padding: 40px; background: #100f0d; color: #f3ede3; font: 14px/1.4 'Fira Code', monospace; }
+  p { color: #a59c90; max-width: 860px; }
+  .row { display: flex; flex-wrap: wrap; gap: 24px; margin: 24px 0; }
+  .cell { background: #1b1916; border-radius: 10px; padding: 12px; }
+  .cell b { display: block; margin-top: 8px; }
+  canvas { display: block; cursor: pointer; }
+  .moods { display: flex; flex-wrap: wrap; gap: 8px; }
+  .moods button { min-height: 44px; padding: 0 16px; border-radius: 8px; border: 1px solid rgba(243, 237, 227, 0.26); background: none; color: inherit; font: inherit; cursor: pointer; }
+  .moods button[aria-pressed='true'] { background: #ff9852; color: #100f0d; border-color: #ff9852; }
+</style>
+</head>
+<body>
+<h1>Настольный помощник: шесть обликов</h1>
+<p>Все шесть рисует один и тот же код (<code>figures.mjs</code> → Canvas): дышат, следят глазами за курсором, макушка тянется к нему на пружине со своим характером (масса и вязкость). Клик — «удар»: короткая обида; три клика за 10 с — обида надолго. Кнопки ниже — состояния и настроения.</p>
+<div class="row" id="stage"></div>
+<div class="moods" id="moods"></div>
+<script type="module">
+  import { LOOKS, FRAMES, frame, paintCanvas } from './figures.mjs';
+
+  const PITCH = 8;
+  const DPR = Math.min(2, window.devicePixelRatio || 1);
+  const stage = document.getElementById('stage');
+  const items = Object.keys(LOOKS).map((id) => {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    const cv = document.createElement('canvas');
+    const W = 26 * PITCH;
+    cv.width = W * DPR;
+    cv.height = W * DPR;
+    cv.style.width = cv.style.height = `${W}px`;
+    cv.setAttribute('aria-label', LOOKS[id].name);
+    cell.append(cv);
+    const name = document.createElement('b');
+    name.textContent = LOOKS[id].name;
+    cell.append(name);
+    stage.append(cell);
+    // пружина наклона: та же формула, что Spring в packages/motion (жёсткость 220)
+    const it = { id, cv, ctx: cv.getContext('2d'), lean: 0, v: 0, hits: [], hurtUntil: 0 };
+    cv.addEventListener('click', () => {
+      const now = performance.now();
+      it.hits = it.hits.filter((t) => now - t < 10000).concat(now);
+      it.hurtUntil = now + (it.hits.length >= 3 ? 4000 : 1200);
+      it.v -= 30; // отшатнулся
+    });
+    return it;
+  });
+
+  let mood = 'listen';
+  const moods = document.getElementById('moods');
+  for (const f of FRAMES.filter((f) => f.group !== 'extra')) {
+    const b = document.createElement('button');
+    b.textContent = f.title;
+    b.setAttribute('aria-pressed', String(f.id === mood));
+    b.onclick = () => {
+      mood = f.id;
+      for (const x of moods.children) x.setAttribute('aria-pressed', String(x === b));
+    };
+    moods.append(b);
+  }
+
+  const mouse = { x: innerWidth / 2, y: 0 };
+  addEventListener('pointermove', (e) => Object.assign(mouse, { x: e.clientX, y: e.clientY }));
+
+  let last = performance.now();
+  function tick(now) {
+    const h = Math.min(0.032, (now - last) / 1000);
+    last = now;
+    const t = now / 1000;
+    for (const it of items) {
+      const L = LOOKS[it.id];
+      const r = it.cv.getBoundingClientRect();
+      const dx = mouse.x - (r.left + r.width / 2);
+      const dy = mouse.y - (r.top + r.height / 2);
+      const len = Math.hypot(dx, dy) || 1;
+      const hurt = now < it.hurtUntil;
+      const id = hurt ? 'hurt' : mood;
+      const F = FRAMES.find((f) => f.id === id);
+      // цель наклона — к курсору, не дальше 1,6 клетки
+      const goal = (F.lean ?? 0) + (hurt ? 0 : Math.max(-1.6, Math.min(1.6, dx / 200)));
+      for (let k = 0; k < 4; k++) {
+        const a = (-220 * (it.lean - goal) - L.damping * it.v) / L.mass;
+        it.v += a * (h / 4);
+        it.lean += it.v * (h / 4);
+      }
+      const breath = 1 + 0.025 * Math.sin(t * 2.1 + it.id.length);
+      const over = { lean: it.lean, sy: (F.sy ?? 1) * breath, sx: (F.sx ?? 1) / Math.sqrt(breath) };
+      if (!hurt && ['open', 'wide', 'focus', undefined].includes(F.eyes)) over.look = [dx / len, dy / len];
+      const fr = frame(it.id, id, { pitch: PITCH, t: t * 3, over });
+      it.ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      it.ctx.clearRect(0, 0, fr.w, fr.h);
+      paintCanvas(it.ctx, fr);
+    }
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+</script>
+</body>
+</html>
