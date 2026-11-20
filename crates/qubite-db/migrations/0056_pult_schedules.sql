@@ -15,7 +15,7 @@ CREATE TABLE pult_schedules (
     cap_tokens bigint CHECK (cap_tokens > 0),
     cap_usd numeric CHECK (cap_usd > 0 AND cap_usd < 'Infinity'::numeric),
     enabled boolean NOT NULL DEFAULT true,
-    paused_reason text CHECK (paused_reason = 'cap' AND NOT enabled),
+    paused_reason text CHECK (paused_reason IS NULL OR (paused_reason = 'cap' AND NOT enabled)),
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now()
 );

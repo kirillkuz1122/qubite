@@ -287,7 +287,8 @@ async fn owner_only_except_collector_run_reports() {
     for request in forbidden {
         assert_eq!(
             request.bearer_auth(&token).send().await.unwrap().status(),
-            403
+            // токен сборщика — не вход: для остальных маршрутов это аноним (политика: 404)
+            404
         );
     }
     assert_eq!(report(address, "qpult_invalid", &run).await, 401);
