@@ -4,9 +4,11 @@
 //! Откуда данные — только настоящие, без выдуманных чисел (D-981):
 //! - **GitHub** (токен сервера, тот же снимок, что у «Работы агентов»): задачи с метками
 //!   `in_progress` / `вопрос` / `review`, открытые PR и их CI;
-//! - **сборщик на ПК владельца** (`scripts/pult-collect.py`) по своему токену шлёт
+//! - **сборщик на ПК владельца** (`scripts/pult_collect.py`) по своему токену шлёт
 //!   сводку: сессии Claude Code из `~/.claude/projects/*.jsonl` (модель, контекст,
-//!   токены по моделям, тёплый ли кэш) и лимиты 5ч/7д из строки состояния Claude Code.
+//!   токены по моделям, тёплый ли кэш) и лимиты 5ч/7д из строки состояния Claude Code;
+//! - **управляющая сессия** (`scripts/pult_cloud.py`) присылает облачные сессии,
+//!   расход и лимиты из событий Claude Code.
 //!
 //! Нет источника — поле пустое и `sources` объясняет почему. Цена — «≈ $ по ценам API»:
 //! на подписке это оценка (D-963). История агента — события, которые пишет код при
@@ -79,21 +81,31 @@ pub enum Ci {
 
 // ---------------------------------------------------------------- сводка сборщика
 
-/// Сводка сборщика с ПК (`scripts/pult-collect.py`). Версия формата — 1.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ReportSource {
+    #[default]
+    Pc,
+    Cloud,
+}
+
+/// Сводка с ПК или из облака. Версия формата — 1.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct Report {
     /// Версия формата, сейчас 1.
     version: u32,
+    #[serde(default)]
+    source: ReportSource,
     /// Имя машины, как его показывать («arch»). До 64 знаков.
     host: String,
     /// Когда собрано (часы сборщика).
     #[serde(with = "time::serde::rfc3339")]
     #[schema(value_type = String, format = DateTime)]
     at: OffsetDateTime,
-    /// Лимиты подписки из строки состояния Claude Code; нет — `null`.
+    /// Лимиты подписки из строки состояния или событий Claude Code; нет — `null`.
     #[serde(default)]
     limits: Option<ReportLimits>,
-    /// Сессии за последние 7 дней (до 100).
+    /// Последние сессии (до 100).
     #[serde(default)]
     sessions: Vec<ReportSession>,
     /// Расход по дням (до 8), дата — по часам машины.
@@ -470,7 +482,7 @@ pub enum AgentPlace {
 /// Агент в списке: задача из GitHub и/или сессия с ПК.
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct PultAgent {
-    /// `gh-245` или `pc-<сессия>`.
+    /// `gh-245`, `pc-<сессия>` или `cloud-<сессия>`.
     key: String,
     title: String,
     status: AgentStatus,
@@ -830,8 +842,13 @@ fn session_link(value: Option<&str>) -> Option<String> {
     .then(|| url.to_string())
 }
 
-/// Поля агента, которые знает только ПК.
-fn fill_from_pc(agent: &mut PultAgent, s: &ReportSession, host: &str, now: OffsetDateTime) {
+/// Поля агента из сводки сессии.
+fn fill_from_session(
+    agent: &mut PultAgent,
+    s: &ReportSession,
+    report: &Report,
+    now: OffsetDateTime,
+) {
     let (tokens, usd) = total(&s.usage);
     agent.session_url = session_link(s.session_url.as_deref());
     agent.model = (!s.model.is_empty()).then(|| model_name(&s.model));
@@ -841,22 +858,24 @@ fn fill_from_pc(agent: &mut PultAgent, s: &ReportSession, host: &str, now: Offse
         let pct = s.context_tokens as f64 * 100.0 / context_window(&s.model) as f64;
         (pct.min(100.0) * 10.0).round() / 10.0
     });
-    agent.tokens = Some(tokens);
+    agent.tokens = (report.source == ReportSource::Pc || !s.usage.is_empty()).then_some(tokens);
     agent.usd = usd;
-    let ttl = i64::from(if s.cache_ttl_s == 0 {
-        300
-    } else {
-        s.cache_ttl_s
+    agent.cache = (report.source == ReportSource::Pc).then(|| {
+        let ttl = i64::from(if s.cache_ttl_s == 0 {
+            300
+        } else {
+            s.cache_ttl_s
+        });
+        let age = (now - s.model_at.unwrap_or(s.last_at)).whole_seconds();
+        PultCache {
+            warm: age < ttl,
+            minutes_left: ((ttl - age).max(0) + 59) / 60,
+        }
     });
-    let age = (now - s.model_at.unwrap_or(s.last_at)).whole_seconds();
-    agent.cache = Some(PultCache {
-        warm: age < ttl,
-        minutes_left: ((ttl - age).max(0) + 59) / 60,
-    });
-    agent.source = if agent.place == AgentPlace::Pc {
-        format!("ПК {host}")
-    } else {
-        format!("облако · ПК {host}")
+    agent.source = match (report.source, agent.place) {
+        (ReportSource::Cloud, _) => "облако".into(),
+        (ReportSource::Pc, AgentPlace::Pc) => format!("ПК {}", report.host),
+        (ReportSource::Pc, AgentPlace::Cloud) => format!("облако · ПК {}", report.host),
     };
     agent.updated_at = agent.updated_at.max(s.last_at);
 }
@@ -886,10 +905,10 @@ fn agents(g: &Gathered, now: OffsetDateTime) -> (Vec<PultAgent>, Vec<PultWaiting
     let mut out = Vec::new();
     let mut waiting = Vec::new();
     let mut used_sessions = std::collections::HashSet::new();
-    let sessions: Vec<(&str, &ReportSession)> = g
+    let sessions: Vec<(&Report, &ReportSession)> = g
         .reports
         .iter()
-        .flat_map(|(_, _, r)| r.sessions.iter().map(move |s| (r.host.as_str(), s)))
+        .flat_map(|(_, _, r)| r.sessions.iter().map(move |s| (r, s)))
         .collect();
     if let Some(snap) = &g.issues {
         for issue in snap.issues.iter().filter(|i| !i.is_pr()) {
@@ -903,16 +922,16 @@ fn agents(g: &Gathered, now: OffsetDateTime) -> (Vec<PultAgent>, Vec<PultWaiting
                 continue;
             };
             let mut agent = gh_agent(issue, status, &g.prs);
-            // сессия с ПК в ветке этой задачи — её модель, контекст и цена
-            if let Some((host, s)) = sessions
+            // сессия в ветке этой задачи — её модель, контекст и цена
+            if let Some((report, s)) = sessions
                 .iter()
                 .filter(|(_, s)| {
                     task_id(&s.branch).is_some_and(|id| title_has_id(&issue.title, id))
                 })
                 .max_by_key(|(_, s)| s.last_at)
             {
-                fill_from_pc(&mut agent, s, host, now);
-                used_sessions.insert(s.id.as_str());
+                fill_from_session(&mut agent, s, report, now);
+                used_sessions.insert((report.source == ReportSource::Cloud, s.id.as_str()));
             }
             if status == AgentStatus::Waiting {
                 let (text, options) =
@@ -930,8 +949,9 @@ fn agents(g: &Gathered, now: OffsetDateTime) -> (Vec<PultAgent>, Vec<PultWaiting
             out.push(agent);
         }
     }
-    for (host, s) in sessions {
-        if used_sessions.contains(s.id.as_str()) {
+    for (report, s) in sessions {
+        let cloud = report.source == ReportSource::Cloud;
+        if used_sessions.contains(&(cloud, s.id.as_str())) {
             continue;
         }
         let status = pc_status(s, now);
@@ -943,11 +963,16 @@ fn agents(g: &Gathered, now: OffsetDateTime) -> (Vec<PultAgent>, Vec<PultWaiting
         } else {
             s.title.clone()
         };
+        let (prefix, place) = if cloud {
+            ("cloud", AgentPlace::Cloud)
+        } else {
+            ("pc", AgentPlace::Pc)
+        };
         let mut agent = PultAgent {
-            key: format!("pc-{}", s.id),
+            key: format!("{prefix}-{}", s.id),
             title,
             status,
-            place: AgentPlace::Pc,
+            place,
             model: None,
             effort: None,
             minutes: None,
@@ -970,7 +995,7 @@ fn agents(g: &Gathered, now: OffsetDateTime) -> (Vec<PultAgent>, Vec<PultWaiting
             source: String::new(),
             updated_at: s.last_at,
         };
-        fill_from_pc(&mut agent, s, host, now);
+        fill_from_session(&mut agent, s, report, now);
         out.push(agent);
     }
     let rank = |s: AgentStatus| match s {
@@ -1107,20 +1132,28 @@ fn sources(g: &Gathered, configured: bool, now: OffsetDateTime) -> Vec<PultSourc
             "задачи, вопросы, PR и CI".into()
         },
     }];
-    if g.reports.is_empty() {
+    if !g
+        .reports
+        .iter()
+        .any(|(_, _, r)| r.source == ReportSource::Pc)
+    {
         out.push(PultSource {
             id: "pc".into(),
             name: "ПК".into(),
             ok: false,
             at: None,
-            note: if g.collectors == 0 {
+            note: if g.collectors <= g.reports.len() as i64 {
                 "сборщик не подключён — лимиты, модели и расход не видны".into()
             } else {
                 "сборщик подключён, но ещё ничего не прислал".into()
             },
         });
     }
-    for (name, at, r) in &g.reports {
+    for (name, at, r) in g
+        .reports
+        .iter()
+        .filter(|(_, _, r)| r.source == ReportSource::Pc)
+    {
         let stale = now - *at > Duration::minutes(30);
         out.push(PultSource {
             id: "pc".into(),
@@ -1136,6 +1169,24 @@ fn sources(g: &Gathered, configured: bool, now: OffsetDateTime) -> Vec<PultSourc
             },
         });
     }
+    let cloud = g
+        .reports
+        .iter()
+        .filter(|(_, _, r)| r.source == ReportSource::Cloud)
+        .max_by_key(|(_, at, _)| *at);
+    out.push(PultSource {
+        id: "cloud".into(),
+        name: "Облако".into(),
+        ok: cloud.is_some_and(|(_, at, _)| now - *at <= Duration::minutes(90)),
+        at: cloud.map(|(_, at, _)| *at),
+        note: match cloud {
+            Some((_, _, r)) if r.limits.is_some() => {
+                "сессии и расход облачных сессий; лимиты — из событий сессий".into()
+            }
+            Some(_) => "сессии есть, лимитов нет — в событиях сессий не было окон 5ч/7д".into(),
+            None => "управляющая сессия ещё не присылала сводку — у облачных сессий нет токенов, цены и лимитов".into(),
+        },
+    });
     out
 }
 
@@ -1429,7 +1480,7 @@ pub async fn pult_board(
 
 /// Карточка агента и его история (последние 50 событий).
 #[utoipa::path(get, path = "/api/owner/pult/agents/{key}", tag = "owner",
-    params(("key" = String, Path, description = "Ключ агента: gh-N или pc-<сессия>")),
+    params(("key" = String, Path, description = "Ключ агента: gh-N, pc-<сессия> или cloud-<сессия>")),
     responses(
         (status = 200, description = "Карточка агента", body = PultAgentCard),
         (status = 404, description = "Не owner или агента нет", body = ApiErrorBody)
@@ -1826,6 +1877,7 @@ mod tests {
         sessions.push(session(99, true));
         let report = Report {
             version: 1,
+            source: ReportSource::Pc,
             host: "arch".into(),
             at: now,
             limits: None,
@@ -1851,7 +1903,7 @@ mod tests {
         };
         s.last_at = now;
         let mut agent = list[0].clone();
-        fill_from_pc(&mut agent, &s, "arch", now);
+        fill_from_session(&mut agent, &s, &g.reports[0].2, now);
         assert!(!agent.cache.unwrap().warm);
         assert_eq!(counts.running, 45);
         assert_eq!(counts.done, 1);

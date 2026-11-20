@@ -506,6 +506,7 @@ impl AppState {
         pult::AgentPlace,
         pult::Ci,
         pult::Report,
+        pult::ReportSource,
         pult::ReportLimits,
         pult::ReportWindow,
         pult::ReportSession,
