@@ -8,7 +8,7 @@ use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use qubite_ai::{
     AiConfig, AiError, AiRequest, Gateway, MICROS_PER_USD, Untrusted,
     admin::{self, LimitScope, Metric, Period},
-    catalog::{self, Allowlist},
+    catalog,
     chatgpt::{self, ChatGpt, ChatGptConfig},
     secret::SecretBox,
 };
@@ -253,11 +253,8 @@ impl Env {
             )
             .unwrap(),
         );
-        let entries = provider.models(self.owner.account_id()).await.unwrap();
-        catalog::apply(self.db.pool(), "chatgpt", &entries, &Allowlist::Keep)
-            .await
-            .unwrap();
-        admin::enable_from_catalog(self.db.pool(), &self.owner, "chatgpt", "gpt-6.1-sol")
+        let snapshot = provider.models(self.owner.account_id()).await.unwrap();
+        catalog::apply_chatgpt(self.db.pool(), &snapshot)
             .await
             .unwrap();
         let config = AiConfig {

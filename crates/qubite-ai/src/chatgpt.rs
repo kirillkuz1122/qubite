@@ -949,7 +949,7 @@ impl ChatGpt {
     }
 
     /// Модели, доступные подписке человека (`GET /v1/models`), — в каталог по цене 0 $.
-    pub async fn models(&self, account_id: Uuid) -> Result<Vec<CatalogEntry>, CatalogError> {
+    pub async fn models(&self, account_id: Uuid) -> Result<ModelCatalog, CatalogError> {
         let token = self
             .access_token(account_id, false)
             .await
@@ -1167,29 +1167,49 @@ fn usage_limit_message() -> String {
         .into()
 }
 
-pub(crate) fn parse_models(body: &str) -> Result<Vec<CatalogEntry>, CatalogError> {
+/// Снимок каталога подписки. Автовключение только для явно видимых моделей.
+#[derive(Debug, Default)]
+pub struct ModelCatalog {
+    pub(crate) entries: Vec<CatalogEntry>,
+    pub(crate) listed: Vec<String>,
+}
+
+fn parse_models(body: &str) -> Result<ModelCatalog, CatalogError> {
     let json: serde_json::Value =
         serde_json::from_str(body).map_err(|e| CatalogError::Invalid(e.to_string()))?;
-    let mut entries = Vec::new();
+    let mut catalog = ModelCatalog::default();
     if let Some(models) = json["models"].as_array() {
         for model in models {
             if model["visibility"].as_str().is_some_and(|v| v != "list") {
                 continue;
             }
-            if let Some(slug) = model["slug"].as_str() {
-                entries.push(entry(slug, &model["context_window"]));
+            let slug = model["slug"]
+                .as_str()
+                .filter(|slug| !slug.is_empty())
+                .ok_or_else(|| CatalogError::Invalid("у модели нет slug".into()))?;
+            catalog.entries.push(entry(slug, &model["context_window"]));
+            if model["visibility"].as_str() == Some("list") {
+                catalog.listed.push(slug.into());
             }
         }
     } else if let Some(models) = json["data"].as_array() {
         for model in models {
-            if let Some(id) = model["id"].as_str() {
-                entries.push(entry(id, &serde_json::Value::Null));
+            if model["visibility"].as_str().is_some_and(|v| v != "list") {
+                continue;
+            }
+            let id = model["id"]
+                .as_str()
+                .filter(|id| !id.is_empty())
+                .ok_or_else(|| CatalogError::Invalid("у модели нет id".into()))?;
+            catalog.entries.push(entry(id, &serde_json::Value::Null));
+            if model["visibility"].as_str() == Some("list") {
+                catalog.listed.push(id.into());
             }
         }
     } else {
         return Err(CatalogError::Invalid("нет списка моделей".into()));
     }
-    Ok(entries)
+    Ok(catalog)
 }
 
 fn entry(slug: &str, context: &serde_json::Value) -> CatalogEntry {
