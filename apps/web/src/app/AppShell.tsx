@@ -69,6 +69,7 @@ import { useInbox } from './inbox-context';
 import { usePlanner, type PlannerApi } from './planner-context';
 import { useMe } from '../auth/client';
 import { useSync } from './sync-context';
+import { installViewportVars } from './viewport';
 import './app.css';
 
 // CAL-001b ограничен подключением раздела в оболочке: общий Command пока не меняем.
@@ -217,6 +218,7 @@ export function AppShell() {
   const pult = usePult(owner);
   const waiting = pult.data?.counts.waiting ?? 0;
   const [documents, setDocuments] = useState<State['docs']>([]);
+  useEffect(() => installViewportVars(), []);
   useEffect(() => {
     let alive = true;
     if (!sync.client) return;
