@@ -265,7 +265,11 @@ export function Spend({ board }: { board: PultBoard }) {
             const lit = d.tokens > 0 ? Math.max(1, Math.round((d.tokens / max) * H)) : 0;
             const tone = d.date === today ? 'orange' : 'sky';
             return (
-              <div key={d.date} className="pult-bar" title={`${tokens(d.tokens)} · ≈ ${usd(d.usd)}`}>
+              <div
+                key={d.date}
+                className="pult-bar"
+                title={`${tokens(d.tokens)} · ≈ ${usd(d.usd)}`}
+              >
                 <span className="pult-bar-dots">
                   {Array.from({ length: H }, (_, i) => (
                     <i key={i} className={H - i <= lit ? `pult-bg-${tone}` : undefined} />

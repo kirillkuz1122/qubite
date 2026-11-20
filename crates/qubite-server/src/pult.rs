@@ -1132,7 +1132,11 @@ fn sources(g: &Gathered, configured: bool, now: OffsetDateTime) -> Vec<PultSourc
             "задачи, вопросы, PR и CI".into()
         },
     }];
-    if !g.reports.iter().any(|(_, _, r)| r.source == ReportSource::Pc) {
+    if !g
+        .reports
+        .iter()
+        .any(|(_, _, r)| r.source == ReportSource::Pc)
+    {
         out.push(PultSource {
             id: "pc".into(),
             name: "ПК".into(),
