@@ -8,6 +8,8 @@
 //! `ALL_PROXY`. Локальные адреса и `NO_PROXY` — всегда напрямую.
 //! Прокси — `http://`, `socks5://` или `socks5h://` (логин и пароль — в адресе).
 
+pub mod public_https;
+
 use std::{io, net::IpAddr, time::Duration};
 
 use base64::Engine;

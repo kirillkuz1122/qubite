@@ -23,6 +23,7 @@ pub mod catalog;
 pub mod chatgpt;
 pub mod elevenlabs;
 pub mod guard;
+pub mod openai_voice;
 pub mod openrouter;
 pub mod provider;
 pub mod realtime;
