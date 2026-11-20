@@ -95,6 +95,38 @@
   color: var(--q-dim);
 }
 
+/* ---------- ждёт тебя в Пульте ---------- */
+.home-pult {
+  padding-top: 24px;
+}
+.home-pult .sec-h {
+  gap: 8px;
+  margin: 0 0 12px;
+}
+.home-pult .sec-h canvas {
+  min-width: 0;
+}
+.home-pult .sec-h .more {
+  flex: none;
+  padding-inline: 0;
+  color: var(--q-mute);
+}
+.home-pult .sec-h .more:hover {
+  color: var(--q-ink);
+}
+.home-pult .pult-title .pult-dot {
+  margin-inline-end: 12px;
+}
+.home-pult .pult-wait > :is(.pult-small, .pult-text, .pult-acts) {
+  margin-inline-start: calc(8px + 12px);
+}
+
+/* Секции ниже доезжают вместе, когда блок Пульта меняет высоту. */
+.home-after-pult {
+  position: relative;
+  display: flow-root;
+}
+
 /* ---------- что агент разложил ---------- */
 .home-filed {
   margin-top: 6px;
