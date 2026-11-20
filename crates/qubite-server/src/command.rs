@@ -516,14 +516,25 @@ pub async fn dispatch_command(
                     if let Some(parsed) = parse_task_fields(&mut tx, text).await?
                         && let Some(map) = fields.as_object_mut()
                     {
-                        if let Some(due) = parsed.due {
+                        if let Some(due) = &parsed.due {
                             map.insert("due_date".into(), json!(due.date));
-                            if let Some(time) = due.time {
+                            if let Some(time) = &due.time {
                                 map.insert("due_time".into(), json!(time));
                             }
+                            // повторение имеет смысл только вместе со сроком
+                            if let Some(rule) = parsed.repeat.as_ref().and_then(recurrence_of) {
+                                map.insert("recurrence".into(), rule);
+                            }
                         }
-                        if parsed.priority > 0 {
-                            map.insert("priority".into(), json!(parsed.priority));
+                        // Planner ждёт слова, а разбор отдаёт число: 1 — `!`, 2 — `!!`
+                        match parsed.priority {
+                            2.. => {
+                                map.insert("priority".into(), json!("urgent"));
+                            }
+                            1 => {
+                                map.insert("priority".into(), json!("important"));
+                            }
+                            _ => {}
                         }
                     }
                     create_object(
@@ -690,4 +701,26 @@ async fn parse_task_fields(
     .await
     .map_err(db)?;
     Ok(qubite_parse::LocalNow::from_iso(&local).and_then(|now| qubite_parse::parse(text, now)))
+}
+
+/// Повторение из разбора строки Command — в правило Planner. Год — это 12 месяцев;
+/// выходящее за 1…365 не берём: непонятное правило сорвало бы создание дела.
+fn recurrence_of(repeat: &qubite_parse::Repeat) -> Option<Value> {
+    let (freq, interval) = match repeat.every {
+        qubite_parse::Every::Day => ("daily", repeat.interval),
+        qubite_parse::Every::Week => ("weekly", repeat.interval),
+        qubite_parse::Every::Month => ("monthly", repeat.interval),
+        qubite_parse::Every::Year => ("monthly", repeat.interval.checked_mul(12)?),
+    };
+    if !(1..=365).contains(&interval) {
+        return None;
+    }
+    let mut rule = json!({ "freq": freq, "interval": interval });
+    if freq == "weekly"
+        && !repeat.days.is_empty()
+        && repeat.days.iter().all(|day| (1..=7).contains(day))
+    {
+        rule["weekdays"] = json!(repeat.days);
+    }
+    Some(rule)
 }

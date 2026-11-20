@@ -214,7 +214,7 @@ async fn thought_question_order_and_correction() {
     let order = send(
         &mut owner,
         address,
-        "Добавь дело разобрать конспект завтра в 16:00",
+        "Добавь дело разобрать конспект завтра в 16:00 !!",
     )
     .await;
     assert_eq!(order.status, 200, "{}", order.body);
@@ -227,8 +227,8 @@ async fn thought_question_order_and_correction() {
     .unwrap();
     assert_eq!(count, 1);
     // срок из текста поручения не теряется: дело получает дату и время
-    let due: (Option<String>, Option<String>) = sqlx::query_as(
-        "SELECT t.due_date::text, t.due_time::text FROM objects o \
+    let due: (Option<String>, Option<String>, String) = sqlx::query_as(
+        "SELECT t.due_date::text, t.due_time::text, t.priority FROM objects o \
          JOIN planner_tasks t ON t.object_id = o.id \
          WHERE o.type = 'planner.task' AND o.title = 'Разобрать конспект'",
     )
