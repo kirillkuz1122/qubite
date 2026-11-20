@@ -151,6 +151,7 @@ fn dispatch_ai_error(error: AiError) -> ApiError {
             | AiError::BudgetNotSet
             | AiError::BudgetExhausted { .. }
             | AiError::PlatformCapNotSet
+            | AiError::ResultUnknown { .. }
     ) {
         return ApiError::new(
             StatusCode::SERVICE_UNAVAILABLE,
@@ -529,7 +530,21 @@ pub async fn dispatch_command(
                             .fetch_one(&mut *tx)
                             .await
                             .map_err(db)?;
-                    let (usd, percent) = pult::command_estimate(&state, &external).await?;
+                    // «Подключить AI» → ChatGPT: шлюз заменит модель на выбранную в подписке,
+                    // поэтому цену исходной модели считать нельзя — спрашиваем «да».
+                    let routed_to_subscription: bool = sqlx::query_scalar(
+                        "SELECT EXISTS (SELECT 1 FROM ai_sources \
+                         WHERE account_id = $1 AND source = 'chatgpt')",
+                    )
+                    .bind(account)
+                    .fetch_one(&mut *tx)
+                    .await
+                    .map_err(db)?;
+                    let (usd, percent) = if routed_to_subscription {
+                        (None, None)
+                    } else {
+                        pult::command_estimate(&state, &external).await?
+                    };
                     result.estimate_usd = usd;
                     result.estimate_percent = percent;
                     let family = external.to_ascii_lowercase();
