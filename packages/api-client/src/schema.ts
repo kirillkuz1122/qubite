@@ -9531,7 +9531,7 @@ export interface operations {
       query?: never;
       header?: never;
       path: {
-        /** @description Ключ агента: gh-N или pc-<сессия> */
+        /** @description Ключ агента: gh-N, pc-<сессия> или cloud-<сессия> */
         key: string;
       };
       cookie?: never;
