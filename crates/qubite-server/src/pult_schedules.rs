@@ -160,7 +160,11 @@ fn invalid(message: &str) -> ApiError {
 }
 
 fn missing() -> ApiError {
-    ApiError::new(StatusCode::NOT_FOUND, "schedule_not_found", "Такой задачи нет")
+    ApiError::new(
+        StatusCode::NOT_FOUND,
+        "schedule_not_found",
+        "Такой задачи нет",
+    )
 }
 
 fn write_error(error: sqlx::Error) -> ApiError {
@@ -188,7 +192,9 @@ fn field<'a>(value: &'a str, max: usize, message: &str) -> Result<&'a str, ApiEr
 
 fn caps(tokens: Option<i64>, usd: Option<f64>) -> Result<Option<String>, ApiError> {
     if tokens.is_some_and(|n| n <= 0) || usd.is_some_and(|n| !valid_usd(n) || n <= 0.0) {
-        return Err(invalid("Укажите положительный потолок или оставьте поле пустым"));
+        return Err(invalid(
+            "Укажите положительный потолок или оставьте поле пустым",
+        ));
     }
     Ok(usd.map(|n| n.to_string()))
 }
@@ -495,12 +501,13 @@ pub async fn delete_schedule(
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode, ApiError> {
     let mut tx = state.db.pool().begin().await.map_err(pult::db)?;
-    let name: String = sqlx::query_scalar("DELETE FROM pult_schedules WHERE id = $1 RETURNING name")
-        .bind(id)
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(pult::db)?
-        .ok_or_else(missing)?;
+    let name: String =
+        sqlx::query_scalar("DELETE FROM pult_schedules WHERE id = $1 RETURNING name")
+            .bind(id)
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(pult::db)?
+            .ok_or_else(missing)?;
     audit_owner(
         &mut tx,
         Some(&owner),
@@ -540,7 +547,8 @@ pub async fn record_schedule_run(
         Some(token) => Some(pult::authenticate_collector(&mut tx, token).await?),
         None => None,
     };
-    let body: ScheduleRun = serde_json::from_slice(&body).map_err(|_| invalid("Отчёт не подходит"))?;
+    let body: ScheduleRun =
+        serde_json::from_slice(&body).map_err(|_| invalid("Отчёт не подходит"))?;
     let name = field(&body.name, 60, "Имя — от 1 до 60 знаков")?;
     if body.tokens < 0 || !valid_usd(body.usd) {
         return Err(invalid("Укажите неотрицательный расход"));

@@ -125,7 +125,9 @@ async fn rolling_token_cap_pauses_and_owner_can_raise_it() {
     assert_eq!(board.body["waiting"][0]["key"], id);
     assert_eq!(board.body["waiting"][0]["number"], Value::Null);
     assert_eq!(board.body["counts"]["waiting"], 1);
-    let conflict = owner.patch_json(address, &path, json!({"enabled": true})).await;
+    let conflict = owner
+        .patch_json(address, &path, json!({"enabled": true}))
+        .await;
     assert_eq!(conflict.status, 409);
     assert_eq!(conflict.body["error"], "schedule_cap_reached");
 
@@ -216,7 +218,9 @@ async fn owner_only_except_collector_run_reports() {
     let mut friend = Browser::default();
     assert_eq!(friend.login(address, email, password).await.status, 200);
     let definition = schedule("Тихая", None, None);
-    let created = owner.post_json(address, SCHEDULES, definition.clone()).await;
+    let created = owner
+        .post_json(address, SCHEDULES, definition.clone())
+        .await;
     assert_eq!(created.status, 201, "{:?}", created.body);
     let path = format!("{SCHEDULES}/{}", created.body["id"].as_str().unwrap());
     let run = json!({"name": "Тихая", "tokens": 0, "usd": 0, "outcome": "quiet"});
@@ -250,11 +254,16 @@ async fn owner_only_except_collector_run_reports() {
         client.get(format!("{base}{SCHEDULES}")),
         client.get(format!("{base}{DUE}")),
         client.post(format!("{base}{SCHEDULES}")).json(&definition),
-        client.patch(format!("{base}{path}")).json(&json!({"enabled": false})),
+        client
+            .patch(format!("{base}{path}"))
+            .json(&json!({"enabled": false})),
         client.delete(format!("{base}{path}")),
     ];
     for request in forbidden {
-        assert_eq!(request.bearer_auth(&token).send().await.unwrap().status(), 403);
+        assert_eq!(
+            request.bearer_auth(&token).send().await.unwrap().status(),
+            403
+        );
     }
     assert_eq!(report(address, "qpult_invalid", &run).await, 401);
     assert_eq!(report(address, &token, &run).await, 204);

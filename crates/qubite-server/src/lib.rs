@@ -855,7 +855,10 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
             "/api/pult/schedules/{id}",
             patch(pult_schedules::patch_schedule).delete(pult_schedules::delete_schedule),
         )
-        .route("/api/pult/schedules/due", get(pult_schedules::due_schedules))
+        .route(
+            "/api/pult/schedules/due",
+            get(pult_schedules::due_schedules),
+        )
         .route(
             "/api/pult/schedules/runs",
             post(pult_schedules::record_schedule_run).layer(DefaultBodyLimit::max(16 * 1024)),
