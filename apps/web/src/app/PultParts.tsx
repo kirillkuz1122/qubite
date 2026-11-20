@@ -143,7 +143,7 @@ export function Limits({
 }) {
   const now = new Date(board.now);
   const l = board.limits;
-  const pc = board.sources.find((s) => s.id === 'pc');
+  const pcConnected = board.sources.some((s) => s.id === 'pc' && s.ok);
   const none = !l.five_hour && !l.seven_day;
   return (
     <section className="panel pult-box pult-limits" aria-label="Лимиты подписки">
@@ -159,10 +159,9 @@ export function Limits({
       {none ? (
         <div className="pult-none">
           <p className="pult-small">
-            Лимитов пока нет: {pc?.note ?? 'сборщик на ПК их не прислал'}. Их сообщает строка
-            состояния Claude Code на ПК.
+            Лимитов пока нет. Состояние сводок с ПК и из облака указано в источниках.
           </p>
-          {!pc?.ok && (
+          {!pcConnected && (
             <div>
               <Button size="sm" onClick={onConnect}>
                 Подключить ПК
@@ -227,10 +226,7 @@ export function Spend({ board }: { board: PultBoard }) {
         <div className="pult-cap">
           <span>Расход за 7 дней</span>
         </div>
-        <p className="pult-small">
-          Нет данных: расход считает сборщик на ПК по журналам Claude Code. Облачные сессии свои
-          токены серверу не сообщают.
-        </p>
+        <p className="pult-small">Нет сводок о расходе за неделю.</p>
       </section>
     );
   const days = week(s.days);
@@ -241,7 +237,7 @@ export function Spend({ board }: { board: PultBoard }) {
     <section className="panel pult-box pult-spend" aria-label="Расход за 7 дней">
       <div className="pult-cap">
         <span>Расход за 7 дней</span>
-        <span>по ценам API</span>
+        {days.length > 0 && <span>по ценам API</span>}
       </div>
       <div className="pult-spend-top">
         {s.week_used != null ? (
@@ -249,34 +245,44 @@ export function Spend({ board }: { board: PultBoard }) {
             <b className="pult-num">{pct(s.week_used)}</b>
             <span>недельного лимита</span>
           </>
-        ) : (
+        ) : days.length > 0 ? (
           <>
             <b className="pult-num">{tokens(s.tokens)}</b>
             <span>токенов</span>
           </>
+        ) : null}
+        {days.length > 0 && (
+          <span className="pult-small">
+            {s.week_used != null && `${tokens(s.tokens)} токенов · `}≈ {usd(s.usd)}
+          </span>
         )}
-        <span className="pult-small">
-          {s.week_used != null && `${tokens(s.tokens)} токенов · `}≈ {usd(s.usd)}
-        </span>
       </div>
-      <div className="pult-bars" role="img" aria-label="Токены по дням">
-        {days.map((d) => {
-          const lit = d.tokens > 0 ? Math.max(1, Math.round((d.tokens / max) * H)) : 0;
-          const tone = d.date === today ? 'orange' : 'sky';
-          return (
-            <div key={d.date} className="pult-bar" title={`${tokens(d.tokens)} · ≈ ${usd(d.usd)}`}>
-              <span className="pult-bar-dots">
-                {Array.from({ length: H }, (_, i) => (
-                  <i key={i} className={H - i <= lit ? `pult-bg-${tone}` : undefined} />
-                ))}
-              </span>
-              <span className={d.date === today ? 'pult-ink-orange' : undefined}>
-                {weekdayShort(d.date)}
-              </span>
-            </div>
-          );
-        })}
-      </div>
+      {days.length === 0 ? (
+        <p className="pult-small">Данных по дням пока нет. Их присылает сборщик на ПК.</p>
+      ) : (
+        <div className="pult-bars" role="img" aria-label="Токены по дням">
+          {days.map((d) => {
+            const lit = d.tokens > 0 ? Math.max(1, Math.round((d.tokens / max) * H)) : 0;
+            const tone = d.date === today ? 'orange' : 'sky';
+            return (
+              <div
+                key={d.date}
+                className="pult-bar"
+                title={`${tokens(d.tokens)} · ≈ ${usd(d.usd)}`}
+              >
+                <span className="pult-bar-dots">
+                  {Array.from({ length: H }, (_, i) => (
+                    <i key={i} className={H - i <= lit ? `pult-bg-${tone}` : undefined} />
+                  ))}
+                </span>
+                <span className={d.date === today ? 'pult-ink-orange' : undefined}>
+                  {weekdayShort(d.date)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
       {(s.top || s.cache_saved != null) && (
         <p className="pult-small">
           {s.top && `Больше всего — ${s.top.title} (${tokens(s.top.tokens)}). `}
@@ -692,7 +698,7 @@ export function AgentCard({
 
 // ---------------------------------------------------------------- источники и ПК
 
-/** Откуда данные: GitHub и сборщики на ПК — честно, что есть и чего нет (D-980). */
+/** Состояние источников Пульта (D-980). */
 export function Sources({ board, onConnect }: { board: PultBoard; onConnect: () => void }) {
   const qc = useQueryClient();
   const collectors = useCollectors(true);

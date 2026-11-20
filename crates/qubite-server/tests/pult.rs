@@ -320,6 +320,111 @@ async fn without_github_and_collector_everything_is_honestly_empty() {
     let github = &b["sources"][0];
     assert_eq!(github["ok"], false);
     assert!(github["note"].as_str().unwrap().contains("нет токена"));
+    let cloud = b["sources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|s| s["id"] == "cloud")
+        .unwrap();
+    assert_eq!(cloud["ok"], false);
+    assert!(
+        cloud["note"]
+            .as_str()
+            .unwrap()
+            .contains("управляющая сессия ещё не присылала сводку")
+    );
+    test_db.drop_db().await;
+}
+
+#[tokio::test]
+async fn cloud_report_shows_cloud_sessions_and_rejects_unknown_source() {
+    let (test_db, db) = TestDb::migrated().await;
+    qubite_auth::owner::create(db.pool(), &Passwords::default(), EMAIL, "Кирилл", PASSWORD)
+        .await
+        .unwrap();
+    let address = spawn(AppState::with_auth(db, AuthSettings::default())).await;
+    let mut owner = common::logged_in_unconfirmed(address).await;
+    let created = owner
+        .post_json(
+            address,
+            "/api/owner/pult/collectors",
+            json!({ "name": "Управляющая сессия" }),
+        )
+        .await;
+    assert_eq!(created.status, 201, "{:?}", created.body);
+    let token = created.body["token"].as_str().unwrap();
+    let now = OffsetDateTime::now_utc();
+    let mut body = json!({
+        "version": 1,
+        "source": "cloud",
+        "host": "облако",
+        "at": iso(now),
+        "limits": null,
+        "sessions": [
+            {
+                "id": "session_test",
+                "title": "Сводка Пульта",
+                "session_url": "https://claude.ai/code/session_test",
+                "model": "claude-opus-5-5",
+                "started_at": iso(now - Duration::minutes(40)),
+                "last_at": iso(now),
+                "context_tokens": 640_000,
+                "usage": [{ "model": "claude-opus-5-5", "output": 1000 }]
+            },
+            {
+                "id": "session_without_usage",
+                "title": "Без событий result",
+                "started_at": iso(now),
+                "last_at": iso(now),
+                "usage": []
+            }
+        ]
+    });
+    assert_eq!(send_report(address, Some(token), &body).await, 204);
+
+    let board = owner.get(address, "/api/owner/pult").await;
+    assert_eq!(board.status, 200, "{:?}", board.body);
+    let sources = board.body["sources"].as_array().unwrap();
+    let cloud = sources.iter().find(|s| s["id"] == "cloud").unwrap();
+    assert_eq!(cloud["name"], "Облако");
+    assert_eq!(cloud["ok"], true);
+    assert!(
+        cloud["note"]
+            .as_str()
+            .unwrap()
+            .contains("не было окон 5ч/7д")
+    );
+    assert!(sources.iter().all(|s| s["name"] != "ПК облако"));
+    assert_eq!(board.body["limits"]["five_hour"], Value::Null);
+
+    let session = agent(&board.body, "cloud-session_test");
+    assert_eq!(session["place"], "cloud");
+    assert_eq!(session["source"], "облако");
+    assert_eq!(session["model"], "Opus 5.5");
+    assert_eq!(session["context"], 64.0);
+    assert_eq!(session["tokens"], 1000);
+    assert!(session["usd"].as_f64().unwrap() > 0.0);
+    assert_eq!(
+        session["session_url"],
+        "https://claude.ai/code/session_test"
+    );
+    let without_usage = agent(&board.body, "cloud-session_without_usage");
+    assert_eq!(without_usage["tokens"], Value::Null);
+    assert_eq!(without_usage["usd"], Value::Null);
+
+    body["source"] = json!("unknown");
+    let response = qubite_testkit::http_client()
+        .post(format!("http://{address}/api/pult/report"))
+        .bearer_auth(token)
+        .json(&body)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status().as_u16(), 400);
+    assert_eq!(
+        response.json::<Value>().await.unwrap()["error"],
+        "invalid_report"
+    );
     test_db.drop_db().await;
 }
 

@@ -3883,7 +3883,7 @@
           {
             "name": "key",
             "in": "path",
-            "description": "Ключ агента: gh-N или pc-<сессия>",
+            "description": "Ключ агента: gh-N, pc-<сессия> или cloud-<сессия>",
             "required": true,
             "schema": {
               "type": "string"
@@ -15963,7 +15963,7 @@
           },
           "key": {
             "type": "string",
-            "description": "`gh-245` или `pc-<сессия>`."
+            "description": "`gh-245`, `pc-<сессия>` или `cloud-<сессия>`."
           },
           "minutes": {
             "type": ["integer", "null"],
@@ -16562,7 +16562,7 @@
       },
       "Report": {
         "type": "object",
-        "description": "Сводка сборщика с ПК (`scripts/pult-collect.py`). Версия формата — 1.",
+        "description": "Сводка с ПК или из облака. Версия формата — 1.",
         "required": ["version", "host", "at"],
         "properties": {
           "at": {
@@ -16585,7 +16585,7 @@
             "oneOf": [
               {
                 "$ref": "#/components/schemas/ReportLimits",
-                "description": "Лимиты подписки из строки состояния Claude Code; нет — `null`."
+                "description": "Лимиты подписки из строки состояния или событий Claude Code; нет — `null`."
               },
               {
                 "type": "null"
@@ -16597,7 +16597,7 @@
             "items": {
               "$ref": "#/components/schemas/ReportSession"
             },
-            "description": "Сессии за последние 7 дней (до 100)."
+            "description": "Последние сессии (до 100)."
           },
           "skills": {
             "type": "array",
@@ -16605,6 +16605,9 @@
               "type": "string"
             },
             "description": "Имена навыков (до 100) — для карты."
+          },
+          "source": {
+            "$ref": "#/components/schemas/ReportSource"
           },
           "version": {
             "type": "integer",
@@ -16728,6 +16731,10 @@
             "description": "Последний ход закончен — сессия ждёт человека."
           }
         }
+      },
+      "ReportSource": {
+        "type": "string",
+        "enum": ["pc", "cloud"]
       },
       "ReportWindow": {
         "type": "object",
