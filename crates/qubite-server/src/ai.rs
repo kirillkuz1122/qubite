@@ -682,13 +682,18 @@ pub fn spawn_maintenance(
                 {
                     tracing::warn!(%error, "каталог ChatGPT не записан");
                 }
-                // Каталог OpenRouter доступен даже без ключа. По расписанию
-                // обновляем каталог и цены, сохраняя список разрешённых моделей.
-                if let Some(provider) = &openrouter
-                    && let Err(error) =
+                // Каталог OpenRouter доступен даже без ключа. С ключом — как при
+                // запуске: если моделей ещё нет (старт не дождался сети), стартовый
+                // набор ставится сейчас; иначе выбор владельца не трогаем.
+                if let Some(provider) = &openrouter {
+                    let synced = if provider.has_key() {
+                        sync_catalog(&pool, provider, &args).await
+                    } else {
                         sync_openrouter_catalog(&pool, provider, &Allowlist::Keep).await
-                {
-                    tracing::info!(%error, "каталог OpenRouter не обновлён");
+                    };
+                    if let Err(error) = synced {
+                        tracing::info!(%error, "каталог OpenRouter не обновлён");
+                    }
                 }
             }
         }
