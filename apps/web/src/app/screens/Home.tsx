@@ -17,6 +17,7 @@ import { plannerData, type PlannerProject, type PlannerTask } from '@qubite/sync
 import { api } from '../../api';
 import { say } from '../../auth/client';
 import { Opportunities } from '../HomeOpportunities';
+import { PultWaitingPart } from '../HomePult';
 import { useRevert } from '../agent';
 import { useShell } from '../context';
 import { plural } from '../data';
@@ -59,9 +60,9 @@ import '../home.css';
 
 /**
  * Главная (HOME-001, D-298, D-327, D-867): первый экран после входа. Сверху — сводка от AI (её
- * пишет агент; без агента её нет), ниже — дела на сегодня, новое во Входящих и что агент разложил,
- * ближайшие сроки, одна карточка возможностей (AGT-005), погода, курсы и новости. Город, валюты
- * и темы меняются тут же — шестерёнкой у виджета.
+ * пишет агент; без агента её нет), вопросы из Пульта для владельца (D-961), дела на сегодня,
+ * новое во Входящих и что агент разложил, ближайшие сроки, одна карточка возможностей (AGT-005),
+ * погода, курсы и новости. Город, валюты и темы меняются тут же — шестерёнкой у виджета.
  */
 export function HomeScreen() {
   const home = useHome();
@@ -69,7 +70,7 @@ export function HomeScreen() {
   const box = useRef<HTMLDivElement>(null);
   const [moved, setMoved] = useState(0);
   useFlip(box, moved);
-  const relayout = () => setMoved((n) => n + 1);
+  const relayout = useCallback(() => setMoved((n) => n + 1), []);
   // «Возможности» меняют высоту (карточка ушла, «Дела поставлены») — то, что ниже, доезжает
   // пружиной. Сдвиги внутри .home-rest считаются от него самого (position: relative), поэтому
   // свой useFlip не путается с общим и строки «Агент разложил» не едут дважды.
@@ -83,15 +84,18 @@ export function HomeScreen() {
       <Presence className="home-held panel" show={!!data?.held.length} onLayout={relayout}>
         {data && data.held.length > 0 && <Held held={data.held} />}
       </Presence>
-      {/* Порядок D-867: дела → входящие → сроки → одна карточка возможностей → погода и курсы */}
-      <TodayPart />
-      <InboxPart filed={data?.filed ?? []} />
-      <Deadlines />
-      <div className="home-rest" data-flip="home-rest" ref={rest}>
-        <Opportunities onLayout={relayoutRest} />
-        <div className="home-below" data-flip="home-below">
-          <Widgets settings={data?.settings ?? null} />
-          <News settings={data?.settings ?? null} />
+      <PultWaitingPart onLayout={relayout} />
+      <div className="home-after-pult" data-flip="home-after-pult">
+        {/* Порядок D-867: дела → входящие → сроки → одна карточка возможностей → погода и курсы */}
+        <TodayPart />
+        <InboxPart filed={data?.filed ?? []} />
+        <Deadlines />
+        <div className="home-rest" ref={rest}>
+          <Opportunities onLayout={relayoutRest} />
+          <div className="home-below" data-flip="home-below">
+            <Widgets settings={data?.settings ?? null} />
+            <News settings={data?.settings ?? null} />
+          </div>
         </div>
       </div>
     </div>
