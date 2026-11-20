@@ -9,7 +9,7 @@
 
 | Метка | Что значит |
 |---|---|
-| `codex-model:sol` | GPT 6.1 Sol, `gpt-6.1-sol` — обычный код. **По умолчанию.** |
+| `codex-model:sol` | GPT 6.2 Sol, `gpt-6.2-sol` — обычный код. **По умолчанию.** |
 | `codex-model:terra` | GPT 6.1 Terra, `gpt-6.1-terra` — проверки и ревью |
 | `codex-effort:medium\|high\|xhigh` | уровень рассуждения, по умолчанию `high` |
 | `codex-review` | ревью: в тексте «PR #N»; Codex пишет отзыв комментарием в PR, код не меняет |
