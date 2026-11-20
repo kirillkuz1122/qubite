@@ -69,6 +69,7 @@ pub async fn classify(
         .text
         .find('{')
         .zip(response.text.rfind('}'))
+        .filter(|(start, end)| start < end)
         .and_then(|(start, end)| {
             serde_json::from_str::<Classification>(&response.text[start..=end]).ok()
         })
