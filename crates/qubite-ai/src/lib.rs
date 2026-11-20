@@ -685,6 +685,15 @@ impl Gateway {
         .ok_or_else(|| AiError::NoModelForTask(task.into()))
     }
 
+    /// Для задач, где автоматическая подстановка общей модели может поднять цену.
+    pub async fn configured_model_for(&self, task: &str) -> Result<String> {
+        sqlx::query_scalar("SELECT model_id FROM ai_model_defaults WHERE task = $1")
+            .bind(task)
+            .fetch_optional(&self.pool)
+            .await?
+            .ok_or_else(|| AiError::NoModelForTask(task.into()))
+    }
+
     /// «Отпечаток» запроса: HMAC частей с длинами (части не склеятся в другую).
     fn fingerprint<'p>(&self, parts: impl IntoIterator<Item = &'p [u8]>) -> String {
         let mut ctx = ring::hmac::Context::with_key(&self.fingerprint_key);

@@ -183,7 +183,7 @@ pub async fn delete_key(
     Ok(StatusCode::NO_CONTENT)
 }
 
-/// Вызывается после проверки Write, сохранения blob и блокировки ID записи.
+/// Вызывается после проверки Write и блокировки ID голосовой записи.
 /// UseAi и лимиты платформы здесь не нужны: ключ и расходы принадлежат человеку.
 pub(crate) async fn transcribe(
     state: &AppState,

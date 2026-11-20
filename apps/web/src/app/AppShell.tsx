@@ -6,6 +6,7 @@
 import { loop, MASS } from '@qubite/motion';
 import { docList } from '@qubite/sync-client';
 import {
+  Button,
   COMMAND_COLOR,
   COMMAND_OWNER,
   CommandSuggest,
@@ -13,6 +14,8 @@ import {
   Dock,
   DotGrid,
   DotText,
+  Note,
+  Presence,
   EdgeScroll,
   SideNav,
   WIDE,
@@ -32,6 +35,8 @@ import { Link, useNavigate, useRouterState } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { commandView, loadHistory, remember, saveHistory, type CommandEntry } from './command';
 import { Bell } from './Bell';
+import { CommandChat } from './CommandChat';
+import { useCommandChat } from './use-command-chat';
 import { CommandField } from './CommandField';
 import { MoreSheet } from './MoreSheet';
 import { CommandVoiceNote } from './VoiceCapture';
@@ -207,7 +212,8 @@ export function AppShell() {
   const planner = usePlanner();
   const sync = useSync();
   /* Пульт и его точка «ждёт тебя» — только у владельца (D-949, D-961) */
-  const owner = !!useMe().data?.is_owner;
+  const me = useMe().data;
+  const owner = !!me?.is_owner;
   const pult = usePult(owner);
   const waiting = pult.data?.counts.waiting ?? 0;
   const [documents, setDocuments] = useState<State['docs']>([]);
@@ -310,6 +316,10 @@ export function AppShell() {
   const [history, setHistory] = useState(loadHistory);
   const menuOpen = useRef(false);
   const input = useRef<HTMLInputElement>(null);
+  const chatInput = useRef<HTMLInputElement>(null);
+  const chat = useCommandChat(owner ? me?.id : undefined, () => {
+    void sync.client?.sync().catch(() => {});
+  });
   /* голос (CMD-005b): пока идёт запись, строка на телефоне не сворачивается, Escape её отменяет */
   const voice = useVoice();
   const voiceNow = useRef({ phase: voice.phase, cancel: voice.cancel, value });
@@ -318,25 +328,39 @@ export function AppShell() {
   });
   const card = useRef<HTMLDivElement>(null);
   const parsed = value.trim() ? parseCommand(value) : null;
+  const autoDispatch = owner && parsed?.parse.command === null;
+  const preview =
+    autoDispatch && parsed
+      ? {
+          ...parsed,
+          kind: 'thought' as const,
+          title: 'Отправить диспетчеру',
+          where: 'Command',
+          when: null,
+          details: [],
+          review: null,
+        }
+      : parsed;
   const cmd = commandView(
     value,
-    parsed,
+    preview,
     { docs: documents, week: planner.week, projects: planner.projects },
     inbox.items,
     history,
   );
-  const shown = focused && (wide || open);
+  const shown = !chat.open && !chat.busy && focused && (wide || open);
   const count = (cmd.parsed ? 1 : 0) + cmd.hits.length;
-  const active = shown ? Math.min(picked ?? cmd.active, count - 1) : -1;
+  const defaultItem = autoDispatch && value.trimEnd().endsWith('?') ? 0 : cmd.active;
+  const active = shown ? Math.min(picked ?? defaultItem, count - 1) : -1;
 
   const change = useCallback((v: string) => {
     setValue(v);
     setPicked(null);
   }, []);
   const openCmd = useCallback(() => {
-    if (!wide) setOpen(true);
-    requestAnimationFrame(() => input.current?.focus());
-  }, [wide]);
+    if (!wide && !chat.open) setOpen(true);
+    requestAnimationFrame(() => (chat.open ? chatInput : input).current?.focus());
+  }, [wide, chat.open]);
   useEffect(() => {
     write.current = openCmd;
   }, [openCmd]);
@@ -435,9 +459,30 @@ export function AppShell() {
     finish();
   }
 
+  async function sendToDispatcher(text: string, source: 'web' | 'voice') {
+    const sent = await chat.send(text, source);
+    if (sent) {
+      if (sent === 'thought' && !chat.open && !wide) closeCmd();
+      else if (source === 'web') change('');
+    } else if (source === 'voice') {
+      change(text);
+      openCmd();
+    }
+  }
+
   function submit(i = active) {
+    if (chat.busy) return;
+    if (chat.open) {
+      if (parsed && !autoDispatch && parsed.kind !== 'search') save(parsed);
+      else void sendToDispatcher(value, 'web');
+      return;
+    }
     if (i < 0) return;
-    if (cmd.parsed && i === 0) return save(cmd.parsed);
+    if (cmd.parsed && i === 0) {
+      if (autoDispatch) void sendToDispatcher(value, 'web');
+      else save(cmd.parsed);
+      return;
+    }
     const hit = cmd.hits[i - (cmd.parsed ? 1 : 0)];
     if (hit) run(hit);
   }
@@ -449,42 +494,48 @@ export function AppShell() {
     setPicked((from + (e.key === 'ArrowDown' ? 1 : -1) + count) % count);
   }
 
-  const field = (
-    <CommandField
-      inputRef={input}
-      value={value}
-      wide={wide}
-      listId={LIST_ID}
-      expanded={shown && count > 0}
-      activeId={active >= 0 ? suggestOptionId(LIST_ID, active) : undefined}
-      onChange={change}
-      onKeyDown={onKey}
-      onMenu={(o) => (menuOpen.current = o)}
-      onVoiceSaved={() => {
-        // как записанная мысль: точка летит во «Входящие», Элик радуется
-        const r = card.current?.getBoundingClientRect();
-        api.fly(
-          { x: (r?.left ?? innerWidth / 2) + 26, y: (r?.bottom ?? innerHeight - 100) - 30 },
-          'inbox',
-          'yellow',
-          () => api.cheer('elik'),
-        );
-        if (!wide && !voiceNow.current.value) setOpen(false);
-      }}
-      onFocus={() => {
-        setFocused(true);
-        focusOn(() => (input.current ? caretPoint(input.current) : null));
-      }}
-      onBlur={() => {
-        setFocused(false);
-        focusOn(null);
-        setTimeout(() => {
-          if (voiceNow.current.phase !== 'idle') return;
-          if (!input.current?.value && !menuOpen.current && !wide) setOpen(false);
-        }, 150);
-      }}
-    />
-  );
+  function commandField(inChat: boolean) {
+    return (
+      <CommandField
+        inputRef={inChat ? chatInput : input}
+        value={value}
+        wide={wide && !inChat}
+        listId={LIST_ID}
+        expanded={!inChat && shown && count > 0}
+        activeId={!inChat && active >= 0 ? suggestOptionId(LIST_ID, active) : undefined}
+        busy={chat.busy}
+        onChange={change}
+        onKeyDown={inChat ? () => {} : onKey}
+        onMenu={(o) => (menuOpen.current = o)}
+        onVoiceText={owner ? (text) => void sendToDispatcher(text, 'voice') : undefined}
+        onVoiceSaved={() => {
+          const r = card.current?.getBoundingClientRect();
+          api.fly(
+            { x: (r?.left ?? innerWidth / 2) + 26, y: (r?.bottom ?? innerHeight - 100) - 30 },
+            'inbox',
+            'yellow',
+            () => api.cheer('elik'),
+          );
+          if (!wide && !voiceNow.current.value) setOpen(false);
+          if (owner) void sync.client?.sync().catch(() => {});
+        }}
+        onFocus={() => {
+          const ref = inChat ? chatInput : input;
+          if (!inChat) setFocused(true);
+          focusOn(() => (ref.current ? caretPoint(ref.current) : null));
+        }}
+        onBlur={() => {
+          focusOn(null);
+          if (inChat) return;
+          setFocused(false);
+          setTimeout(() => {
+            if (voiceNow.current.phase !== 'idle') return;
+            if (!input.current?.value && !menuOpen.current && !wide) setOpen(false);
+          }, 150);
+        }}
+      />
+    );
+  }
 
   /* ---------- навигация ---------- */
   const all: NavItem<ShellSectionId>[] = SECTIONS.filter((s) => owner || s.id !== 'pult').map(
@@ -582,7 +633,50 @@ export function AppShell() {
         </div>
       </div>
 
-      <CommandVoiceNote wide={wide} />
+      {!chat.open && <CommandVoiceNote wide={wide} />}
+      <Presence
+        show={chat.busy && !chat.open}
+        className={wide ? 'voice-toast wide' : 'voice-toast'}
+      >
+        <Note>Диспетчер думает…</Note>
+      </Presence>
+      <CommandChat
+        open={chat.open}
+        wide={wide}
+        turns={chat.turns}
+        busy={chat.busy}
+        error={chat.error ?? (voice.origin === 'command' ? voice.error : null)}
+        onClose={() => {
+          if (voice.phase === 'recording' || voice.phase === 'asking') voice.cancel();
+          else {
+            chat.close();
+            setOpen(false);
+          }
+        }}
+        onConfirm={(turn) => void chat.confirm(turn)}
+        onCorrect={(turn, kind) => void chat.correct(turn, kind)}
+        footer={
+          chat.open && (
+            <form
+              className="command-composer"
+              autoComplete="off"
+              onSubmit={(e) => {
+                e.preventDefault();
+                submit();
+              }}
+            >
+              {commandField(true)}
+              <Button
+                type="submit"
+                size="sm"
+                disabled={chat.busy || !value.trim() || voice.phase !== 'idle'}
+              >
+                Отправить
+              </Button>
+            </form>
+          )
+        }
+      />
       <CommandSuggest
         ref={card}
         parsed={shown ? cmd.parsed : null}
@@ -594,16 +688,18 @@ export function AppShell() {
         className={wide ? 'suggest wide' : 'suggest'}
       />
       {wide ? (
-        <form
-          className="pc-cmd"
-          autoComplete="off"
-          onSubmit={(e) => {
-            e.preventDefault();
-            submit();
-          }}
-        >
-          {field}
-        </form>
+        !chat.open && (
+          <form
+            className="pc-cmd"
+            autoComplete="off"
+            onSubmit={(e) => {
+              e.preventDefault();
+              submit();
+            }}
+          >
+            {commandField(false)}
+          </form>
+        )
       ) : (
         <Dock
           items={dockItems}
@@ -613,7 +709,7 @@ export function AppShell() {
             setMoreOpen(true);
             return false; // «Ещё» — окно, а не раздел: подсветка остаётся на текущем
           }}
-          open={open && !wide}
+          open={open && !wide && !chat.open}
           onOpenChange={(o) => (o ? openCmd() : closeCmd())}
         >
           <form
@@ -624,7 +720,7 @@ export function AppShell() {
               submit();
             }}
           >
-            {field}
+            {!chat.open && commandField(false)}
           </form>
         </Dock>
       )}

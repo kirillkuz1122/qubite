@@ -762,12 +762,57 @@ pub async fn capture_voice(
     headers: axum::http::HeaderMap,
     request: Result<Json<VoiceCaptureRequest>, axum::extract::rejection::JsonRejection>,
 ) -> Result<(StatusCode, Json<VoiceCaptureResponse>), ApiError> {
+    match capture_voice_inner(&state, &session, &headers, request, false).await? {
+        VoiceOutcome::Saved(status, item) => Ok((status, Json(*item))),
+        VoiceOutcome::Transcript(_) => Err(ApiError::internal()),
+    }
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct CommandTranscript {
+    /// Текст для dispatch. При отсутствии текста аудио осталось во Входящих.
+    text: Option<String>,
+}
+
+#[utoipa::path(post, path = "/api/command/voice", tag = "agent", request_body = VoiceCaptureRequest,
+    responses(
+        (status = 200, description = "Текст для Command или аудио во Входящих", body = CommandTranscript),
+        (status = 400, description = "Неверная запись", body = ApiErrorBody),
+        (status = 401, description = "Нужно войти", body = ApiErrorBody),
+        (status = 403, description = "Нет доступа", body = ApiErrorBody)
+    ))]
+pub async fn command_voice(
+    State(state): State<AppState>,
+    session: Authenticated,
+    headers: axum::http::HeaderMap,
+    request: Result<Json<VoiceCaptureRequest>, axum::extract::rejection::JsonRejection>,
+) -> Result<Json<CommandTranscript>, ApiError> {
+    crate::command::authorize(&state, &session).await?;
+    let text = match capture_voice_inner(&state, &session, &headers, request, true).await? {
+        VoiceOutcome::Saved(_, item) => item.transcribed.then_some(item.item.body),
+        VoiceOutcome::Transcript(text) => Some(text),
+    };
+    Ok(Json(CommandTranscript { text }))
+}
+
+enum VoiceOutcome {
+    Saved(StatusCode, Box<VoiceCaptureResponse>),
+    Transcript(String),
+}
+
+async fn capture_voice_inner(
+    state: &AppState,
+    session: &Authenticated,
+    headers: &axum::http::HeaderMap,
+    request: Result<Json<VoiceCaptureRequest>, axum::extract::rejection::JsonRejection>,
+    for_command: bool,
+) -> Result<VoiceOutcome, ApiError> {
     use base64::Engine;
 
     // Запись могла ждать сети в очереди браузера: чья она — говорит заголовок.
-    crate::auth::require_account_header(&session, &headers)?;
+    crate::auth::require_account_header(session, headers)?;
 
-    let proof = authorize::<Write>(&state, &session, qubite_inbox::MODULE).await?;
+    let proof = authorize::<Write>(state, session, qubite_inbox::MODULE).await?;
     let Json(request) =
         request.map_err(|_| invalid_voice("Неверная запись или тело больше 2 МБ"))?;
     let owner = proof.account_id();
@@ -811,7 +856,7 @@ pub async fn capture_voice(
     let id = request.id.unwrap_or_else(Uuid::now_v7);
     // Настройку читаем до транзакции, а число одновременных приёмов ограничено:
     // шлюзу и записи нужны соединения пула сверх того, что держит транзакция.
-    let method = voice_method(&state, owner).await?;
+    let method = voice_method(state, owner).await?;
     let _slot = VOICE_SLOTS
         .acquire()
         .await
@@ -842,29 +887,41 @@ pub async fn capture_voice(
             .await
             .map_err(objects_error)?
             .ok_or_else(not_found)?;
-        return Ok((
+        return Ok(VoiceOutcome::Saved(
             StatusCode::OK,
-            Json(VoiceCaptureResponse {
+            Box::new(VoiceCaptureResponse {
                 item: item.into(),
                 transcribed,
                 reason,
             }),
         ));
     }
+    let text = recognize_voice(state, session, id, &audio, mime, &request, method).await;
+    if for_command && let Ok(text) = &text {
+        if matches!(method, VoiceMethod::OwnKey) {
+            qubite_objects::audit::record(
+                &mut tx,
+                qubite_objects::NewAuditEntry {
+                    actor_id: Some(owner),
+                    action: "voice.own_key.transcribe".into(),
+                    target_kind: "command".into(),
+                    target_id: Some(id.to_string()),
+                    after: Some(json!({ "transcribed": true, "cost_usd": 0 })),
+                    request_id: Some(format!("inbox:{id}:transcribe")),
+                    ..Default::default()
+                },
+            )
+            .await
+            .map_err(objects_error)?;
+        }
+        tx.commit().await.map_err(voice_db_error)?;
+        return Ok(VoiceOutcome::Transcript(text.clone()));
+    }
     let blob = state
         .blobs
         .put(&mut tx, audio.as_slice(), mime)
         .await
         .map_err(objects_error)?;
-    let text = match method {
-        VoiceMethod::Cloud => transcribe_voice(&state, &session, id, audio, mime, &request).await,
-        VoiceMethod::Device | VoiceMethod::Local => request
-            .text
-            .clone()
-            .filter(|text| !text.trim().is_empty())
-            .ok_or_else(|| "Устройство не передало распознанный текст".to_owned()),
-        VoiceMethod::OwnKey => crate::voice_key::transcribe(&state, owner, audio, mime).await,
-    };
     let (body, transcribed, reason) = match text {
         Ok(text) => (text, true, None),
         Err(reason) => ("Голосовая запись".to_owned(), false, Some(reason)),
@@ -926,12 +983,36 @@ pub async fn capture_voice(
         .map_err(objects_error)?
         .ok_or_else(not_found)?;
     tx.commit().await.map_err(voice_db_error)?;
-    Ok((
+    Ok(VoiceOutcome::Saved(
         StatusCode::CREATED,
-        Json(VoiceCaptureResponse {
+        Box::new(VoiceCaptureResponse {
             item: item.into(),
             transcribed,
             reason,
         }),
     ))
+}
+
+async fn recognize_voice(
+    state: &AppState,
+    session: &Authenticated,
+    id: Uuid,
+    audio: &[u8],
+    mime: &str,
+    request: &VoiceCaptureRequest,
+    method: VoiceMethod,
+) -> Result<String, String> {
+    match method {
+        VoiceMethod::Cloud => {
+            transcribe_voice(state, session, id, audio.to_vec(), mime, request).await
+        }
+        VoiceMethod::Device | VoiceMethod::Local => request
+            .text
+            .clone()
+            .filter(|text| !text.trim().is_empty())
+            .ok_or_else(|| "Устройство не передало распознанный текст".to_owned()),
+        VoiceMethod::OwnKey => {
+            crate::voice_key::transcribe(state, session.0.account_id, audio.to_vec(), mime).await
+        }
+    }
 }

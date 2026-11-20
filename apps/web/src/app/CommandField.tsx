@@ -30,6 +30,8 @@ export interface CommandFieldProps {
   onBlur: () => void;
   /** голосовая запись из строки сохранена (CMD-005b) */
   onVoiceSaved?: (saved: VoiceSaved) => void;
+  onVoiceText?: ((text: string) => void) | undefined;
+  busy?: boolean;
 }
 
 /**
@@ -49,6 +51,8 @@ export function CommandField({
   onFocus,
   onBlur,
   onVoiceSaved,
+  onVoiceText,
+  busy = false,
 }: CommandFieldProps) {
   const voice = useVoice();
   const live = voice.phase !== 'idle';
@@ -83,10 +87,12 @@ export function CommandField({
               type="text"
               role="combobox"
               aria-autocomplete="list"
-              aria-controls={listId}
+              aria-controls={expanded ? listId : undefined}
               aria-expanded={expanded}
               aria-activedescendant={activeId}
               value={value}
+              readOnly={busy}
+              aria-busy={busy}
               placeholder="Спроси или запиши…"
               aria-label="Строка Command"
               enterKeyHint="send"
@@ -100,6 +106,8 @@ export function CommandField({
       </Swap>
       {wide && <kbd>Ctrl K</kbd>}
       <CommandMic
+        onText={onVoiceText}
+        disabled={busy}
         onSaved={(s) => {
           saved.current = true;
           onVoiceSaved?.(s);

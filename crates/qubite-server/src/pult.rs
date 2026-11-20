@@ -130,6 +130,9 @@ pub struct ReportWindow {
 pub struct ReportSession {
     /// Номер сессии Claude Code.
     id: String,
+    /// Ссылка на сессию, если сборщик её знает.
+    #[serde(default, alias = "url")]
+    session_url: Option<String>,
     /// Название: своё имя сессии или начало первого запроса (до 120 знаков).
     #[serde(default)]
     title: String,
@@ -323,6 +326,7 @@ impl Report {
         self.host = harness::clip(self.host.trim(), 64);
         for s in &mut self.sessions {
             s.id = harness::clip(&s.id, 64);
+            s.session_url = session_link(s.session_url.as_deref());
             s.title = harness::clip(s.title.trim(), 120);
             s.project = harness::clip(&s.project, 60);
             s.branch = harness::clip(&s.branch, 80);
@@ -392,7 +396,7 @@ pub struct PultCounts {
 pub struct PultWaiting {
     /// Ключ агента — открыть карточку.
     key: String,
-    /// Номер issue — ответить кнопкой (`/api/owner/work/questions/{n}/answer`).
+    /// Номер issue — ответить кнопкой через Command.
     number: u64,
     title: String,
     text: String,
@@ -484,6 +488,8 @@ pub struct PultAgent {
     pr: Option<PultPr>,
     /// Issue в GitHub.
     url: Option<String>,
+    /// Ссылка, переданная сборщиком сессий.
+    session_url: Option<String>,
     /// Что делает: начало описания задачи или «проект · ветка».
     task: Option<String>,
     /// Где: «облако», «ПК arch».
@@ -811,9 +817,23 @@ fn pc_status(s: &ReportSession, now: OffsetDateTime) -> AgentStatus {
     }
 }
 
+fn session_link(value: Option<&str>) -> Option<String> {
+    let value = value?.trim();
+    if value.len() > 2048 {
+        return None;
+    }
+    let url = reqwest::Url::parse(value).ok()?;
+    (matches!(url.scheme(), "https" | "http")
+        && url.host_str().is_some()
+        && url.username().is_empty()
+        && url.password().is_none())
+    .then(|| url.to_string())
+}
+
 /// Поля агента, которые знает только ПК.
 fn fill_from_pc(agent: &mut PultAgent, s: &ReportSession, host: &str, now: OffsetDateTime) {
     let (tokens, usd) = total(&s.usage);
+    agent.session_url = session_link(s.session_url.as_deref());
     agent.model = (!s.model.is_empty()).then(|| model_name(&s.model));
     agent.effort = (!s.effort.is_empty()).then(|| s.effort.clone());
     agent.minutes = Some((s.last_at - s.started_at).whole_minutes().max(0));
@@ -937,6 +957,7 @@ fn agents(g: &Gathered, now: OffsetDateTime) -> (Vec<PultAgent>, Vec<PultWaiting
             cache: None,
             pr: None,
             url: None,
+            session_url: None,
             task: Some(
                 [s.project.as_str(), s.branch.as_str()]
                     .iter()
@@ -989,6 +1010,7 @@ fn gh_agent(issue: &GhIssue, status: AgentStatus, prs: &[PrInfo]) -> PultAgent {
         cache: None,
         pr: pr_for(issue.number, prs),
         url: Some(issue.html_url.clone()),
+        session_url: None,
         task: first_paragraph(issue.body.as_deref().unwrap_or_default()),
         source: "облако".into(),
         updated_at: issue.updated_at,
@@ -1140,6 +1162,87 @@ fn board(state: &AppState, g: &Gathered, now: OffsetDateTime) -> (PultBoard, Vec
         now,
     };
     (board, all)
+}
+
+/// Короткий срез Пульта для Command. Чтение не меняет историю Пульта.
+pub(crate) async fn command_day(state: &AppState, date: &str) -> Result<serde_json::Value, ApiError> {
+    let g = gather(state, false).await?;
+    let (board, _) = board(state, &g, OffsetDateTime::now_utc());
+    Ok(serde_json::json!({
+        "counts": board.counts,
+        "agents": board.agents.iter().take(6).map(|a| serde_json::json!({
+            "title": harness::clip(&a.title, 110),
+            "status": a.status,
+            "model": a.model,
+            "pr": a.pr.as_ref().map(|pr| pr.number),
+        })).collect::<Vec<_>>(),
+        "waiting": board.waiting.iter().take(5).map(|w| serde_json::json!({
+            "issue": w.number, "title": harness::clip(&w.title, 110),
+            "question": harness::clip(&w.text, 160)
+        })).collect::<Vec<_>>(),
+        "open_prs": g.prs.iter().take(6).map(|p| serde_json::json!({
+            "number": p.number, "title": harness::clip(&p.text, 110), "ci": p.ci
+        })).collect::<Vec<_>>(),
+        "spend_today": board.spend.as_ref().and_then(|s| s.days.iter().find(|d| d.date == date)),
+        "week_used_percent": board.spend.and_then(|s| s.week_used),
+        "sources": board.sources.iter().map(|s| serde_json::json!({
+            "id": s.id, "ok": s.ok
+        })).collect::<Vec<_>>(),
+    }))
+}
+
+/// Стоимость сравнимой сессии и её доля недельного лимита по сводке сборщика.
+pub(crate) async fn command_estimate(
+    state: &AppState,
+    model: &str,
+) -> Result<(Option<f64>, Option<f64>), ApiError> {
+    let reports: Vec<serde_json::Value> = sqlx::query_scalar(
+        "SELECT body FROM pult_reports ORDER BY received_at DESC",
+    )
+    .fetch_all(state.db.pool())
+    .await
+    .map_err(db)?;
+    let now = OffsetDateTime::now_utc();
+    let mut usd: Option<f64> = None;
+    let mut percent_per_usd: Option<f64> = None;
+    for body in reports {
+        let Ok(report) = serde_json::from_value::<Report>(body) else {
+            continue;
+        };
+        let sample = report
+            .sessions
+            .iter()
+            .filter(|s| s.started_at >= now - Duration::days(7))
+            .filter(|s| s.model.split('[').next() == Some(model))
+            .filter_map(|s| total(&s.usage).1)
+            .filter(|usd| *usd > 0.0)
+            .reduce(f64::max);
+        if let Some(sample) = sample {
+            usd = Some(usd.map_or(sample, |previous| previous.max(sample)));
+        }
+        let Some(limits) = report.limits.filter(|l| now - l.at < Duration::hours(6)) else {
+            continue;
+        };
+        let Some(window) = limits.seven_day.filter(|w| w.used > 0.0) else {
+            continue;
+        };
+        let Some(reset) = window.resets_at.filter(|at| *at > now) else {
+            continue;
+        };
+        // Не считаем неполный первый день целиком: это занизило бы долю запуска.
+        let first = (reset - Duration::days(7)).date().to_string();
+        let spent = report
+            .days
+            .iter()
+            .filter(|d| d.date > first)
+            .filter_map(|d| total(&d.usage).1)
+            .sum::<f64>();
+        if spent > 0.0 {
+            let rate = window.used / spent;
+            percent_per_usd = Some(percent_per_usd.map_or(rate, |previous| previous.max(rate)));
+        }
+    }
+    Ok((usd, usd.zip(percent_per_usd).map(|(usd, rate)| usd * rate)))
 }
 
 // ---------------------------------------------------------------- история
@@ -1678,6 +1781,7 @@ mod tests {
                 ci: Some(Ci::Red),
             }),
             url: None,
+            session_url: None,
             task: None,
             source: "облако".into(),
             updated_at: OffsetDateTime::UNIX_EPOCH,
@@ -1701,6 +1805,7 @@ mod tests {
         let now = at("2026-11-17T12:00:00Z");
         let session = |i: usize, waiting: bool| ReportSession {
             id: format!("s{i}"),
+            session_url: None,
             title: format!("сессия {i}"),
             project: "p".into(),
             branch: "main".into(),
