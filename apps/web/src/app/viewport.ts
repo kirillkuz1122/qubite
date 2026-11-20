@@ -11,8 +11,7 @@ export function installViewportVars(win = window): () => void {
   let keyboardHeight = 0;
   let visibleHeight: number | undefined;
   let focus:
-    | { element: HTMLElement; deadline: number | undefined; stableFrames: number }
-    | undefined;
+    { element: HTMLElement; deadline: number | undefined; stableFrames: number } | undefined;
 
   const update = (now: number) => {
     frame = undefined;
