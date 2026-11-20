@@ -694,6 +694,10 @@
   padding: 8px;
   text-align: start;
 }
+.pult-task-table :is(th, td):is(:nth-child(3), :nth-child(4)) {
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
 .pult-task-table th {
   font-weight: 500;
   color: var(--q-mute);
