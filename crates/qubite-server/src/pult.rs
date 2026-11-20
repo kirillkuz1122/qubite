@@ -1165,7 +1165,10 @@ fn board(state: &AppState, g: &Gathered, now: OffsetDateTime) -> (PultBoard, Vec
 }
 
 /// Короткий срез Пульта для Command. Чтение не меняет историю Пульта.
-pub(crate) async fn command_day(state: &AppState, date: &str) -> Result<serde_json::Value, ApiError> {
+pub(crate) async fn command_day(
+    state: &AppState,
+    date: &str,
+) -> Result<serde_json::Value, ApiError> {
     let g = gather(state, false).await?;
     let (board, _) = board(state, &g, OffsetDateTime::now_utc());
     Ok(serde_json::json!({
@@ -1196,12 +1199,11 @@ pub(crate) async fn command_estimate(
     state: &AppState,
     model: &str,
 ) -> Result<(Option<f64>, Option<f64>), ApiError> {
-    let reports: Vec<serde_json::Value> = sqlx::query_scalar(
-        "SELECT body FROM pult_reports ORDER BY received_at DESC",
-    )
-    .fetch_all(state.db.pool())
-    .await
-    .map_err(db)?;
+    let reports: Vec<serde_json::Value> =
+        sqlx::query_scalar("SELECT body FROM pult_reports ORDER BY received_at DESC")
+            .fetch_all(state.db.pool())
+            .await
+            .map_err(db)?;
     let now = OffsetDateTime::now_utc();
     let mut usd: Option<f64> = None;
     let mut percent_per_usd: Option<f64> = None;

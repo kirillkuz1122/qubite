@@ -36,13 +36,10 @@ fn kind(kind: &str) -> MockStep {
     reply(json!({"kind": kind, "confidence": 0.9}).to_string())
 }
 
-async fn fixture_steps(
-    steps: Vec<MockStep>,
-) -> (TestDb, Database, AppState, Arc<MockProvider>) {
+async fn fixture_steps(steps: Vec<MockStep>) -> (TestDb, Database, AppState, Arc<MockProvider>) {
     let (test_db, db) = TestDb::migrated().await;
     let pool = db.pool();
     qubite_auth::owner::create(pool, &Passwords::default(), EMAIL, "Кирилл", PASSWORD)
-        
         .await
         .unwrap();
     let account: Uuid = sqlx::query_scalar("SELECT account_id FROM platform_owner")
@@ -50,7 +47,6 @@ async fn fixture_steps(
         .await
         .unwrap();
     let by = qubite_policy::decide_owner(pool, &qubite_policy::Subject::account(account, None))
-        
         .await
         .unwrap();
     admin::upsert_provider(
@@ -96,21 +92,18 @@ async fn fixture_steps(
     .await
     .unwrap();
     let mock = Arc::new(MockProvider::new(kind("thought")).script(steps));
-    let gateway = Gateway::new(pool.clone(), AiConfig::default()).with_provider("mock", mock.clone());
+    let gateway =
+        Gateway::new(pool.clone(), AiConfig::default()).with_provider("mock", mock.clone());
     let state = AppState::with_auth(db.clone(), AuthSettings::default()).with_ai(Arc::new(gateway));
     (test_db, db, state, mock)
 }
 
 async fn spawn(state: AppState) -> SocketAddr {
     let app = qubite_server::router(state).into_make_service_with_connect_info::<SocketAddr>();
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
-    .await
-    .unwrap();
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
     tokio::spawn(async move {
-        axum::serve(listener, app)
-        .await
-        .unwrap();
+        axum::serve(listener, app).await.unwrap();
     });
     address
 }
@@ -193,7 +186,11 @@ async fn thought_question_order_and_correction() {
             }),
         )
         .await;
-    assert_eq!(seeded.body["results"][0]["status"], "applied", "{}", seeded.body);
+    assert_eq!(
+        seeded.body["results"][0]["status"], "applied",
+        "{}",
+        seeded.body
+    );
 
     let question = send(&mut owner, address, "Что на сегодня?").await;
     assert_eq!(question.status, 200, "{}", question.body);
@@ -203,34 +200,65 @@ async fn thought_question_order_and_correction() {
     assert_eq!(question.body["cost_usd"], 10);
     assert_eq!(mock.calls(), 3, "сводка не требует вызова модели");
     let call = mock.last_call().unwrap();
-    assert!(call.messages.iter().any(|msg| msg.content.contains("Повторить графы")));
-    assert!(call.messages.iter().any(|msg| msg.content.contains("Сессия из Пульта")));
+    assert!(
+        call.messages
+            .iter()
+            .any(|msg| msg.content.contains("Повторить графы"))
+    );
+    assert!(
+        call.messages
+            .iter()
+            .any(|msg| msg.content.contains("Сессия из Пульта"))
+    );
 
     let order = send(&mut owner, address, "Добавь дело разобрать конспект").await;
     assert_eq!(order.status, 200, "{}", order.body);
     assert_eq!(order.body["kind"], "order");
     let count: i64 = sqlx::query_scalar(
-        "SELECT count(*) FROM objects WHERE type = 'planner.task' AND title = 'Разобрать конспект'"
-    ).fetch_one(pool)
+        "SELECT count(*) FROM objects WHERE type = 'planner.task' AND title = 'Разобрать конспект'",
+    )
+    .fetch_one(pool)
     .await
     .unwrap();
     assert_eq!(count, 1);
 
     let id = thought.body["id"].as_str().unwrap();
     let url = format!("{ROUTE}/{id}/reclassify");
-    let corrected = owner.post_json(address, &url, json!({"kind":"question"})).await;
+    let corrected = owner
+        .post_json(address, &url, json!({"kind":"question"}))
+        .await;
     assert_eq!(corrected.status, 200, "{}", corrected.body);
     assert_eq!(corrected.body["kind"], "question");
     assert_eq!(corrected.body["message"], "Переклассифицированный вопрос");
-    let repeated = owner.post_json(address, &url, json!({"kind":"thought"})).await;
+    let repeated = owner
+        .post_json(address, &url, json!({"kind":"thought"}))
+        .await;
     assert_eq!(repeated.body["kind"], "thought");
-    assert_eq!(owner.get(address, "/api/v1/inbox").await.body.as_array().unwrap().len(), 1);
+    assert_eq!(
+        owner
+            .get(address, "/api/v1/inbox")
+            .await
+            .body
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
     let followup = send(&mut owner, address, "Что ещё?").await;
     assert_eq!(followup.status, 200, "{}", followup.body);
     let call = mock.last_call().unwrap();
-    assert!(call.messages.iter().any(|msg| msg.content.contains("Что на сегодня?")));
-    let card = owner.get(address, "/api/owner/pult/agents/pc-pult-sample").await;
-    assert_eq!(card.body["agent"]["session_url"], "https://example.org/session");
+    assert!(
+        call.messages
+            .iter()
+            .any(|msg| msg.content.contains("Что на сегодня?"))
+    );
+    let card = owner
+        .get(address, "/api/owner/pult/agents/pc-pult-sample")
+        .await;
+    assert_eq!(
+        card.body["agent"]["session_url"],
+        "https://example.org/session"
+    );
 }
 
 async fn chat_jobs(pool: &PgPool) -> i64 {
@@ -242,9 +270,9 @@ async fn chat_jobs(pool: &PgPool) -> i64 {
 
 #[tokio::test]
 async fn expensive_orders_need_confirmation_and_cannot_be_replayed() {
-    let (_test_db, db, state, mock) = fixture_steps(vec![
-        reply(r#"{"kind":"order","confidence":0.98,"target":"agent","estimate_percent":0}"#),
-    ])
+    let (_test_db, db, state, mock) = fixture_steps(vec![reply(
+        r#"{"kind":"order","confidence":0.98,"target":"agent","estimate_percent":0}"#,
+    )])
     .await;
     collector(db.pool()).await;
     let address = spawn(state);
@@ -269,7 +297,10 @@ async fn expensive_orders_need_confirmation_and_cannot_be_replayed() {
     let executed = owner.post_json(address, ROUTE, body.clone()).await;
     assert_eq!(executed.status, 200, "{}", executed.body);
     assert_eq!(executed.body["status"], "done");
-    assert_eq!(owner.post_json(address, ROUTE, body).await.body, executed.body);
+    assert_eq!(
+        owner.post_json(address, ROUTE, body).await.body,
+        executed.body
+    );
     assert_eq!(chat_jobs(db.pool()).await, 1);
     assert_eq!(mock.calls(), 1);
 }
@@ -294,7 +325,10 @@ async fn dispatch_is_owner_only() {
     .unwrap();
     let mut browser = Browser::default();
     assert_eq!(browser.login(address, email, PASSWORD).await.status, 200);
-    assert_eq!(send(&mut browser, address, "Что на сегодня?").await.status, 403);
+    assert_eq!(
+        send(&mut browser, address, "Что на сегодня?").await.status,
+        403
+    );
     let response = browser
         .post_json(
             address,
@@ -311,14 +345,21 @@ async fn pult_reply_uses_the_original_issue_comment() {
     let respond = Arc::new(|req: &Received| -> (u16, String) {
         let path = "/repos/o/r/issues/7";
         if req.line.starts_with(&format!("GET {path} ")) {
-            return (200, json!({
-                "number": 7, "title": "Вопрос", "html_url": "https://example.org/7",
-                "body": "Как сделать?", "state": "open", "labels": [{"name":"вопрос"}],
-                "updated_at": "2026-11-20T00:00:00Z", "comments": 0
-            }).to_string());
+            return (
+                200,
+                json!({
+                    "number": 7, "title": "Вопрос", "html_url": "https://example.org/7",
+                    "body": "Как сделать?", "state": "open", "labels": [{"name":"вопрос"}],
+                    "updated_at": "2026-11-20T00:00:00Z", "comments": 0
+                })
+                .to_string(),
+            );
         }
         if req.line.starts_with(&format!("POST {path}/comments ")) {
-            return (201, json!({"html_url":"https://example.org/7#answer"}).to_string());
+            return (
+                201,
+                json!({"html_url":"https://example.org/7#answer"}).to_string(),
+            );
         }
         if req.line.starts_with(&format!("DELETE {path}/labels/")) {
             return (200, "[]".into());
@@ -340,14 +381,21 @@ async fn pult_reply_uses_the_original_issue_comment() {
     let result = owner.post_json(address, ROUTE, body.clone()).await;
     assert_eq!(result.status, 200, "{}", result.body);
     assert_eq!(result.body["kind"], "order");
-    assert_eq!(owner.post_json(address, ROUTE, body).await.body, result.body);
+    assert_eq!(
+        owner.post_json(address, ROUTE, body).await.body,
+        result.body
+    );
     let comments: Vec<_> = fake
         .received()
         .into_iter()
         .filter(|req| req.line.starts_with("POST /repos/o/r/issues/7/comments "))
         .collect();
     assert_eq!(comments.len(), 1);
-    assert!(comments[0].body.contains("Ответ владельца: По первому варианту"));
+    assert!(
+        comments[0]
+            .body
+            .contains("Ответ владельца: По первому варианту")
+    );
     assert_eq!(mock.calls(), 1);
 }
 

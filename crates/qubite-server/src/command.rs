@@ -409,7 +409,9 @@ pub async fn dispatch_command(
     }
     let reply = issue_answer(text);
     if request.source == CommandSource::Pult && reply.is_none() {
-        return Err(invalid("Ожидается ответ в задачу в формате «ответить на #N: текст»"));
+        return Err(invalid(
+            "Ожидается ответ в задачу в формате «ответить на #N: текст»",
+        ));
     }
     if let Some((_, body)) = reply
         && (body.is_empty() || body.chars().count() > harness::ANSWER_MAX)
@@ -449,7 +451,9 @@ pub async fn dispatch_command(
         return Ok(Json(result));
     }
     if request.confirm {
-        return Err(invalid("Сначала отправьте поручение и получите оценку запуска"));
+        return Err(invalid(
+            "Сначала отправьте поручение и получите оценку запуска",
+        ));
     }
 
     let examples = corrections(&mut tx, account).await?;
@@ -480,7 +484,14 @@ pub async fn dispatch_command(
         match result.kind {
             CommandKind::Thought => {
                 inbox_id = Some(
-                    thought(&state, &mut tx, &session, text, request.source.inbox_source()).await?,
+                    thought(
+                        &state,
+                        &mut tx,
+                        &session,
+                        text,
+                        request.source.inbox_source(),
+                    )
+                    .await?,
                 );
                 result.message = "✓ записал".into();
             }
@@ -603,8 +614,7 @@ pub async fn reclassify(
                     "android" => "android",
                     _ => "web",
                 };
-                turn.inbox_id =
-                    Some(thought(&state, &mut tx, &session, &turn.text, source).await?);
+                turn.inbox_id = Some(thought(&state, &mut tx, &session, &turn.text, source).await?);
             }
             result.message = "✓ записал".into();
             result.model.clear();

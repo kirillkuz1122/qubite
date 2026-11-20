@@ -812,7 +812,10 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
             )),
         )
         .route("/api/command/dispatch", post(command::dispatch_command))
-        .route("/api/command/dispatch/{id}/reclassify", post(command::reclassify))
+        .route(
+            "/api/command/dispatch/{id}/reclassify",
+            post(command::reclassify),
+        )
         .route("/api/owner/pult", get(pult::pult_board))
         .route("/api/owner/pult/agents/{key}", get(pult::pult_agent))
         .route(
