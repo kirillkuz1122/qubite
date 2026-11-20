@@ -23,7 +23,7 @@ use qubite_ai::{
     LoopGuard, MICROS_PER_USD,
     admin::{self, LimitScope, Metric, Period},
     budget,
-    catalog::{self, Allowlist},
+    catalog,
     chatgpt::{self, ChatGpt, ChatGptConfig},
     openrouter::OpenRouter,
     secret::SecretBox,
@@ -1173,31 +1173,17 @@ fn chatgpt_ready(state: &AppState) -> Result<Arc<SecretBox>, ApiError> {
 }
 
 /// После входа: модели подписки — в каталог (owner их видит в Console).
-async fn after_login(state: &AppState, account: Uuid) {
-    let Some(provider) = &state.ai_panel.chatgpt else {
-        return;
-    };
-    match tokio::time::timeout(Duration::from_secs(30), provider.models(account)).await {
-        Ok(Ok(entries)) => {
-            if let Err(error) = catalog::apply(
-                state.db.pool(),
-                chatgpt::PROVIDER_ID,
-                &entries,
-                &Allowlist::Keep,
-            )
-            .await
-            {
-                tracing::warn!(%error, "модели подписки ChatGPT не записаны");
-            }
-        }
-        Ok(Err(error)) => tracing::warn!(%error, "модели подписки ChatGPT не получены"),
-        Err(_) => tracing::warn!("модели подписки ChatGPT не получены за 30 с"),
+async fn after_login(state: &AppState) {
+    if let Some(provider) = &state.ai_panel.chatgpt
+        && let Err(error) = crate::ai::sync_connected_chatgpt(state.db.pool(), provider).await
+    {
+        tracing::warn!(%error, "модели подписки ChatGPT не записаны");
     }
 }
 
 /// Вход удался: подписка — источник AI человека (D-536).
 async fn connected(state: &AppState, account: Uuid) -> Result<(), ApiError> {
-    after_login(state, account).await;
+    after_login(state).await;
     admin::set_source(state.db.pool(), account, "chatgpt", None)
         .await
         .map_err(ai)

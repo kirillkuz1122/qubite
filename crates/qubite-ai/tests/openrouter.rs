@@ -289,6 +289,13 @@ async fn catalog_sync_applies_allowlist_and_keeps_owner_choice() {
         .unwrap();
     let mut cheaper = entries.clone();
     cheaper[0].price_in_per_mtok = 90_000;
+    let new_paid_model = "anthropic/claude-opus-5.5";
+    cheaper.push(CatalogEntry {
+        external_id: new_paid_model.into(),
+        context_tokens: 200_000,
+        price_in_per_mtok: 5_000_000,
+        price_out_per_mtok: 25_000_000,
+    });
     catalog::apply(pool, "openrouter", &cheaper, &Allowlist::Keep)
         .await
         .unwrap();
@@ -299,6 +306,16 @@ async fn catalog_sync_applies_allowlist_and_keeps_owner_choice() {
             .await
             .unwrap();
     assert_eq!((enabled, price), (false, 90_000));
+    let paid: (i64, bool) = sqlx::query_as(
+        "SELECT c.price_in_per_mtok, coalesce(m.enabled, false) FROM ai_catalog c \
+         LEFT JOIN ai_models m ON m.provider_id = c.provider_id AND m.external_id = c.external_id \
+         WHERE c.provider_id = 'openrouter' AND c.external_id = $1",
+    )
+    .bind(new_paid_model)
+    .fetch_one(pool)
+    .await
+    .unwrap();
+    assert_eq!(paid, (5_000_000, false));
 
     let synced: i64 =
         sqlx::query_scalar("SELECT count(*) FROM audit_log WHERE action = 'ai.catalog_synced'")

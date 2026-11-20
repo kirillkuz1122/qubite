@@ -8,7 +8,7 @@
 //! моделью `english.review` и правки программы в личный слой (лента с
 //! откатом). Ошибки — в повторение (коробки 1 → 3 → 7 → 14 дней).
 
-use qubite_ai::{AiRequest, Gateway, ListenRequest, Untrusted, voice};
+use qubite_ai::{AiRequest, Gateway, ListenRequest, Untrusted, catalog, voice};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sqlx::{PgConnection, PgPool};
@@ -21,8 +21,6 @@ use crate::{
     game, may_read, may_use_ai, may_write, verbs,
 };
 
-/// Программа и разбор — Sol с рассуждением, если owner его включил (D-501).
-pub const SOL: &str = "chatgpt:gpt-6.1-sol";
 /// Правка программы под человека.
 pub const PROGRAM_TASK: &str = "english.program";
 /// Разбор ошибок после урока.
@@ -32,7 +30,7 @@ const BOXES: [i64; 4] = [1, 3, 7, 14];
 /// Операции слоя, которые агент может предложить сам.
 const AGENT_OPS: &[&str] = &["skip", "repeat", "note", "set_pass", "add_tasks", "move"];
 
-/// Модель задачи: явно выбранная owner → Sol, если включён → по умолчанию.
+/// Модель задачи: явно выбранная owner → последний включённый Sol → по умолчанию.
 pub async fn model_for(pool: &PgPool, gateway: &Gateway, task: &str) -> Result<String> {
     let chosen: Option<String> =
         sqlx::query_scalar("SELECT model_id FROM ai_model_defaults WHERE task = $1")
@@ -42,12 +40,7 @@ pub async fn model_for(pool: &PgPool, gateway: &Gateway, task: &str) -> Result<S
     if let Some(model) = chosen {
         return Ok(model);
     }
-    let sol: Option<String> =
-        sqlx::query_scalar("SELECT id FROM ai_models WHERE id = $1 AND enabled")
-            .bind(SOL)
-            .fetch_optional(pool)
-            .await?;
-    match sol {
+    match catalog::latest_sol(pool).await? {
         Some(model) => Ok(model),
         None => Ok(gateway.model_for(task).await?),
     }

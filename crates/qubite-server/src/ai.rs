@@ -145,7 +145,7 @@ pub struct AiArgs {
           value_parser = parse_usd)]
     pub platform_usd_per_month: Option<i64>,
 
-    /// Как часто обновлять цены из каталога OpenRouter, часов.
+    /// Как часто обновлять каталоги ChatGPT и OpenRouter, часов.
     #[arg(long = "ai-catalog-refresh-hours", env = "QUBITE_AI_CATALOG_REFRESH_HOURS", default_value_t = 24,
           value_parser = clap::value_parser!(u64).range(1..=720))]
     pub catalog_refresh_hours: u64,
@@ -552,15 +552,7 @@ async fn start_chatgpt(pool: &PgPool, args: &AiArgs) -> anyhow::Result<Option<Ar
         ChatGpt::new(pool.clone(), args.chatgpt_config(), Arc::new(secret))
             .map_err(anyhow::Error::msg)?,
     );
-    if let Some(account) = chatgpt::any_connected(pool).await? {
-        match tokio::time::timeout(Duration::from_secs(30), provider.models(account)).await {
-            Ok(Ok(entries)) => {
-                catalog::apply(pool, chatgpt::PROVIDER_ID, &entries, &Allowlist::Keep).await?;
-            }
-            Ok(Err(error)) => tracing::warn!(%error, "модели подписки ChatGPT не получены"),
-            Err(_) => tracing::warn!("модели подписки ChatGPT не получены за 30 с"),
-        }
-    }
+    sync_connected_chatgpt(pool, &provider).await?;
     Ok(Some(provider))
 }
 
@@ -587,9 +579,27 @@ async fn refresh_chatgpt_catalog(pool: &PgPool, args: &AiArgs) -> anyhow::Result
     .await?;
     let provider = ChatGpt::new(pool.clone(), args.chatgpt_config(), Arc::new(secret))
         .map_err(anyhow::Error::msg)?;
+    fetch_chatgpt_catalog(pool, &provider, account).await
+}
+
+/// Обновление общего каталога сервера. Приоритет у подписки владельца.
+pub(crate) async fn sync_connected_chatgpt(pool: &PgPool, provider: &ChatGpt) -> anyhow::Result<()> {
+    if let Some(account) = chatgpt::any_connected(pool).await?
+        && let Some(note) = fetch_chatgpt_catalog(pool, provider, account).await?
+    {
+        tracing::info!("{note}");
+    }
+    Ok(())
+}
+
+async fn fetch_chatgpt_catalog(
+    pool: &PgPool,
+    provider: &ChatGpt,
+    account: Uuid,
+) -> anyhow::Result<Option<String>> {
     match tokio::time::timeout(Duration::from_secs(30), provider.models(account)).await {
-        Ok(Ok(entries)) => {
-            catalog::apply(pool, chatgpt::PROVIDER_ID, &entries, &Allowlist::Keep).await?;
+        Ok(Ok(snapshot)) => {
+            catalog::apply_chatgpt(pool, &snapshot).await?;
             Ok(None)
         }
         Ok(Err(error)) => Ok(Some(format!(
@@ -599,17 +609,25 @@ async fn refresh_chatgpt_catalog(pool: &PgPool, args: &AiArgs) -> anyhow::Result
     }
 }
 
-/// Обновить цены и allowlist из каталога OpenRouter.
+/// Синхронизация OpenRouter при старте, включая первоначальную настройку списка.
 pub async fn sync_catalog(
     pool: &PgPool,
     provider: &OpenRouter,
     args: &AiArgs,
 ) -> anyhow::Result<SyncReport> {
+    let first_run = !catalog::has_models(pool, OPENROUTER).await?;
+    sync_openrouter_catalog(pool, provider, &args.allowlist(first_run)).await
+}
+
+async fn sync_openrouter_catalog(
+    pool: &PgPool,
+    provider: &OpenRouter,
+    allowlist: &Allowlist,
+) -> anyhow::Result<SyncReport> {
     let entries = tokio::time::timeout(Duration::from_secs(30), provider.catalog())
         .await
         .context("каталог OpenRouter не ответил за 30 с")??;
-    let first_run = !catalog::has_models(pool, OPENROUTER).await?;
-    let report = catalog::apply(pool, OPENROUTER, &entries, &args.allowlist(first_run)).await?;
+    let report = catalog::apply(pool, OPENROUTER, &entries, allowlist).await?;
     tracing::info!(enabled = ?report.enabled, missing = ?report.missing, "каталог OpenRouter обновлён");
     Ok(report)
 }
@@ -617,15 +635,12 @@ pub async fn sync_catalog(
 /// Каталог сразу после нового ключа из Console: цены, а если моделей ещё нет —
 /// стартовый набор (D-201), как при первом запуске.
 pub async fn sync_after_key(pool: &PgPool, provider: &OpenRouter) -> anyhow::Result<SyncReport> {
-    let entries = tokio::time::timeout(Duration::from_secs(30), provider.catalog())
-        .await
-        .context("каталог OpenRouter не ответил за 30 с")??;
     let allowlist = if catalog::has_models(pool, OPENROUTER).await? {
         Allowlist::Keep
     } else {
         Allowlist::Exact(STARTER_MODELS.iter().map(|m| (*m).to_owned()).collect())
     };
-    Ok(catalog::apply(pool, OPENROUTER, &entries, &allowlist).await?)
+    sync_openrouter_catalog(pool, provider, &allowlist).await
 }
 
 async fn provider_exists(pool: &PgPool, id: &str) -> anyhow::Result<bool> {
@@ -638,11 +653,12 @@ async fn provider_exists(pool: &PgPool, id: &str) -> anyhow::Result<bool> {
 }
 
 /// Фоновое обслуживание: раз в минуту — «зависшие» вызовы → `unknown`,
-/// раз в `catalog_refresh_hours` — цены из каталога.
+/// раз в `catalog_refresh_hours` — каталоги моделей.
 pub fn spawn_maintenance(
     pool: PgPool,
     args: AiArgs,
     openrouter: Option<Arc<OpenRouter>>,
+    chatgpt: Option<Arc<ChatGpt>>,
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
         let mut tick = tokio::time::interval(Duration::from_secs(60));
@@ -656,13 +672,19 @@ pub fn spawn_maintenance(
                 Ok(recovered) => tracing::warn!(recovered, "AI-вызовы помечены unknown"),
                 Err(error) => tracing::warn!(%error, "восстановление AI-вызовов не удалось"),
             }
-            if let Some(provider) = &openrouter
-                && provider.has_key()
-                && last_catalog.elapsed() >= refresh
-            {
+            if last_catalog.elapsed() >= refresh {
                 last_catalog = tokio::time::Instant::now();
-                if let Err(error) = sync_catalog(&pool, provider, &args).await {
-                    tracing::warn!(%error, "каталог OpenRouter не обновлён");
+                if let Some(provider) = &chatgpt
+                    && let Err(error) = sync_connected_chatgpt(&pool, provider).await
+                {
+                    tracing::warn!(%error, "каталог ChatGPT не записан");
+                }
+                // Каталог OpenRouter доступен даже без ключа. По расписанию
+                // обновляем каталог и цены, сохраняя список разрешённых моделей.
+                if let Some(provider) = &openrouter
+                    && let Err(error) = sync_openrouter_catalog(&pool, provider, &Allowlist::Keep).await
+                {
+                    tracing::info!(%error, "каталог OpenRouter не обновлён");
                 }
             }
         }
@@ -864,7 +886,7 @@ async fn run_chatgpt(
                     "\nЧтобы им пользоваться: QUBITE_AI_CHATGPT_ENABLED=true и перезапуск сервера.",
                 );
             }
-            out.push_str("\nМодели подписки появятся в `qubite ai catalog` после запуска; включить — `qubite ai model chatgpt:<модель> on`.");
+            out.push_str("\nМодели подписки включатся сами при обновлении каталога. Посмотреть и обновить — `qubite ai catalog chatgpt`.");
             Ok(out)
         }
         ChatgptCommand::Status => {

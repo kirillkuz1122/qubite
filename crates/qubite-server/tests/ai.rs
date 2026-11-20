@@ -9,6 +9,7 @@ use std::time::Duration;
 use clap::{CommandFactory, Parser};
 use qubite_ai::{AiError, AiRequest, Untrusted};
 use qubite_db::Database;
+use qubite_english::lessons::{PROGRAM_TASK, REVIEW_TASK, model_for};
 use qubite_policy::{ModuleId, ModulePatch, Subject, UseAi};
 use qubite_server::ai::{self, AiArgs, AiCommand, MetricArg, OnOff, PeriodArg, Switch};
 use qubite_testkit::{
@@ -848,25 +849,7 @@ async fn chatgpt_catalog_loads_from_cli_without_server() {
     .unwrap();
     assert!(before.contains("qubite ai chatgpt login"), "{before}");
 
-    sqlx::query(
-        "INSERT INTO ai_chatgpt_session (singleton, host_id, client_id) \
-         VALUES (true, $1, 'oaiapp_test')",
-    )
-    .bind(qubite_ai::chatgpt::new_host_id())
-    .execute(db.pool())
-    .await
-    .unwrap();
-    sqlx::query(
-        "INSERT INTO ai_chatgpt_tokens (account_id, scopes, access_token_enc, refresh_token_enc, \
-         expires_at) VALUES ($1, $2, $3, $4, now() + interval '1 hour')",
-    )
-    .bind(owner)
-    .bind(qubite_ai::chatgpt::SCOPES)
-    .bind(secret.seal("chatgpt.access", "at-1"))
-    .bind(secret.seal("chatgpt.refresh", "rt-1"))
-    .execute(db.pool())
-    .await
-    .unwrap();
+    seed_chatgpt_login(&db, owner, &secret).await;
 
     let listed = ai::run(
         &db,
@@ -878,7 +861,7 @@ async fn chatgpt_catalog_loads_from_cli_without_server() {
     .await
     .unwrap();
     assert!(
-        listed.contains("chatgpt:gpt-6.1-sol | $0.000000 / $0.000000"),
+        listed.contains("chatgpt:gpt-6.1-sol | $0.000000 / $0.000000 | 0 | да"),
         "{listed}"
     );
     assert!(api.received()[0].line.starts_with("GET /v1/models"));
@@ -901,6 +884,115 @@ async fn chatgpt_catalog_loads_from_cli_without_server() {
         .await
         .unwrap();
     assert!(!enabled);
+    db.close().await;
+    test_db.drop_db().await;
+}
+
+async fn seed_chatgpt_login(db: &Database, owner: Uuid, secret: &qubite_ai::secret::SecretBox) {
+    sqlx::query(
+        "INSERT INTO ai_chatgpt_session (singleton, host_id, client_id) \
+         VALUES (true, $1, 'oaiapp_test')",
+    )
+    .bind(qubite_ai::chatgpt::new_host_id())
+    .execute(db.pool())
+    .await
+    .unwrap();
+    sqlx::query(
+        "INSERT INTO ai_chatgpt_tokens (account_id, scopes, access_token_enc, refresh_token_enc, \
+         expires_at) VALUES ($1, $2, $3, $4, now() + interval '1 hour')",
+    )
+    .bind(owner)
+    .bind(qubite_ai::chatgpt::SCOPES)
+    .bind(secret.seal("chatgpt.access", "at-1"))
+    .bind(secret.seal("chatgpt.refresh", "rt-1"))
+    .execute(db.pool())
+    .await
+    .unwrap();
+}
+
+#[tokio::test]
+async fn chatgpt_catalog_refresh_updates_sol_without_overwriting_owner_choice() {
+    let (test_db, db, owner) = setup().await;
+    let snapshot = |slugs: &[&str]| {
+        let mut models: Vec<_> = slugs
+            .iter()
+            .map(|slug| serde_json::json!({ "slug": slug, "visibility": "list" }))
+            .collect();
+        models.push(serde_json::json!({ "slug": "gpt-98-sol", "visibility": "hide" }));
+        models.push(serde_json::json!({ "slug": "gpt-99-sol" }));
+        Action::Respond(200, serde_json::json!({ "models": models }).to_string())
+    };
+    let api = FakeHttp::start(
+        [
+            snapshot(&["gpt-6.1-sol", "gpt-6.2-sol"]),
+            Action::Respond(503, "{}".into()),
+            snapshot(&["gpt-6.1-sol"]),
+        ],
+        snapshot(&["gpt-6.1-sol", "gpt-6.2-sol", "gpt-6.10-sol", "gpt-preview-sol"]),
+    )
+    .await;
+    let key = qubite_ai::secret::SecretBox::generate_key();
+    let secret = qubite_ai::secret::SecretBox::from_base64(&key).unwrap();
+    seed_chatgpt_login(&db, owner, &secret).await;
+    let api_url = format!("{}/v1", api.root_url());
+    let args = settings(&[
+        "--ai-secret-key",
+        &key,
+        "--ai-chatgpt-api-url",
+        &api_url,
+        "--ai-chatgpt-enabled",
+        "true",
+    ]);
+    let runtime = ai::start(&db, &args).await.unwrap();
+    let pool = db.pool();
+    let models = || AiCommand::Catalog {
+        search: Some("chatgpt".into()),
+    };
+    let selected = |task| model_for(pool, &runtime.gateway, task);
+
+    assert_eq!(
+        enabled_models(&db).await,
+        ["chatgpt:gpt-6.1-sol", "chatgpt:gpt-6.2-sol"]
+    );
+    assert_eq!(selected(PROGRAM_TASK).await.unwrap(), "chatgpt:gpt-6.2-sol");
+
+    let failed = ai::run(&db, &args, models()).await.unwrap();
+    assert!(failed.contains("HTTP 503"), "{failed}");
+    assert_eq!(selected(PROGRAM_TASK).await.unwrap(), "chatgpt:gpt-6.2-sol");
+
+    ai::run(&db, &args, models()).await.unwrap();
+    assert_eq!(selected(PROGRAM_TASK).await.unwrap(), "chatgpt:gpt-6.1-sol");
+    let removed: bool = sqlx::query_scalar("SELECT enabled FROM ai_models WHERE id = $1")
+        .bind("chatgpt:gpt-6.2-sol")
+        .fetch_one(pool)
+        .await
+        .unwrap();
+    assert!(!removed);
+
+    ai::run(
+        &db,
+        &args,
+        AiCommand::Use {
+            model: "chatgpt:gpt-6.1-sol".into(),
+            task: PROGRAM_TASK.into(),
+        },
+    )
+    .await
+    .unwrap();
+    ai::run(&db, &args, models()).await.unwrap();
+    ai::run(&db, &args, models()).await.unwrap();
+    assert_eq!(selected(REVIEW_TASK).await.unwrap(), "chatgpt:gpt-6.10-sol");
+    assert_eq!(selected(PROGRAM_TASK).await.unwrap(), "chatgpt:gpt-6.1-sol");
+
+    let changes: Vec<bool> = sqlx::query_scalar(
+        "SELECT (after->>'enabled')::boolean FROM audit_log WHERE action = 'ai.model_enabled_set' \
+         AND actor_id IS NULL AND target_id = $1 ORDER BY seq",
+    )
+    .bind("chatgpt:gpt-6.2-sol")
+    .fetch_all(pool)
+    .await
+    .unwrap();
+    assert_eq!(changes, [true, false, true]);
     db.close().await;
     test_db.drop_db().await;
 }

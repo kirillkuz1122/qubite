@@ -888,20 +888,24 @@ async fn serve(args: ServeArgs) -> anyhow::Result<()> {
         .with_english(args.ai.english())
         .with_work(args.github.settings())
         .with_blobs(qubite_objects::BlobStore::new(args.data_dir.join("blobs")));
-    let openrouter = match qubite_server::ai::start(&db, &args.ai).await {
+    let (openrouter, chatgpt) = match qubite_server::ai::start(&db, &args.ai).await {
         Ok(ai) => {
             state = state.with_ai(ai.gateway).with_ai_panel(ai.panel);
-            ai.openrouter
+            (ai.openrouter, ai.chatgpt)
         }
         // Сервер работает и без AI (например, база ещё не поднялась при
         // QUBITE_AUTO_MIGRATE=false); AI включится после перезапуска.
         Err(error) => {
             tracing::error!(error = format!("{error:#}"), "AI выключен до перезапуска");
-            None
+            (None, None)
         }
     };
-    let maintenance =
-        qubite_server::ai::spawn_maintenance(db.pool().clone(), args.ai.clone(), openrouter);
+    let maintenance = qubite_server::ai::spawn_maintenance(
+        db.pool().clone(),
+        args.ai.clone(),
+        openrouter,
+        chatgpt,
+    );
     let trash = qubite_server::inbox::spawn_trash_cleanup(db.pool().clone(), args.inbox_trash_days);
     // Напоминания английского (ENG-002): раз в день в выбранное время, не в тишину.
     let english_remind = qubite_english::remind::spawn(db.pool().clone());
