@@ -8,18 +8,15 @@
 
 ## Стек (решён владельцем)
 
-- Сервер — **Rust** (axum, sqlx), модульный монолит, один бинарник `qubite`.
-- БД — **PostgreSQL + pgvector** на сервере, **SQLite** на устройствах.
-- Web — **React + TypeScript**; desktop — **Tauri 2**; Android — общий React-интерфейс + **нативный Ink на Kotlin**.
-- Не использовать FastAPI-код из ветки `codex` — это архив ([D-001](docs/product/DECISIONS.md)).
+- Сервер — **Rust** (axum, sqlx), модульный монолит, один бинарник `qubite`; БД — **PostgreSQL + pgvector** на сервере, **SQLite** на устройствах.
+- Web — **React + TypeScript**; desktop — **Tauri 2**; Android — общий React-интерфейс + **нативный Ink на Kotlin**. FastAPI-код из ветки `codex` не использовать — архив ([D-001](docs/product/DECISIONS.md)).
 
 ## Порядок чтения при старте
 
 `DECISIONS.md` — индекс по строке на решение, полный текст — `docs/product/decisions/NN.md`; искать grep-ом по номеру (`grep -rn "D-585" docs/product/`). Задачи — GitHub Issues, статус — метка ([TASKS.md](docs/plan/TASKS.md)). Архивы в `archive/` целиком не читать (D-583, D-624).
 
 1. Управляющая сессия — `docs/harness/OWNER.md` и `docs/harness/MANAGER.md`.
-2. Сессия задачи — свой issue (или задание от менеджера) и решения, на которые он ссылается.
-3. `docs/engineering/AGENT_WORKFLOW.md` — цикл задачи и Definition of Done.
+2. Сессия задачи — свой issue (или задание от менеджера) и решения, на которые он ссылается; цикл задачи и Definition of Done — `docs/engineering/AGENT_WORKFLOW.md`.
 
 ## Обязательные правила
 
@@ -33,6 +30,9 @@
 - **Макеты — в Figma (D-860, D-874):** [Qubite — Design System](https://www.figma.com/design/UZ5s8bNDVUfqK2yy80DAWR) (fileKey `UZ5s8bNDVUfqK2yy80DAWR`). До кода открой нужный экран (страницы «Экраны», «Новые модули», «Компоненты», «Значки») через инструменты Figma (`mcp__Figma__*`: create_session → get_screenshot / get_design_context), после — сверь результат. Нет доступа к Figma — снимки в [docs/design/screens/DS-012/](docs/design/screens/DS-012/), и напиши об этом в отчёте. Расхождение с макетом — в задаче, не молча.
 - **UI — только по [DESIGN_SYSTEM.md §0](docs/design/DESIGN_SYSTEM.md)**: общие компоненты `packages/ui`, отступы и токены оттуда, анимации только через `transform`/`opacity`; **чек-лист §0.5 перед каждым коммитом UI обязателен** (скриншоты ПК + телефон 360 px). UI-задача не готова без приёмки владельцем.
 - Если docs расходятся с кодом — верить коду и исправить docs. Если с `DECISIONS.md` — верить DECISIONS.
+- **Сжатие контекста — что сохранить:** задачу и номер issue, ветку и PR, принятые решения (D-…), изменённые файлы, нерешённое, ответ владельца дословно, последнюю упавшую команду. Выбросить: вывод команд, чужие файлы целиком, перебор вариантов.
+- **Новый инструмент — по порядку:** свой скрипт в `scripts/` → CLI (`gh`, `git`) → REST API → MCP, и только если выше ничего нет. Скрипт и CLI дешевле по контексту и проверяются в CI.
+- Поправил владелец — `/note` (одна строка в `docs/harness/corrections.md`), разбор раз в неделю `/calibrate`, правила меняются только после его «да» (D-934).
 
 ## Git
 
