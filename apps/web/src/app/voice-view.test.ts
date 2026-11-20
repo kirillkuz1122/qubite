@@ -146,12 +146,16 @@ describe('способы распознавания', () => {
     expect(voiceOptions(false, true).filter((o) => o.disabled)).toHaveLength(1);
   });
 
-  it('пока нет серверной части, «Свой ключ» нельзя выбрать', () => {
-    expect(OWN_KEY_READY).toBe(false);
-    const own = voiceOptions(true).find((o) => o.value === 'own_key')!;
+  it('сервер «своего ключа» готов — вариант включён', () => {
+    expect(OWN_KEY_READY).toBe(true);
+    expect(voiceOptions(true).find((o) => o.value === 'own_key')!.disabled).toBeFalsy();
+  });
+
+  it('если флаг выключить, «Свой ключ» нельзя выбрать', () => {
+    const own = voiceOptions(true, false).find((o) => o.value === 'own_key')!;
     expect(own.disabled).toBe(true);
     expect(own.note).toBe('Появится в следующем обновлении');
-    expect(voiceOptions(true).filter((o) => o.disabled)).toHaveLength(1);
+    expect(voiceOptions(true, false).filter((o) => o.disabled)).toHaveLength(1);
   });
 });
 
