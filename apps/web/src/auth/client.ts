@@ -56,15 +56,44 @@ export function say(e: unknown): string {
 
 export { ME };
 
+const OWNER_HINT = 'qubite.owner';
+
+/**
+ * Подсказка «в прошлый раз вошёл владелец» (MOB-001, D-1110): по ней нижнее меню на телефоне
+ * рисуется в итоговом виде с первого кадра, пока ответ `/api/auth/me` ещё в пути.
+ * Только для раскладки; права проверяет сервер.
+ */
+export function ownerHint(): boolean {
+  try {
+    return globalThis.localStorage?.getItem(OWNER_HINT) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function rememberOwner(me: Me | null) {
+  try {
+    if (me?.is_owner) globalThis.localStorage?.setItem(OWNER_HINT, '1');
+    else globalThis.localStorage?.removeItem(OWNER_HINT);
+  } catch {
+    /* хранилище недоступно — меню просто дорисуется после ответа */
+  }
+}
+
 /** Кто вошёл: `null` — никто (или сервер недоступен — тогда тоже как гость). */
 export function useMe() {
   return useQuery({
     queryKey: ME,
     queryFn: async (): Promise<Me | null> => {
       try {
-        return await must(api.GET('/api/auth/me'));
+        const me = await must(api.GET('/api/auth/me'));
+        rememberOwner(me);
+        return me;
       } catch (e) {
-        if (e instanceof Fail && e.status === 401) return null;
+        if (e instanceof Fail && e.status === 401) {
+          rememberOwner(null);
+          return null;
+        }
         throw e;
       }
     },
