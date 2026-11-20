@@ -249,7 +249,9 @@ fn validate_report(report: &RecoReport) -> Result<(), ApiError> {
                 .any(|path| path.trim().is_empty() || path.contains('\0'))
             || card.joker != (card.arms == RecoArms::Jokers)
         {
-            return Err(invalid("Проверьте поля карточек, разделы джокеров и уникальность ref"));
+            return Err(invalid(
+                "Проверьте поля карточек, разделы джокеров и уникальность ref",
+            ));
         }
     }
     Ok(())
@@ -415,11 +417,12 @@ pub async fn patch_reco(
     .await
     .map_err(pult::db)?;
     let Some(card) = updated else {
-        let exists: bool = sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM pult_recos WHERE id = $1)")
-            .bind(id)
-            .fetch_one(&mut *tx)
-            .await
-            .map_err(pult::db)?;
+        let exists: bool =
+            sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM pult_recos WHERE id = $1)")
+                .bind(id)
+                .fetch_one(&mut *tx)
+                .await
+                .map_err(pult::db)?;
         return Err(if exists {
             conflict("reco_applied", "Карточка уже в задании")
         } else {

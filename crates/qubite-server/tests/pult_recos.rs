@@ -137,7 +137,13 @@ async fn report_replaces_only_new_cards_of_the_same_week() {
     );
 
     assert_eq!(
-        report(address, &token, "2026-W48", vec![card("next", "Новая неделя")]).await,
+        report(
+            address,
+            &token,
+            "2026-W48",
+            vec![card("next", "Новая неделя")]
+        )
+        .await,
         204
     );
     let latest = owner.get(address, RECOS).await.body;
@@ -201,7 +207,13 @@ async fn apply_writes_one_brief_and_collector_takes_it_once() {
     assert!(!brief.contains("Лишняя карточка"));
     assert_eq!(owner.post(address, APPLY).await.status, 409);
     assert_eq!(
-        report(address, &token, "2026-W47", vec![card("a", "Не заменит задание")]).await,
+        report(
+            address,
+            &token,
+            "2026-W47",
+            vec![card("a", "Не заменит задание")]
+        )
+        .await,
         204
     );
     let list = owner.get(address, RECOS).await.body;
@@ -210,7 +222,11 @@ async fn apply_writes_one_brief_and_collector_takes_it_once() {
     assert_eq!(find_card(&list, "a")["title"], "Сжать правила");
     assert_eq!(
         owner
-            .patch_json(address, &format!("{RECOS}/{a}"), json!({"status": "basket"}))
+            .patch_json(
+                address,
+                &format!("{RECOS}/{a}"),
+                json!({"status": "basket"})
+            )
             .await
             .status,
         409
@@ -255,7 +271,11 @@ async fn apply_writes_one_brief_and_collector_takes_it_once() {
     .unwrap();
     assert_eq!(taken[0]["status"], "taken");
     assert!(taken[0]["taken_at"].is_string());
-    let audit = owner.get(address, "/api/owner/audit").await.body.to_string();
+    let audit = owner
+        .get(address, "/api/owner/audit")
+        .await
+        .body
+        .to_string();
     assert!(audit.contains("pult.reco_decided"));
     assert!(audit.contains("pult.reco_applied"));
     test_db.drop_db().await;
@@ -316,7 +336,10 @@ async fn recos_require_the_right_credential_and_week_uses_collected_data() {
             .status(),
         404
     );
-    assert_eq!(report(address, "qpult_invalid", "2026-W47", vec![]).await, 401);
+    assert_eq!(
+        report(address, "qpult_invalid", "2026-W47", vec![]).await,
+        401
+    );
     assert_eq!(report(address, &token, "2026-W00", vec![]).await, 400);
 
     let empty: Value = collect(address, &token, Method::GET, WEEK, None)
@@ -345,9 +368,15 @@ async fn recos_require_the_right_credential_and_week_uses_collected_data() {
         "days": [{"date": day, "usage": [{"model": "claude-sonnet-5", "output": 42}]}]
     });
     assert_eq!(
-        collect(address, &token, Method::POST, "/api/pult/report", Some(report))
-            .await
-            .status(),
+        collect(
+            address,
+            &token,
+            Method::POST,
+            "/api/pult/report",
+            Some(report)
+        )
+        .await
+        .status(),
         204
     );
     let week: Value = collect(address, &token, Method::GET, WEEK, None)

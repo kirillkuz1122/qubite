@@ -878,7 +878,10 @@ pub fn router_with(state: AppState, extra: Router<AppState>) -> Router {
             post(pult_recos::report_recos).layer(DefaultBodyLimit::max(128 * 1024)),
         )
         .route("/api/pult/recos/week", get(pult_recos::reco_week))
-        .route("/api/pult/recos/batches", get(pult_recos::list_reco_batches))
+        .route(
+            "/api/pult/recos/batches",
+            get(pult_recos::list_reco_batches),
+        )
         .route(
             "/api/pult/recos/batches/{id}/taken",
             post(pult_recos::take_reco_batch),
