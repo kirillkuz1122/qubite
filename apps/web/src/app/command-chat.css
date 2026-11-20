@@ -19,12 +19,12 @@
 }
 
 .q-sheet.command-chat-overlay {
-  max-height: 64dvh;
+  max-height: min(64dvh, var(--app-vh, 100dvh));
 }
 
 .q-sheet.command-chat-full {
-  height: 100dvh;
-  max-height: 100dvh;
+  height: var(--app-vh, 100dvh);
+  max-height: var(--app-vh, 100dvh);
   border: 0;
   border-radius: 0;
 }
