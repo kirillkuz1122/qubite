@@ -123,3 +123,23 @@ QueryClient живёт на протяжении всей работы SPA. Пр
 [Подробные результаты и границы проверок](code-review-2026-11-12/results.md). [Исходники воспроизведений](code-review-2026-11-12-reproduction.md) намеренно проверяют наличие текущего неправильного поведения: их зелёный результат подтверждает баг, а не его исправление.
 
 Область проверки — текущий Qubite v2: Rust-модули, web-приложение, общие TypeScript-пакеты, миграции, CI и сценарии развёртывания. Архив qubite-v1 не проходил отдельный полный аудит. Производственные аккаунты/данные, реальный деплой, платные AI-провайдеры и нагрузочное тестирование не использовались. Служебные ресурсы Codex Security были недоступны; формальный отчёт этого сканера не создавался. Полные машинные журналы находятся вне Git в `/workspace/scratch/qubite-review-evidence`; зафиксированная документация содержит самодостаточные результаты и воспроизведения.
+
+## Статус исправлений
+
+Сверка 20.11.2026 по `main` (`3b2aa82`), задача REV-001 ([#263](https://github.com/kirillkuz1122/qubite/issues/263)), решения D-1020, D-1021. Все 11 замечаний закрыты; у каждого есть тест, который проигрывает сценарий из отчёта и проходит на текущем коде. Воспроизведения из [code-review-2026-11-12-reproduction.md](code-review-2026-11-12-reproduction.md) нарочно зелёные на баге — теперь их роль у тестов ниже (D-1021).
+
+| № | Замечание | Чем закрыто | Тест-воспроизведение |
+|---|---|---|---|
+| 1 | P1 — очередь прежнего аккаунта уходит от имени нового | SYNC-008, PR #238, D-894, D-896 | `crates/qubite-server/tests/account_binding.rs` `queue_of_one_account_is_not_applied_under_another`; `apps/web/e2e/accounts.spec.ts` «очередь прежнего аккаунта не уходит от имени нового», «в соседней вкладке вошёл другой…»; `packages/sync-client/src/local-edits.test.ts` «очередь остаётся на устройстве…» |
+| 2 | P1 — курсор пропускает транзакцию, зафиксированную позже | SYNC-007, PR #236, D-891, D-893 | `crates/qubite-sync-server/tests/cursor.rs` `transaction_committed_later_is_not_missed`, `concurrent_commits_never_slip_behind_the_cursor` (PostgreSQL) |
+| 3 | P1 — откат обновления теряет записи после бэкапа | OPS-009, PR #249, D-970, D-971 | `deploy/pi/test-update.sh` (PostgreSQL, «сервер» и «бот» пишут без остановки; в CI `deploy`); `crates/qubite-server/tests/migrate_rollback.rs` |
+| 4 | P2 — ошибка выхода скрывается | SYNC-008, PR #238, D-896 | `apps/web/e2e/accounts.spec.ts` «выход не удался — честно говорим и остаёмся в аккаунте» |
+| 5 | P2 — отклонённая правка блокирует объект | SYNC-008, PR #238, D-895 | `packages/sync-client/src/local-edits.test.ts` «объект возвращается к версии сервера и дальше обновляется» и ещё 4 случая отклонения |
+| 6 | P2 — параллельные локальные правки затирают друг друга | SYNC-008, PR #238, D-895 | `local-edits.test.ts` «две правки разных полей одновременно сохраняются обе», «две вкладки: правки встают в очередь с разными версиями» |
+| 7 | P2 — после выдачи доступа не приходят старые данные модуля | SYNC-007, PR #236, D-892 | `cursor.rs` `module_granted_later_is_backfilled`, `backfill_of_a_new_module_is_paged` |
+| 8 | P2 — CSP блокирует локальный Whisper | DS-013, PR #243, D-905 | `apps/web/e2e/csp.spec.ts` «локальный Whisper на этом компьютере разрешён, чужой адрес — нет» (`pnpm e2e:csp`, теперь в CI `web`) |
+| 9 | P2 — фокус выходит из Sheet | DS-013, PR #243, D-903 | `packages/ui/src/sheet.test.tsx` «Tab не выпускает фокус из окна, даже если последняя кнопка недоступна» — на коде `c51c7c9` падает |
+| 10 | P2 — HTTP обрывается раньше AI-вызова | DS-013, PR #243, D-904; OPS-009, PR #254, D-972 | `crates/qubite-server/src/lib.rs` `ai_request_gets_answer_after_plain_limit`, `ai_work_finishes_even_when_request_gave_up`, `ai_request_outlives_one_ai_call`; `crates/qubite-english/tests/english.rs` `same_key_returns_saved_turn_or_in_progress`; `apps/web/src/app/english-turn.test.ts` |
+| 11 | P2 — кэш прежнего аккаунта виден после нового входа | SYNC-008, PR #238, D-896 | `apps/web/e2e/accounts.spec.ts` «после выхода и входа другого человека данные прежнего не видны» (IP `192.0.2.99`, сессии B отвечают 503) |
+
+Не входило в 11 замечаний и остаётся наблюдением: N+1 запросов в `pull_with`, размер главного JS-чанка. Зависимости из таблиц выше обновлены в OPS-009 (PR #250).
