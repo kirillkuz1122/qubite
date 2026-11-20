@@ -99,11 +99,16 @@ export function VoiceProvider({
             return;
           }
           const id = uuidv7();
-          const result = await must(api.POST('/api/command/voice', { body: { ...payload, id } }));
-          dispatch({ type: 'sent' });
-          if (result.text) sendText(result.text);
-          else saved.current?.({ id, kept: 'server' });
-          return;
+          try {
+            const result = await must(api.POST('/api/command/voice', { body: { ...payload, id } }));
+            dispatch({ type: 'sent' });
+            if (result.text) sendText(result.text);
+            else saved.current?.({ id, kept: 'server' });
+            return;
+          } catch {
+            /* нет сети или сервер не ответил: запись не теряем — кладём во Входящие,
+               они сохранят звук на устройстве и повторят отправку (как до диспетчера) */
+          }
         }
         const result = await latest.current.save(
           payload,

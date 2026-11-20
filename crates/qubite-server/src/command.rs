@@ -511,13 +511,28 @@ pub async fn dispatch_command(
                         .filter(|title| !title.is_empty())
                         .unwrap_or(text);
                     let title: String = title.chars().take(qubite_sync::MAX_TITLE_CHARS).collect();
+                    // срок и важность — тем же разбором, что в строке Command (раньше терялись)
+                    let mut fields = json!({ "notes": text });
+                    if let Some(parsed) = parse_task_fields(&mut tx, text).await?
+                        && let Some(map) = fields.as_object_mut()
+                    {
+                        if let Some(due) = parsed.due {
+                            map.insert("due_date".into(), json!(due.date));
+                            if let Some(time) = due.time {
+                                map.insert("due_time".into(), json!(time));
+                            }
+                        }
+                        if parsed.priority > 0 {
+                            map.insert("priority".into(), json!(parsed.priority));
+                        }
+                    }
                     create_object(
                         &state,
                         &mut tx,
                         &session,
                         qubite_planner::TASK_TYPE,
                         title,
-                        json!({ "notes": text }),
+                        fields,
                     )
                     .await?;
                     result.message = "Добавил дело в Planner".into();
@@ -660,4 +675,19 @@ pub async fn reclassify(
     .map_err(db)?;
     tx.commit().await.map_err(db)?;
     Ok(Json(result))
+}
+
+/// Разбор срока и важности из текста поручения: местное «сейчас» — в поясе платформы.
+async fn parse_task_fields(
+    conn: &mut PgConnection,
+    text: &str,
+) -> Result<Option<qubite_parse::Parsed>, ApiError> {
+    let local: String = sqlx::query_scalar(
+        "SELECT to_char(now() AT TIME ZONE COALESCE((SELECT value #>> '{}' FROM platform_settings \
+         WHERE key = 'platform.timezone'), 'Asia/Yekaterinburg'), 'YYYY-MM-DD\"T\"HH24:MI')",
+    )
+    .fetch_one(conn)
+    .await
+    .map_err(db)?;
+    Ok(qubite_parse::LocalNow::from_iso(&local).and_then(|now| qubite_parse::parse(text, now)))
 }

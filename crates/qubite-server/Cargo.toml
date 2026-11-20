@@ -27,6 +27,7 @@ qubite-english = { version = "0.1.0", path = "../qubite-english" }
 qubite-home = { version = "0.1.0", path = "../qubite-home" }
 qubite-inbox = { version = "0.1.0", path = "../qubite-inbox" }
 qubite-planner = { version = "0.1.0", path = "../qubite-planner" }
+qubite-parse = { version = "0.1.0", path = "../qubite-parse" }
 qubite-objects = { version = "0.1.0", path = "../qubite-objects" }
 qubite-oauth = { version = "0.1.0", path = "../qubite-oauth" }
 qubite-net = { version = "0.1.0", path = "../qubite-net" }

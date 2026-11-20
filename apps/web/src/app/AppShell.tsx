@@ -473,7 +473,14 @@ export function AppShell() {
   function submit(i = active) {
     if (chat.busy) return;
     if (chat.open) {
-      if (parsed && !autoDispatch && parsed.kind !== 'search') save(parsed);
+      if (parsed && !autoDispatch && parsed.kind === 'search') {
+        // явный поиск («/п …», «найди …») остаётся локальным и в открытой беседе
+        const hit = cmd.hits[0];
+        if (hit) {
+          chat.close();
+          run(hit);
+        }
+      } else if (parsed && !autoDispatch) save(parsed);
       else void sendToDispatcher(value, 'web');
       return;
     }

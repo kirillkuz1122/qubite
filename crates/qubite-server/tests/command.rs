@@ -211,7 +211,12 @@ async fn thought_question_order_and_correction() {
             .any(|msg| msg.content.contains("Сессия из Пульта"))
     );
 
-    let order = send(&mut owner, address, "Добавь дело разобрать конспект").await;
+    let order = send(
+        &mut owner,
+        address,
+        "Добавь дело разобрать конспект завтра в 16:00",
+    )
+    .await;
     assert_eq!(order.status, 200, "{}", order.body);
     assert_eq!(order.body["kind"], "order");
     let count: i64 = sqlx::query_scalar(
@@ -221,6 +226,20 @@ async fn thought_question_order_and_correction() {
     .await
     .unwrap();
     assert_eq!(count, 1);
+    // срок из текста поручения не теряется: дело получает дату и время
+    let due: (Option<String>, Option<String>) = sqlx::query_as(
+        "SELECT t.due_date::text, t.due_time::text FROM objects o \
+         JOIN planner_tasks t ON t.object_id = o.id \
+         WHERE o.type = 'planner.task' AND o.title = 'Разобрать конспект'",
+    )
+    .fetch_one(pool)
+    .await
+    .unwrap();
+    assert!(due.0.is_some(), "нет даты у дела");
+    assert!(
+        due.1.is_some_and(|t| t.starts_with("16:00")),
+        "нет времени 16:00"
+    );
 
     let id = thought.body["id"].as_str().unwrap();
     let url = format!("{ROUTE}/{id}/reclassify");
