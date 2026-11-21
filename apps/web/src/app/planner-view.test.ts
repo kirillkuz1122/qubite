@@ -5,6 +5,7 @@ import {
   remindLabel,
   buildBoard,
   buildProjects,
+  buildUndated,
   buildWeek,
   nameFromTag,
   repeatLabel,
@@ -108,6 +109,19 @@ describe('настоящие дела в виде DS-007', () => {
       completed_at_ms: NOW.getTime(),
     });
     expect(buildWeek([done], [], NOW)[1]!.tasks.map((t) => t.title)).toEqual(['Эссе']);
+  });
+
+  it('без даты: только незавершённые дела, по названию', () => {
+    const tasks = [
+      task('Яблоки', { status: 'doing' }),
+      task('Архив', { status: 'done' }),
+      task('Встреча', { due_date: '2026-10-20' }),
+      task('Ёлка', { project_id: algebra.id }),
+      task('Журнал', {}),
+    ];
+    const rows = buildUndated(tasks, [algebra], '2026-10-20');
+    expect(rows.map((t) => t.title)).toEqual(['Ёлка', 'Журнал', 'Яблоки']);
+    expect(rows[0]).toMatchObject({ color: 'sky', tag: 'Алгебра', time: 'без срока', done: false });
   });
 
   it('доска и полоски проектов', () => {

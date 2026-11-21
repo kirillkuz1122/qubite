@@ -1,6 +1,15 @@
 /** Общие части разделов: заголовок секции из точек и список дел с перетекающим выделением. */
-import { Button, DotText, Presence, RingCheck, WIDE, useMedia, useSlide } from '@qubite/ui';
-import { Fragment, useRef, useState, type ReactNode } from 'react';
+import {
+  Button,
+  DotIcon,
+  DotText,
+  Presence,
+  RingCheck,
+  WIDE,
+  useMedia,
+  useSlide,
+} from '@qubite/ui';
+import { Fragment, useId, useRef, useState, type ReactNode } from 'react';
 import type { Task } from './data';
 import { usePlanner } from './planner-context';
 
@@ -19,6 +28,41 @@ export function SecHead({
       <h2 className="q-sr">{label}</h2>
       <DotText text={text} pitch={wide ? 3.4 : 3.1} assemble={false} repel={20} label={label} />
       {children}
+    </div>
+  );
+}
+
+export function UndatedBlock({
+  tasks,
+  onToggle,
+  onLayout,
+}: {
+  tasks: Task[];
+  onToggle: (t: Task, done: boolean) => void;
+  onLayout: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const listId = useId();
+  const hasTasks = tasks.length > 0;
+  return (
+    <div inert={!hasTasks}>
+      <Presence show={hasTasks} className="undated" onLayout={onLayout}>
+        <Button
+          variant="quiet"
+          size="sm"
+          aria-expanded={open}
+          aria-controls={listId}
+          onClick={() => setOpen((wasOpen) => !wasOpen)}
+        >
+          <DotIcon name={open ? 'up' : 'down'} size={16} />
+          Без даты · {tasks.length}
+        </Button>
+        <div id={listId} inert={!open}>
+          <Presence show={open} onLayout={onLayout}>
+            <TaskList tasks={tasks} onToggle={onToggle} />
+          </Presence>
+        </div>
+      </Presence>
     </div>
   );
 }

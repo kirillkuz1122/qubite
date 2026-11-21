@@ -19,7 +19,15 @@ import {
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { PlannerCtx, type PlannerApi } from './planner-context';
 import { localNow, parse } from '@qubite/ui';
-import { buildBoard, buildProjects, buildWeek, iso, nameFromTag, taskFrom } from './planner-view';
+import {
+  buildBoard,
+  buildProjects,
+  buildUndated,
+  buildWeek,
+  iso,
+  nameFromTag,
+  taskFrom,
+} from './planner-view';
 import { useSync } from './sync-context';
 import { TaskPlaceSheet } from './TaskPlaceSheet';
 
@@ -139,14 +147,16 @@ export function PlannerProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<PlannerApi>(() => {
     const week = buildWeek(data.tasks, data.projects, now);
+    const date = iso(now);
     return {
       week,
       today: Math.max(
         0,
         week.findIndex((d) => d.today),
       ),
+      undated: buildUndated(data.tasks, data.projects, date),
       board: buildBoard(data.tasks, data.projects, now.getTime()),
-      projects: buildProjects(data.projects, data.tasks, iso(now)),
+      projects: buildProjects(data.projects, data.tasks, date),
       data,
       loaded,
       toggle,

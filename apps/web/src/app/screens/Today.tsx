@@ -2,7 +2,7 @@ import { Button, ListRow, Presence, useFlip } from '@qubite/ui';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useShell } from '../context';
 import type { Task } from '../data';
-import { SecHead, TaskList } from '../parts';
+import { SecHead, TaskList, UndatedBlock } from '../parts';
 import { useInbox } from '../inbox-context';
 import { usePlanner } from '../planner-context';
 
@@ -80,16 +80,16 @@ export function TodayScreen() {
   const [moved, setMoved] = useState(0);
   const box = useRef<HTMLDivElement>(null);
   const tipShown = tip && !!first;
-  useFlip(box, moved);
+  useFlip(box, `${moved}:${planner.undated.length}`);
+  const relayout = () => setMoved((n) => n + 1);
+  const toggleTask = (task: Task, done: boolean) => {
+    void planner.toggle(task.id, done);
+    if (done) shell.cheer('proto');
+  };
   return (
     <div className="flow" ref={box}>
       <Strip tasks={tasks} />
-      <Presence
-        className="tip panel"
-        show={tipShown}
-        swap={first?.id}
-        onLayout={() => setMoved((n) => n + 1)}
-      >
+      <Presence className="tip panel" show={tipShown} swap={first?.id} onLayout={relayout}>
         {first && (
           <>
             <span className="q-dot av" style={{ background: 'var(--q-ink)' }} />
@@ -107,7 +107,7 @@ export function TodayScreen() {
           </>
         )}
       </Presence>
-      <div data-flip="today-rest">
+      <div className="today-rest" data-flip="today-rest">
         <SecHead text="ДЕЛА" label="Дела">
           <span className="n">
             {done} из {tasks.length}
@@ -118,24 +118,21 @@ export function TodayScreen() {
             На сегодня дел нет. Запиши в Command: «/д #алгебра № 214 в 18:00».
           </p>
         )}
-        <TaskList
-          tasks={tasks}
-          onToggle={(t, d) => {
-            void planner.toggle(t.id, d);
-            if (d) shell.cheer('proto');
-          }}
-        />
-        <SecHead text="ВХОДЯЩИЕ" label="Входящие">
-          <button className="more" type="button" onClick={() => shell.go('inbox')}>
-            все →
-          </button>
-        </SecHead>
-        {inbox.items.length === 0 && <p className="later">Пусто — всё разобрано.</p>}
-        {inbox.items.slice(0, 3).map((it) => (
-          <ListRow key={it.id} color="yellow" meta={it.time}>
-            {it.text}
-          </ListRow>
-        ))}
+        <TaskList tasks={tasks} onToggle={toggleTask} />
+        <UndatedBlock tasks={planner.undated} onToggle={toggleTask} onLayout={relayout} />
+        <div data-flip="today-inbox">
+          <SecHead text="ВХОДЯЩИЕ" label="Входящие">
+            <button className="more" type="button" onClick={() => shell.go('inbox')}>
+              все →
+            </button>
+          </SecHead>
+          {inbox.items.length === 0 && <p className="later">Пусто — всё разобрано.</p>}
+          {inbox.items.slice(0, 3).map((it) => (
+            <ListRow key={it.id} color="yellow" meta={it.time}>
+              {it.text}
+            </ListRow>
+          ))}
+        </div>
       </div>
     </div>
   );
