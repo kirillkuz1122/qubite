@@ -20,7 +20,7 @@ import { Opportunities } from '../HomeOpportunities';
 import { PultWaitingPart } from '../HomePult';
 import { useRevert } from '../agent';
 import { useShell } from '../context';
-import { plural } from '../data';
+import { plural, type Task } from '../data';
 import {
   HOME,
   searchCoins,
@@ -52,8 +52,8 @@ import {
   upcoming,
 } from '../home-view';
 import { useInbox } from '../inbox-context';
-import { SecHead, TaskList } from '../parts';
-import { usePlanner } from '../planner-context';
+import { SecHead, TaskList, UndatedBlock } from '../parts';
+import { usePlanner, type PlannerApi } from '../planner-context';
 import { reveal } from '../reveal';
 import { useSync } from '../sync-context';
 import '../home.css';
@@ -66,10 +66,11 @@ import '../home.css';
  */
 export function HomeScreen() {
   const home = useHome();
+  const planner = usePlanner();
   const data = home.data;
   const box = useRef<HTMLDivElement>(null);
   const [moved, setMoved] = useState(0);
-  useFlip(box, moved);
+  useFlip(box, `${moved}:${planner.undated.length}`);
   const relayout = useCallback(() => setMoved((n) => n + 1), []);
   // «Возможности» меняют высоту (карточка ушла, «Дела поставлены») — то, что ниже, доезжает
   // пружиной. Сдвиги внутри .home-rest считаются от него самого (position: relative), поэтому
@@ -87,14 +88,16 @@ export function HomeScreen() {
       <PultWaitingPart onLayout={relayout} />
       <div className="home-after-pult" data-flip="home-after-pult">
         {/* Порядок D-867: дела → входящие → сроки → одна карточка возможностей → погода и курсы */}
-        <TodayPart />
-        <InboxPart filed={data?.filed ?? []} />
-        <Deadlines />
-        <div className="home-rest" ref={rest}>
-          <Opportunities onLayout={relayoutRest} />
-          <div className="home-below" data-flip="home-below">
-            <Widgets settings={data?.settings ?? null} />
-            <News settings={data?.settings ?? null} />
+        <TodayPart planner={planner} onLayout={relayout} />
+        <div className="home-after-tasks" data-flip="home-after-tasks">
+          <InboxPart filed={data?.filed ?? []} />
+          <Deadlines />
+          <div className="home-rest" ref={rest}>
+            <Opportunities onLayout={relayoutRest} />
+            <div className="home-below" data-flip="home-below">
+              <Widgets settings={data?.settings ?? null} />
+              <News settings={data?.settings ?? null} />
+            </div>
           </div>
         </div>
       </div>
@@ -197,11 +200,14 @@ function Held({ held }: { held: HomeOverview['held'] }) {
 
 /* ---------- дела на сегодня ---------- */
 
-function TodayPart() {
-  const planner = usePlanner();
+function TodayPart({ planner, onLayout }: { planner: PlannerApi; onLayout: () => void }) {
   const shell = useShell();
   const tasks = planner.week[planner.today]!.tasks;
   const done = tasks.filter((t) => t.done).length;
+  const toggleTask = (task: Task, done: boolean) => {
+    void planner.toggle(task.id, done);
+    if (done) shell.cheer('proto');
+  };
   return (
     <>
       <SecHead text="ДЕЛА" label="Дела на сегодня">
@@ -212,13 +218,8 @@ function TodayPart() {
       {planner.loaded && tasks.length === 0 && (
         <p className="later">На сегодня дел нет. Запиши в Command: «/д #алгебра № 214 в 18:00».</p>
       )}
-      <TaskList
-        tasks={tasks}
-        onToggle={(t, d) => {
-          void planner.toggle(t.id, d);
-          if (d) shell.cheer('proto');
-        }}
-      />
+      <TaskList tasks={tasks} onToggle={toggleTask} />
+      <UndatedBlock tasks={planner.undated} onToggle={toggleTask} onLayout={onLayout} />
     </>
   );
 }

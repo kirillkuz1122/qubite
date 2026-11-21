@@ -135,7 +135,7 @@ const COINS = [
 ];
 
 async function mockWidgets(page: Page) {
-  await mockSync(page);
+  const sync = await mockSync(page);
   const settings: components['schemas']['HomeSettings'] = {
     place: { name: 'Челябинск', region: 'Россия', latitude: 55.154, longitude: 61.4291 },
     currencies: ['USD', 'EUR', 'CNY'],
@@ -144,6 +144,7 @@ async function mockWidgets(page: Page) {
     available_topics: TOPICS,
   };
   const mock = {
+    sync,
     settings,
     patches: [] as components['schemas']['HomeSettingsChange'][],
     searches: [] as string[],
@@ -243,6 +244,28 @@ async function mockWidgets(page: Page) {
   });
   return mock;
 }
+
+test('Главная: дело без даты можно раскрыть и завершить', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 780 });
+  const { sync } = await mockWidgets(page);
+  sync.addTask('Разобрать закладки', { due_date: null });
+  await page.goto('/home');
+
+  const block = page.getByRole('button', { name: 'Без даты · 1' });
+  const ring = page.getByRole('checkbox', { name: 'Готово: Разобрать закладки' });
+  await expect(block).toHaveAttribute('aria-expanded', 'false');
+  await expect(ring).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '0 из 0 · сегодня →' })).toBeVisible();
+  await expect(page.getByText('На сегодня дел нет.', { exact: false })).toBeVisible();
+
+  await block.click();
+  await expect(block).toHaveAttribute('aria-expanded', 'true');
+  await expect(ring).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await ring.click();
+  await expect(block).toHaveCount(0);
+  await expect(ring).toHaveCount(0);
+});
 
 async function closeSettings(page: Page) {
   await page.keyboard.press('Escape');

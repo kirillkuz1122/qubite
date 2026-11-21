@@ -121,8 +121,9 @@
   margin-inline-start: calc(8px + 12px);
 }
 
-/* Секции ниже доезжают вместе, когда блок Пульта меняет высоту. */
-.home-after-pult {
+/* Секции ниже доезжают вместе при изменении высоты Пульта или блока «Без даты». */
+.home-after-pult,
+.home-after-tasks {
   position: relative;
   display: flow-root;
 }
