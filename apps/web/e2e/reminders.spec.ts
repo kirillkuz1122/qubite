@@ -173,6 +173,11 @@ test('колокольчик из точек: на ПК — в левой пан
   await bell.click();
   const panel = page.getByRole('dialog', { name: 'Уведомления' });
   await expect(panel).toContainText('Сходить в музей');
+  if (!wide) {
+    // телефон (D-1144): панель выезжает сверху и прижата к верху экрана
+    await expect.poll(async () => (await panel.boundingBox())!.y).toBeLessThanOrEqual(1);
+    return;
+  }
   // список ниже шапки: заголовок раздела и помощник остаются видны
   const head = await page.locator('.head').boundingBox();
   await expect

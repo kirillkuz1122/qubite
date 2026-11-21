@@ -42,7 +42,7 @@ function usePresence(on: boolean) {
 /**
  * Где колокольчик (D-421, D-433): на ПК — в левой панели рядом с владельцем, список выезжает
  * справа от панели и не закрывает ни шапку с помощником, ни Command; на телефоне — в шапке рядом
- * с заголовком, список — нижним листом.
+ * с заголовком, список выезжает сверху.
  */
 export function Bell({ wide }: { wide: boolean }) {
   const me = useMe();
@@ -155,7 +155,7 @@ export function Bell({ wide }: { wide: boolean }) {
     return () => clearTimeout(t);
   }, [toast]);
 
-  // Клик мимо панели или Escape — закрыть (на телефоне это делает лист сам).
+  // На ПК панель закрывается при клике мимо или Escape.
   useEffect(() => {
     if (!open || !wide) return;
     const away = (e: PointerEvent) => {
@@ -261,7 +261,8 @@ export function Bell({ wide }: { wide: boolean }) {
           open={open}
           onClose={() => setOpen(false)}
           title="Уведомления"
-          className="bell-sheet"
+          className="bell-mobile-panel"
+          mobileFrom="top"
         >
           {all && <div className="bell-head">{all}</div>}
           {body}

@@ -23,6 +23,27 @@ a {
 .main {
   position: relative;
 }
+.edge-back-preview {
+  position: fixed;
+  inset: 0;
+  overflow: clip;
+  padding: 24px 16px;
+  background: var(--q-bg-2);
+  opacity: 0;
+  pointer-events: none;
+}
+.edge-back-preview > strong {
+  display: block;
+  margin-bottom: 16px;
+}
+.edge-back-preview + .main {
+  min-height: var(--app-vh, 100dvh);
+}
+.main.edge-back-moving {
+  z-index: 1;
+  background: var(--q-bg);
+  box-shadow: -16px 0 32px -16px var(--q-shadow);
+}
 /* Под контентом — запас, чтобы строка Command (ПК) и нижняя панель (телефон) не закрывали
    последние строки: 140 и 104 px (DESIGN_SYSTEM §0.2). */
 .main-in {
@@ -1240,7 +1261,7 @@ button.proj {
   justify-content: space-between;
   padding: 0 10px 8px;
 }
-.bell-sheet .bell-head {
+.bell-mobile-panel .bell-head {
   justify-content: flex-end;
   padding: 0 0 4px;
 }
@@ -1257,17 +1278,17 @@ button.proj {
   color: var(--q-mute);
   font-size: 13px;
 }
-.bell-sheet .bell-empty {
+.bell-mobile-panel .bell-empty {
   margin: 4px 0 8px;
 }
 .bell-panel ul,
-.bell-sheet ul {
+.bell-mobile-panel ul {
   margin: 0;
   padding: 0;
   list-style: none;
 }
 .bell-panel li > button,
-.bell-sheet li > button {
+.bell-mobile-panel li > button {
   display: grid;
   grid-template-columns: 10px 1fr auto;
   gap: 10px;
@@ -1281,7 +1302,7 @@ button.proj {
   cursor: pointer;
 }
 .bell-panel li > button:hover:not(:disabled, [aria-disabled='true']),
-.bell-sheet li > button:hover:not(:disabled, [aria-disabled='true']) {
+.bell-mobile-panel li > button:hover:not(:disabled, [aria-disabled='true']) {
   background: var(--q-panel-2);
 }
 /* Кнопки ответа агенту («Да · 15 минут · Позже · Не сегодня», AGT-004). */
@@ -1313,11 +1334,11 @@ button.proj {
   background: var(--q-orange);
 }
 .bell li.read .bell-dot,
-.bell-sheet li.read .bell-dot {
+.bell-mobile-panel li.read .bell-dot {
   background: var(--q-faint);
 }
 .bell li.read b,
-.bell-sheet li.read b {
+.bell-mobile-panel li.read b {
   color: var(--q-mute);
   font-weight: 400;
 }
@@ -1333,7 +1354,7 @@ button.proj {
   font-size: 13px;
 }
 .bell-panel time,
-.bell-sheet time {
+.bell-mobile-panel time {
   color: var(--q-mute);
   font-size: 12px;
 }
@@ -1758,9 +1779,9 @@ button.proj {
     align-items: start;
   }
 }
-/* лист уведомлений на телефоне не закрывает шапку с помощником */
-.q-sheet.bell-sheet {
-  max-height: calc(100vh - 128px);
+/* Верхняя панель оставляет фон доступным для закрытия касанием. */
+.q-sheet.bell-mobile-panel {
+  max-height: min(50dvh, calc(var(--app-vh, 100dvh) - 48px));
 }
 
 /* «Английский» (ENG-001): Нейт и разговор с ним. */
