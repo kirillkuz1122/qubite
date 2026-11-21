@@ -1598,6 +1598,12 @@ html.q-own-scroll::-webkit-scrollbar {
   align-items: center;
   padding: 24px;
 }
+.q-sheet-wrap:not(.q-wide) {
+  overflow: clip;
+}
+.q-sheet-wrap.q-sheet-top {
+  align-items: flex-start;
+}
 .q-sheet-veil {
   position: absolute;
   inset: 0;
@@ -1624,6 +1630,12 @@ html.q-own-scroll::-webkit-scrollbar {
   border-bottom: 1px solid var(--q-line);
   border-radius: calc(var(--q-round) * 24px);
 }
+.q-sheet-top .q-sheet {
+  padding-top: max(8px, env(safe-area-inset-top));
+  border-top: 0;
+  border-bottom: 1px solid var(--q-line);
+  border-radius: 0 0 calc(var(--q-round) * 24px) calc(var(--q-round) * 24px);
+}
 .q-sheet-head {
   position: sticky;
   top: -8px;
@@ -1635,6 +1647,23 @@ html.q-own-scroll::-webkit-scrollbar {
   margin: 0 -4px 8px;
   padding: 10px 4px 8px;
   background: var(--q-panel);
+}
+.q-sheet-wrap:not(.q-wide) .q-sheet-head {
+  touch-action: pan-x pinch-zoom;
+}
+:where(.q-sheet-wrap:not(.q-wide, .q-sheet-top)) .q-sheet-head {
+  padding-top: 16px;
+}
+.q-sheet-wrap:not(.q-wide, .q-sheet-top) .q-sheet-head::before {
+  content: '';
+  position: absolute;
+  inset: 4px 0 auto;
+  width: 60px;
+  height: 4px;
+  margin-inline: auto;
+  border-radius: calc(var(--q-round) * 4px);
+  background: var(--q-dim);
+  pointer-events: none;
 }
 /* своё наложение внутри тела окна (подложка Segmented и т. п.) не выходит поверх липкой шапки */
 .q-sheet-body {

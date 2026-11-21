@@ -9,6 +9,7 @@ import {
   stringifySearchWith,
 } from '@tanstack/react-router';
 import { AppShell } from './app/AppShell';
+import { trackAppBack } from './app/app-history';
 import { SECTIONS } from './app/data';
 import { InboxProvider } from './app/inbox';
 import { PlannerProvider } from './app/planner';
@@ -234,6 +235,10 @@ export const router = createRouter({
   parseSearch: parseSearchWith((v) => v),
   stringifySearch: stringifySearchWith(JSON.stringify),
 });
+
+trackAppBack(router.history, (path) =>
+  router.matchRoutes(path).some((match) => match.routeId === appRoute.id),
+);
 
 declare module '@tanstack/react-router' {
   interface Register {
