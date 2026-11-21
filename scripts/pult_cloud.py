@@ -77,6 +77,17 @@ def timestamp(value: Any) -> dt.datetime | None:
         return None
 
 
+def is_archived(session: dict[str, Any]) -> bool:
+    """Архивная облачная сессия: никогда не «работает» и в Пульт не попадает."""
+    bucket = string(session.get("status_bucket"))
+    return (
+        session.get("archived") is True
+        or bool(string(session.get("archived_at")))
+        or string(session.get("status")).lower() == "archived"
+        or re.search(r"(?:^|[_.])ARCHIVED$", bucket) is not None
+    )
+
+
 def report_session(payload: Any) -> dict[str, Any] | None:
     session = obj(payload)
     while "id" not in session:
@@ -94,6 +105,8 @@ def report_session(payload: Any) -> dict[str, Any] | None:
     branch = branches[0] if isinstance(branches, list) and branches else ""
     if isinstance(branch, dict):
         branch = branch.get("branch") or branch.get("branch_name") or branch.get("name")
+    if is_archived(session):
+        return None
     bucket = string(session.get("status_bucket"))
     return {
         "id": session_id,
@@ -104,9 +117,21 @@ def report_session(payload: Any) -> dict[str, Any] | None:
         or string(obj(session.get("session_context")).get("model")),
         "branch": string(branch),
         "context_tokens": token_count(obj(metadata.get("context_usage")).get("used_tokens")),
-        "waiting": re.search(r"(?:^|[_.])(?:BLOCKED|REVIEW_READY)$", bucket) is not None,
+        # закончившая или упавшая сессия — «готово», а не «работает» (AOS-5k)
+        "waiting": re.search(r"(?:^|[_.])(?:BLOCKED|REVIEW_READY|COMPLETED|FAILED)$", bucket)
+        is not None,
         "session_url": "https://claude.ai/code/" + quote(session_id, safe=""),
     }
+
+
+def archived(payload: Any) -> bool:
+    session = obj(payload)
+    while "id" not in session:
+        nested = session.get("session", session.get("ccr.session", session.get("data")))
+        if not isinstance(nested, dict):
+            return False
+        session = nested
+    return is_archived(session)
 
 
 def read_events(payload: Any) -> list[dict[str, Any]] | None:
@@ -151,7 +176,7 @@ def build_report(
     for session_path, events_path in pairs:
         session_payload = read_payload(session_path)
         session = report_session(session_payload)
-        if session_payload is not None and session is None:
+        if session_payload is not None and session is None and not archived(session_payload):
             print(f"{session_path}: нет идентификатора или времени сессии", file=sys.stderr)
         events_payload = read_payload(events_path)
         events = read_events(events_payload)

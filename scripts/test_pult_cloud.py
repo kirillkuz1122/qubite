@@ -70,6 +70,23 @@ class CloudTest(unittest.TestCase):
         path.write_text(raw, encoding="utf-8")
         return path
 
+    def test_archived_session_is_skipped_and_finished_is_not_running(self):
+        archived = json.loads(SESSION)
+        archived.update(status_bucket="SESSION_STATUS_BUCKET_ARCHIVED")
+        done = json.loads(SESSION)
+        done.update(id="session_done", status_bucket="SESSION_STATUS_BUCKET_COMPLETED")
+        events = self.write("events", '{"events":[]}')
+        report = pult_cloud.build_report(
+            [
+                (self.write("a", json.dumps(archived)), events),
+                (self.write("d", json.dumps(done)), events),
+            ],
+            "облако",
+            NOW,
+        )
+        self.assertEqual([x["id"] for x in report["sessions"]], ["session_done"])
+        self.assertTrue(report["sessions"][0]["waiting"])
+
     def test_wrapped_session_latest_results_and_known_limits(self):
         wrapped = json.dumps(
             [
