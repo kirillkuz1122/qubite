@@ -20,6 +20,13 @@ fn label(name: &str) -> Value {
     json!({ "name": name })
 }
 
+/// Время «столько часов назад»: метки задач гаснут по сроку (D-1131), даты не зашиваем.
+fn ago(hours: i64) -> String {
+    (OffsetDateTime::now_utc() - Duration::hours(hours))
+        .format(&Rfc3339)
+        .unwrap()
+}
+
 async fn github() -> FakeHttp {
     let respond = Arc::new(|req: &Received| -> (u16, String) {
         let line = &req.line;
@@ -30,16 +37,16 @@ async fn github() -> FakeHttp {
             let issues = json!([
                 { "number": 78, "title": "HAR-002 — Пульт", "html_url": "https://github.com/o/r/issues/78",
                   "body": "## Цель\nСветофор и агенты.\n\nдальше", "state": "open",
-                  "labels": [label("in_progress")], "updated_at": "2026-11-17T10:00:00Z", "comments": 0 },
+                  "labels": [label("in_progress")], "updated_at": ago(1), "comments": 0 },
                 { "number": 81, "title": "DS-013: какую панель взять?", "html_url": "https://github.com/o/r/issues/81",
                   "body": "Два варианта в Figma.\n\n- Пульт в центре (рекомендую)\n- Пульт справа", "state": "open",
-                  "labels": [label("вопрос")], "updated_at": "2026-11-17T09:00:00Z", "comments": 0 },
+                  "labels": [label("вопрос")], "updated_at": ago(2), "comments": 0 },
                 { "number": 70, "title": "ENG-008 — глаголы", "html_url": "https://github.com/o/r/issues/70",
                   "body": null, "state": "open", "labels": [label("review")],
-                  "updated_at": "2026-11-16T09:00:00Z", "comments": 0 },
+                  "updated_at": ago(20), "comments": 0 },
                 { "number": 99, "title": "HAR-002 (1/3)", "html_url": "https://github.com/o/r/pull/99",
                   "body": "Часть #78", "state": "open", "labels": [], "pull_request": {},
-                  "updated_at": "2026-11-17T10:00:00Z", "comments": 0 }
+                  "updated_at": ago(1), "comments": 0 }
             ]);
             (200, issues.to_string())
         } else if line.starts_with("GET /repos/o/r/pulls?state=open") {
@@ -435,7 +442,7 @@ async fn pr_read_failure_is_a_partial_error_not_empty_prs() {
             let issues = json!([
                 { "number": 78, "title": "HAR-002 — Пульт", "html_url": "https://github.com/o/r/issues/78",
                   "body": "", "state": "open", "labels": [label("in_progress")],
-                  "updated_at": "2026-11-17T10:00:00Z", "comments": 0 }
+                  "updated_at": ago(1), "comments": 0 }
             ]);
             (200, issues.to_string())
         } else {

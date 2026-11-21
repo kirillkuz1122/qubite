@@ -180,27 +180,43 @@ export function Limits({
   );
 }
 
-/** Три цифры: работает · ждёт тебя · готово (D-953). */
-export function Counters({ board }: { board: PultBoard }) {
-  const c = board.counts;
-  const items: [string, number, string][] = [
-    ['работает', c.running, 'sky'],
-    ['ждёт тебя', c.waiting, 'orange'],
-    ['готово', c.done, 'green'],
-  ];
+const COUNTER_STATUSES = ['running', 'waiting', 'done'] as const;
+
+/** Три цифры открывают списки агентов по статусам (D-953, D-1106). */
+export function Counters({
+  board,
+  onList,
+}: {
+  board: PultBoard;
+  onList: (status: (typeof COUNTER_STATUSES)[number]) => void;
+}) {
   return (
     <div className="pult-counts" role="group" aria-label="Агенты сейчас">
-      {items.map(([label, n, color]) => (
-        <div key={label} className="panel pult-count">
-          <span className="pult-small">
-            <Dot color={color} />
-            {label}
-          </span>
-          <b className={color === 'orange' && n > 0 ? 'pult-num pult-ink-orange' : 'pult-num'}>
-            {n}
-          </b>
-        </div>
-      ))}
+      {COUNTER_STATUSES.map((status) => {
+        const label = STATUS_LABEL[status];
+        const count = board.counts[status];
+        return (
+          <Button
+            key={status}
+            className="pult-count"
+            dot={false}
+            aria-label={`${label.charAt(0).toUpperCase()}${label.slice(1)}: ${count} — открыть список`}
+            onClick={() => onList(status)}
+          >
+            <span className="pult-small">
+              <Dot color={STATUS_COLOR[status]} />
+              {label}
+            </span>
+            <b
+              className={
+                status === 'waiting' && count > 0 ? 'pult-num pult-ink-orange' : 'pult-num'
+              }
+            >
+              {count}
+            </b>
+          </Button>
+        );
+      })}
     </div>
   );
 }

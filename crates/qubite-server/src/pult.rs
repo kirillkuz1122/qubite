@@ -47,7 +47,15 @@ const PR_CHECKS_MAX: usize = 15;
 const RUNNING_MINUTES: i64 = 5;
 /// Закончившая ход сессия считается «готово» сутки, потом — «тихо».
 const DONE_HOURS: i64 = 24;
-/// Сколько агентов отдаём в списке.
+/// Задача с меткой «в работе» без единого движения (issue, комментарии, сессия) дольше
+/// стольких часов — забытая метка, а не работа (AOS-5k, D-1131).
+const ISSUE_RUNNING_HOURS: i64 = 12;
+/// Метка «на приёмке» живёт столько часов, потом задача уходит из Светофора.
+const ISSUE_DONE_HOURS: i64 = 48;
+/// Вопрос без ответа держим дольше: он ждёт именно владельца.
+const ISSUE_WAITING_DAYS: i64 = 7;
+/// Сколько агентов каждого статуса отдаём в списке: фильтр «Работает» не должен
+/// оказаться пустым из-за 40 ждущих выше по списку.
 const AGENTS_MAX: usize = 40;
 /// Лимит — LOW, если осталось меньше (D-953).
 const LOW_PERCENT: f64 = 15.0;
@@ -461,7 +469,7 @@ pub struct PultPr {
     ci: Option<Ci>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum AgentStatus {
     Running,
@@ -818,6 +826,16 @@ fn title_has_id(title: &str, id: &str) -> bool {
         .is_some_and(|first| first.eq_ignore_ascii_case(id))
 }
 
+/// Метка на issue устарела: по ней уже никто не работает (D-1131).
+fn issue_expired(status: AgentStatus, quiet: Duration) -> bool {
+    quiet
+        > match status {
+            AgentStatus::Running => Duration::hours(ISSUE_RUNNING_HOURS),
+            AgentStatus::Done | AgentStatus::Idle => Duration::hours(ISSUE_DONE_HOURS),
+            AgentStatus::Waiting => Duration::days(ISSUE_WAITING_DAYS),
+        }
+}
+
 fn pc_status(s: &ReportSession, now: OffsetDateTime) -> AgentStatus {
     let age = now - s.last_at;
     if !s.waiting && age < Duration::minutes(RUNNING_MINUTES) {
@@ -923,13 +941,18 @@ fn agents(g: &Gathered, now: OffsetDateTime) -> (Vec<PultAgent>, Vec<PultWaiting
             };
             let mut agent = gh_agent(issue, status, &g.prs);
             // сессия в ветке этой задачи — её модель, контекст и цена
-            if let Some((report, s)) = sessions
+            let session = sessions
                 .iter()
                 .filter(|(_, s)| {
                     task_id(&s.branch).is_some_and(|id| title_has_id(&issue.title, id))
                 })
-                .max_by_key(|(_, s)| s.last_at)
-            {
+                .max_by_key(|(_, s)| s.last_at);
+            // последнее движение: issue или живая сессия этой задачи
+            let alive = session.map_or(issue.updated_at, |(_, s)| issue.updated_at.max(s.last_at));
+            if issue_expired(status, now - alive) {
+                continue;
+            }
+            if let Some((report, s)) = session {
                 fill_from_session(&mut agent, s, report, now);
                 used_sessions.insert((report.source == ReportSource::Cloud, s.id.as_str()));
             }
@@ -1190,11 +1213,24 @@ fn sources(g: &Gathered, configured: bool, now: OffsetDateTime) -> Vec<PultSourc
     out
 }
 
+/// Первые `AGENTS_MAX` агентов каждого статуса; порядок списка сохраняется.
+fn shown_agents(all: &[PultAgent]) -> Vec<PultAgent> {
+    let mut taken: HashMap<AgentStatus, usize> = HashMap::new();
+    all.iter()
+        .filter(|a| {
+            let n = taken.entry(a.status).or_default();
+            *n += 1;
+            *n <= AGENTS_MAX
+        })
+        .cloned()
+        .collect()
+}
+
 /// Светофор и полный список агентов (в ответе — первые 40, история — по всем).
 fn board(state: &AppState, g: &Gathered, now: OffsetDateTime) -> (PultBoard, Vec<PultAgent>) {
     let limits = limits(&g.reports, now);
     let (all, waiting, counts) = agents(g, now);
-    let agents: Vec<PultAgent> = all.iter().take(AGENTS_MAX).cloned().collect();
+    let agents = shown_agents(&all);
     let mut skills: Vec<String> = g
         .reports
         .iter()
@@ -1985,6 +2021,45 @@ mod tests {
         fixed.pr.as_mut().unwrap().ci = Some(Ci::Green);
         let next = diff(&fixed, Some(&now), &green, &[]);
         assert_eq!(next, [("ci_green", "CI зелёный".to_owned())]);
+    }
+
+    #[test]
+    fn list_keeps_forty_of_each_status() {
+        let agent = |i: usize, status: AgentStatus| PultAgent {
+            key: format!("a{i}"),
+            title: String::new(),
+            status,
+            place: AgentPlace::Pc,
+            model: None,
+            effort: None,
+            minutes: None,
+            context: None,
+            tokens: None,
+            usd: None,
+            cache: None,
+            pr: None,
+            url: None,
+            session_url: None,
+            task: None,
+            source: String::new(),
+            updated_at: OffsetDateTime::UNIX_EPOCH,
+        };
+        let mut all: Vec<PultAgent> = (0..45).map(|i| agent(i, AgentStatus::Waiting)).collect();
+        all.push(agent(100, AgentStatus::Running));
+        let shown = shown_agents(&all);
+        assert_eq!(shown.len(), 41);
+        assert_eq!(shown.last().unwrap().status, AgentStatus::Running);
+    }
+
+    #[test]
+    fn stale_issue_labels_expire() {
+        let hours = Duration::hours;
+        assert!(!issue_expired(AgentStatus::Running, hours(11)));
+        assert!(issue_expired(AgentStatus::Running, hours(13)));
+        assert!(!issue_expired(AgentStatus::Done, hours(47)));
+        assert!(issue_expired(AgentStatus::Done, hours(49)));
+        assert!(!issue_expired(AgentStatus::Waiting, Duration::days(6)));
+        assert!(issue_expired(AgentStatus::Waiting, Duration::days(8)));
     }
 
     #[test]

@@ -16,9 +16,9 @@
 .pult > * {
   min-width: 0;
 }
-.pult-back {
-  justify-self: start;
-  display: inline-flex;
+.pult-nav {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
 }
@@ -219,6 +219,7 @@
   grid-template-areas:
     'limits'
     'counts'
+    'shortcuts'
     'wait'
     'spend'
     'more'
@@ -229,6 +230,12 @@
 }
 .pult-a-counts {
   grid-area: counts;
+}
+.pult-shortcuts {
+  grid-area: shortcuts;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
 }
 .pult-a-spend {
   grid-area: spend;
@@ -258,6 +265,7 @@
     grid-template-areas:
       'limits spend'
       'counts spend'
+      'shortcuts shortcuts'
       'wait agents'
       'sources sources';
     align-items: start;
@@ -265,6 +273,10 @@
   .pult-a-spend,
   .pult-a-spend > .pult-box {
     height: 100%;
+  }
+  .pult-shortcuts {
+    grid-template-columns: repeat(2, auto);
+    justify-content: start;
   }
 }
 
@@ -304,12 +316,18 @@
   gap: 8px;
   min-width: 0;
 }
+/* кнопка Светофора: тот же вид, что у панели расхода на «Задачах», но слева и выше .q-btn */
+.pult-count.q-btn {
+  padding: 12px;
+  text-align: left;
+}
 .pult-count .pult-small {
   white-space: nowrap;
 }
 /* 360 px: три подписи целиком в строку, без многоточий (D-953) */
 @media (max-width: 420px) {
-  .pult-count {
+  .pult-count,
+  .pult-count.q-btn {
     padding: 12px 8px;
   }
   .pult-count .pult-small {

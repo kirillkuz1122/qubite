@@ -78,15 +78,27 @@ export function PultScreen() {
         />
       ) : (
         tab !== 'light' && (
-          <Button
-            className="pult-back"
-            variant="quiet"
-            size="sm"
-            onClick={() => (tab === 'agents' && agent ? setAgent(null) : setTab('light'))}
-          >
-            <DotIcon name="back" size={14} />
-            {tab === 'agents' && agent ? 'Агенты' : 'Пульт'}
-          </Button>
+          <div className="pult-nav">
+            <Button
+              variant="quiet"
+              size="sm"
+              onClick={() => (tab === 'agents' && agent ? setAgent(null) : setTab('light'))}
+            >
+              <DotIcon name="back" size={14} />
+              {tab === 'agents' && agent ? 'Агенты' : 'Пульт'}
+            </Button>
+            {(tab === 'agents' || tab === 'map') && (
+              <Segmented<'agents' | 'map'>
+                label="Агенты или карта"
+                value={tab}
+                onChange={setTab}
+                options={[
+                  { value: 'agents', label: 'Агенты' },
+                  { value: 'map', label: 'Карта' },
+                ]}
+              />
+            )}
+          </div>
         )
       )}
       <Swap view={tab} order={TABS}>
@@ -120,6 +132,7 @@ export function PultScreen() {
             onFilter={setFilter}
             agent={agent}
             onAgent={setAgent}
+            onSchedule={editSchedule}
           />
         )}
         {b && tab === 'map' && <PultMap board={b} wide={wide} onOpenAgent={setAgent} />}
@@ -157,10 +170,11 @@ function Light({
         <Limits board={b} wide={wide} onConnect={onConnect} />
       </div>
       <div className="pult-a-counts">
-        <Counters board={b} />
+        <Counters board={b} onList={onList} />
       </div>
-      <div className="pult-a-spend">
-        <Spend board={b} />
+      <div className="pult-shortcuts" role="group" aria-label="Разделы Светофора">
+        <Button onClick={() => onList('all')}>Агенты {b.agents.length}</Button>
+        <Button onClick={() => onTab('map')}>Карта</Button>
       </div>
       <section className="pult-a-wait" aria-label="Ждёт тебя">
         <SecHead text="ЖДЁТ ТЕБЯ" label="Ждёт тебя">
@@ -190,6 +204,9 @@ function Light({
           </div>
         )}
       </section>
+      <div className="pult-a-spend">
+        <Spend board={b} />
+      </div>
       {wide && (
         <section className="pult-a-agents" aria-label="Агенты сейчас">
           <SecHead text="АГЕНТЫ СЕЙЧАС" label="Агенты сейчас">
@@ -216,12 +233,6 @@ function Light({
         <section className="pult-a-more" aria-label="Ещё в Пульте">
           <SecHead text="ЕЩЁ В ПУЛЬТЕ" label="Ещё в Пульте" />
           <div className="pult-acts">
-            <Button size="sm" onClick={() => onList('all')}>
-              Агенты {b.agents.length}
-            </Button>
-            <Button size="sm" onClick={() => onTab('map')}>
-              Карта
-            </Button>
             <Button size="sm" onClick={() => onTab('recos')}>
               Recos
             </Button>
@@ -253,6 +264,7 @@ function Agents({
   onFilter,
   agent,
   onAgent,
+  onSchedule,
 }: {
   b: PultBoard;
   wide: boolean;
@@ -260,25 +272,42 @@ function Agents({
   onFilter: (f: Filter) => void;
   agent: string | null;
   onAgent: (key: string | null) => void;
+  onSchedule: (id: string) => void;
 }) {
-  const counts = agentCounts(b.agents);
+  // «Ждёт тебя» считает и задачи по расписанию на паузе — их нет среди агентов
+  const lone =
+    filter === 'waiting' ? b.waiting.filter((w) => !b.agents.some((a) => a.key === w.key)) : [];
+  const counts = { ...agentCounts(b.agents), waiting: b.counts.waiting };
   const shown = filter === 'all' ? b.agents : b.agents.filter((a) => a.status === filter);
   const picked = agent ?? (wide ? (shown[0]?.key ?? null) : null);
+  const now = new Date(b.now);
+  const loneCards = lone.map((w) => (
+    <WaitCard
+      key={w.key}
+      w={w}
+      now={now}
+      main={false}
+      onOpen={() => (w.number == null ? onSchedule(w.key) : onAgent(w.key))}
+    />
+  ));
   const list =
-    shown.length === 0 ? (
+    shown.length === 0 && lone.length > 0 ? (
+      <div className="pult-stack">{loneCards}</div>
+    ) : shown.length === 0 ? (
       <div className="panel pult-box">
-        {filter === 'waiting' ? (
-          <NothingWaits />
-        ) : (
+        {filter === 'all' ? (
           <p className="pult-small">
-            {b.agents.length === 0
-              ? 'Агентов не видно: нет задач с метками в GitHub и сводок с сессиями.'
-              : 'Здесь пусто.'}
+            Агентов не видно: нет задач с метками в GitHub и сводок с сессиями.
           </p>
+        ) : (
+          <EmptyState kind="proto" title="Здесь пусто" />
         )}
       </div>
     ) : (
-      <AgentList agents={shown} current={picked} onOpen={onAgent} withStatus label="Агенты" />
+      <>
+        <AgentList agents={shown} current={picked} onOpen={onAgent} withStatus label="Агенты" />
+        {lone.length > 0 && <div className="pult-stack">{loneCards}</div>}
+      </>
     );
   const chips = (
     <Segmented<Filter>
