@@ -29,6 +29,7 @@ import { ProjectPage } from '../ProjectPage';
 import { projectFromPath, projectPath } from '../project-view';
 import { SecHead, TaskList } from '../parts';
 import { usePlanner } from '../planner-context';
+import { TaskSwipeRow } from '../TaskSwipeRow';
 
 type Mode = 'week' | 'board';
 const MODES: readonly Mode[] = ['week', 'board'];
@@ -297,6 +298,8 @@ function Board() {
     const root = boardEl.current;
     if (!root || cancelDrag.current || !e.isPrimary || e.button !== 0) return;
     if (e.target instanceof Element && e.target.closest('button')) return;
+    if (e.currentTarget.closest('[data-swipe-open]')) return;
+    if (e.pointerType !== 'mouse' && window.getSelection()?.isCollapsed === false) return;
     cancelDrag.current = startBoardDrag(e.nativeEvent, e.currentTarget, root, {
       onOver: setOver,
       onDrop: (to) => {
@@ -354,61 +357,62 @@ function Board() {
             <b>{c.cards.length}</b>
           </h3>
           {c.cards.map((card) => (
-            <div
-              className="card panel"
-              key={card.id}
-              data-card={card.id}
-              data-obj={card.id}
-              tabIndex={0}
-              aria-label={`${card.title}. Перенести: стрелки влево и вправо`}
-              onPointerDown={(e) => onPointerDown(e, card.id, c.status)}
-              onKeyDown={(e) => onKey(e, card.id, c.status)}
-            >
-              <div className="card-top">
-                <span className="card-title">{card.title}</span>
-                <IconButton
-                  icon="more"
-                  label="Перенести в…"
-                  className="card-more"
-                  aria-haspopup="menu"
-                  aria-expanded={menu === card.id}
-                  onClick={() => setMenu(menu === card.id ? null : card.id)}
-                />
-              </div>
-              <div className="meta">
-                <span className="q-dot" style={{ background: `var(--q-${card.color})` }} />
-                {card.tag}
-              </div>
-              <Presence show={card.travelMinutes != null} className="task-travel">
-                в пути {card.travelMinutes} мин
-              </Presence>
-              {menu === card.id && (
-                <div className="card-menu" role="menu" aria-label="Перенести в…">
-                  <Button
-                    role="menuitem"
-                    variant="quiet"
-                    dot={false}
-                    onClick={() => {
-                      setMenu(null);
-                      openTask(card.id);
-                    }}
-                  >
-                    Место и дорога
-                  </Button>
-                  {board
-                    .filter((to) => to.status !== c.status)
-                    .map((to) => (
-                      <Button
-                        key={to.status}
-                        role="menuitem"
-                        variant="quiet"
-                        dot={false}
-                        onClick={() => moveTo(card.id, to.status)}
-                      >
-                        <span className="q-dot" style={{ background: `var(--q-${to.color})` }} />
-                        {to.name}
-                      </Button>
-                    ))}
+            <TaskSwipeRow key={card.id} id={card.id} done={c.status === 'done'}>
+              <div
+                className="card panel"
+                data-card={card.id}
+                data-obj={card.id}
+                tabIndex={0}
+                aria-label={`${card.title}. Перенести: стрелки влево и вправо`}
+                onPointerDown={(e) => onPointerDown(e, card.id, c.status)}
+                onKeyDown={(e) => onKey(e, card.id, c.status)}
+              >
+                <div className="card-top">
+                  <span className="card-title">{card.title}</span>
+                  <IconButton
+                    icon="more"
+                    label="Перенести в…"
+                    className="card-more"
+                    aria-haspopup="menu"
+                    aria-expanded={menu === card.id}
+                    onClick={() => setMenu(menu === card.id ? null : card.id)}
+                  />
+                </div>
+                <div className="meta">
+                  <span className="q-dot" style={{ background: `var(--q-${card.color})` }} />
+                  {card.tag}
+                </div>
+                <Presence show={card.travelMinutes != null} className="task-travel">
+                  в пути {card.travelMinutes} мин
+                </Presence>
+                {menu === card.id && (
+                  <div className="card-menu" role="menu" aria-label="Перенести в…">
+                    <Button
+                      role="menuitem"
+                      variant="quiet"
+                      dot={false}
+                      onClick={() => {
+                        setMenu(null);
+                        openTask(card.id);
+                      }}
+                    >
+                      Место и дорога
+                    </Button>
+                    {board
+                      .filter((to) => to.status !== c.status)
+                      .map((to) => (
+                        <Button
+                          key={to.status}
+                          role="menuitem"
+                          variant="quiet"
+                          dot={false}
+                          onClick={() => moveTo(card.id, to.status)}
+                        >
+                          <span className="q-dot" style={{ background: `var(--q-${to.color})` }} />
+                          {to.name}
+                        </Button>
+                      </TaskSwipeRow>
+          ))}
                 </div>
               )}
             </div>

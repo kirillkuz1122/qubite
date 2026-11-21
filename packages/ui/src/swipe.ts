@@ -9,7 +9,10 @@ type Axis = 'x' | 'y';
 
 export interface SwipeOptions {
   axis: Axis;
-  direction: 1 | -1;
+  /** 0 — обе стороны, `onMove` и `onEnd` получают смещение со знаком оси. */
+  direction: 1 | -1 | 0;
+  /** Сколько ждём первого движения, если удержание запускает другое действие. */
+  startWithinMs?: number;
   /** Последний предок, прокрутку которого учитываем. Шапка может исключить сам лист. */
   scrollBoundary?: (target: Element) => Element | null;
   filter?: (event: PointerEvent, target: Element) => boolean;
@@ -62,16 +65,19 @@ export function settleSwipe(spring: Spring, goal: number): void {
 
 /** Pointer Events ведут жест. Touchmove отдаёт браузеру прокрутку или удерживает касание. */
 export function swipe(el: HTMLElement, options: SwipeOptions): () => void {
-  const { axis, direction } = options;
+  const { axis, direction, startWithinMs } = options;
+  const sign = direction || 1;
   const track = new Tracker();
   let press: {
     id: number;
     x: number;
     y: number;
+    started: number;
     last: number;
     target: Element;
     boundary: Element | null;
     active: boolean;
+    timer?: number;
     listeners: AbortController;
   } | null = null;
   let suppressClick = false;
@@ -81,6 +87,7 @@ export function swipe(el: HTMLElement, options: SwipeOptions): () => void {
     const current = press;
     if (!current) return;
     press = null;
+    window.clearTimeout(current.timer);
     current.listeners.abort();
     if (el.hasPointerCapture?.(current.id)) el.releasePointerCapture(current.id);
   }
@@ -111,17 +118,23 @@ export function swipe(el: HTMLElement, options: SwipeOptions): () => void {
     else track.add(event.clientX, event.clientY, stamp);
     current.last = stamp;
     if (!current.active) {
+      if (startWithinMs !== undefined && stamp - current.started >= startWithinMs) {
+        stop();
+        return;
+      }
       const intent = swipeAxis(point.dx, point.dy);
       if (intent === 'pending') return;
       if (
+        event.defaultPrevented ||
         intent !== axis ||
-        point.delta * direction <= 0 ||
+        (direction !== 0 && point.delta * direction <= 0) ||
         blocked(current.target, point.delta, current.boundary)
       ) {
         stop();
         return;
       }
       current.active = true;
+      window.clearTimeout(current.timer);
       suppressClick = true;
       try {
         el.setPointerCapture?.(current.id);
@@ -131,7 +144,7 @@ export function swipe(el: HTMLElement, options: SwipeOptions): () => void {
       options.onStart();
     }
     if (event.cancelable) event.preventDefault();
-    options.onMove(point.delta * direction);
+    options.onMove(point.delta * sign);
   }
 
   function touchMove(event: TouchEvent) {
@@ -151,7 +164,7 @@ export function swipe(el: HTMLElement, options: SwipeOptions): () => void {
     const cross = axis === 'x' ? point.dy : point.dx;
     if (
       event.cancelable &&
-      point.delta * direction > 0 &&
+      (direction === 0 ? point.delta !== 0 : point.delta * direction > 0) &&
       Math.abs(cross) <= Math.abs(point.delta) * MAX_SLOPE &&
       !blocked(press.target, point.delta, press.boundary)
     ) {
@@ -168,7 +181,7 @@ export function swipe(el: HTMLElement, options: SwipeOptions): () => void {
     track.add(event.clientX, event.clientY, event.timeStamp);
     const { vx, vy } = track.velocity();
     const velocity = event.timeStamp - current.last > 100 ? 0 : axis === 'x' ? vx : vy;
-    options.onEnd(point.delta * direction, velocity * direction);
+    options.onEnd(point.delta * sign, velocity * sign);
   }
 
   function down(event: PointerEvent) {
@@ -191,12 +204,14 @@ export function swipe(el: HTMLElement, options: SwipeOptions): () => void {
       id: event.pointerId,
       x: event.clientX,
       y: event.clientY,
+      started: event.timeStamp,
       last: event.timeStamp,
       target,
       boundary: options.scrollBoundary?.(target) ?? null,
       active: false,
       listeners,
     };
+    if (startWithinMs !== undefined) press.timer = window.setTimeout(stop, startWithinMs);
     track.reset(event.clientX, event.clientY, event.timeStamp);
     window.addEventListener('pointermove', move, listening);
     window.addEventListener('pointerup', up, listening);

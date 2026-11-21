@@ -1,9 +1,10 @@
 import type { RoutePoint, TaskRouteResponse } from '@qubite/api-client';
-import { patchTask, type PlannerTask } from '@qubite/sync-client';
+import { patchTask, type PlannerTask, type TaskStatus } from '@qubite/sync-client';
 import { Button, Field, Note, Presence, Sheet } from '@qubite/ui';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { SecHead } from './parts';
 import { Backlinks } from './docs/Backlinks';
+import type { TaskDestination } from './planner-context';
 import { useSync } from './sync-context';
 import {
   calculateTaskRoute,
@@ -22,10 +23,16 @@ export function TaskPlaceSheet({
   task,
   onClose,
   session,
+  placement,
 }: {
   task: PlannerTask | undefined;
   onClose: () => void;
   session: number;
+  placement?: {
+    columns: readonly TaskDestination[];
+    onEdit: () => void;
+    onMove: (status: TaskStatus) => void;
+  } | null;
 }) {
   const active = useRef<AbortController | null>(null);
   useEffect(() => {
@@ -39,17 +46,39 @@ export function TaskPlaceSheet({
   }
 
   return (
-    <Sheet open={!!task} onClose={close} title="Место и дорога" className="task-place-sheet">
-      {task && (
-        <TaskPlaceForm
-          key={`${session}:${task.id}:${task.place_text ?? ''}`}
-          task={task}
-          onRequest={(request) => {
-            active.current?.abort();
-            active.current = request;
-          }}
-        />
-      )}
+    <Sheet
+      open={!!task}
+      onClose={close}
+      title={placement ? 'Перенести в…' : 'Место и дорога'}
+      className="task-place-sheet"
+    >
+      {task &&
+        (placement ? (
+          <div className="task-place">
+            <p className="task-place-name">{task.title}</p>
+            <div className="card-menu" role="group" aria-label="Куда перенести">
+              {placement.columns
+                .filter((column) => column.status !== task.status)
+                .map(({ status, title }) => (
+                  <Button key={status} variant="quiet" onClick={() => placement.onMove(status)}>
+                    {title}
+                  </Button>
+                ))}
+              <Button variant="quiet" onClick={placement.onEdit}>
+                Место и дорога
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <TaskPlaceForm
+            key={`${session}:${task.id}:${task.place_text ?? ''}`}
+            task={task}
+            onRequest={(request) => {
+              active.current?.abort();
+              active.current = request;
+            }}
+          />
+        ))}
     </Sheet>
   );
 }
