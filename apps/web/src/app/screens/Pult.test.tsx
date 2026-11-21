@@ -56,12 +56,12 @@ const board: PultBoard = {
 };
 const MAP_LABEL = 'Карта: агенты, задачи, навыки, память';
 
-function show(wide = false) {
+function show(wide = false, pult: PultBoard = board) {
   useMedia.mockReturnValue(wide);
   get.mockImplementation((path: string) => {
     const responses: Record<string, unknown> = {
       '/api/auth/me': { is_owner: true },
-      '/api/owner/pult': board,
+      '/api/owner/pult': pult,
       '/api/owner/pult/collectors': [],
       '/api/owner/pult/agents/{key}': { agent: waiting, events: [] },
     };
@@ -102,6 +102,30 @@ describe('Навигация Пульта', () => {
       expect(screen.getByRole('radio', { name: filter })).toBeChecked();
     },
   );
+
+  it('«Ждёт тебя» показывает и задачу по расписанию, которой нет среди агентов', async () => {
+    show(false, {
+      ...board,
+      agents: [],
+      counts: { running: 0, waiting: 1, done: 0 },
+      waiting: [
+        {
+          key: 'sch-1',
+          number: null,
+          title: 'Ночной разбор',
+          text: 'Пауза: недельный потолок',
+          options: [],
+          url: '',
+          updated_at: NOW,
+        },
+      ],
+    });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Ждёт тебя: 1 — открыть список' }));
+
+    expect((await screen.findAllByText('Ночной разбор')).length).toBeGreaterThan(0);
+    expect(screen.queryByText('Здесь пусто')).not.toBeInTheDocument();
+  });
 
   it('даже нулевая цифра открывает список с подписью «Здесь пусто»', async () => {
     show();

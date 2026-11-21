@@ -132,6 +132,7 @@ export function PultScreen() {
             onFilter={setFilter}
             agent={agent}
             onAgent={setAgent}
+            onSchedule={editSchedule}
           />
         )}
         {b && tab === 'map' && <PultMap board={b} wide={wide} onOpenAgent={setAgent} />}
@@ -263,6 +264,7 @@ function Agents({
   onFilter,
   agent,
   onAgent,
+  onSchedule,
 }: {
   b: PultBoard;
   wide: boolean;
@@ -270,12 +272,22 @@ function Agents({
   onFilter: (f: Filter) => void;
   agent: string | null;
   onAgent: (key: string | null) => void;
+  onSchedule: (id: string) => void;
 }) {
-  const counts = agentCounts(b.agents);
+  // «Ждёт тебя» считает и задачи по расписанию на паузе — их нет среди агентов
+  const lone =
+    filter === 'waiting' ? b.waiting.filter((w) => !b.agents.some((a) => a.key === w.key)) : [];
+  const counts = { ...agentCounts(b.agents), waiting: b.counts.waiting };
   const shown = filter === 'all' ? b.agents : b.agents.filter((a) => a.status === filter);
   const picked = agent ?? (wide ? (shown[0]?.key ?? null) : null);
+  const now = new Date(b.now);
+  const loneCards = lone.map((w) => (
+    <WaitCard key={w.key} w={w} now={now} main={false} onOpen={() => onSchedule(w.key)} />
+  ));
   const list =
-    shown.length === 0 ? (
+    shown.length === 0 && lone.length > 0 ? (
+      <div className="pult-stack">{loneCards}</div>
+    ) : shown.length === 0 ? (
       <div className="panel pult-box">
         {filter === 'all' ? (
           <p className="pult-small">
@@ -286,7 +298,10 @@ function Agents({
         )}
       </div>
     ) : (
-      <AgentList agents={shown} current={picked} onOpen={onAgent} withStatus label="Агенты" />
+      <>
+        <AgentList agents={shown} current={picked} onOpen={onAgent} withStatus label="Агенты" />
+        {lone.length > 0 && <div className="pult-stack">{loneCards}</div>}
+      </>
     );
   const chips = (
     <Segmented<Filter>
