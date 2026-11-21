@@ -86,4 +86,19 @@ describe('installViewportVars', () => {
       input.remove();
     }
   });
+
+  it('iPhone: видимая область сдвинута вниз — обёртка листа едет на offsetTop', () => {
+    viewport.height = 460;
+    viewport.offsetTop = 120; // окно 800: клавиатура 220
+    viewport.dispatchEvent(new Event('resize'));
+    vi.advanceTimersToNextFrame();
+    expect(style.getPropertyValue('--app-vh')).toBe('460px');
+    expect(style.getPropertyValue('--app-vt')).toBe('120px');
+
+    viewport.height = 800;
+    viewport.offsetTop = 0;
+    viewport.dispatchEvent(new Event('resize'));
+    vi.advanceTimersToNextFrame();
+    expect(style.getPropertyValue('--app-vt')).toBe('');
+  });
 });

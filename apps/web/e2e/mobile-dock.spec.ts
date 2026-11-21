@@ -78,8 +78,13 @@ for (const theme of ['light', 'dark'] as const) {
     await page.addInitScript(() => {
       const vv = Object.assign(new EventTarget(), { height: 780, offsetTop: 0, width: 360 });
       Object.defineProperty(window, 'visualViewport', { value: vv, configurable: true });
+      (window as unknown as { __top: (t: number) => void }).__top = (t) => {
+        vv.offsetTop = t; // iPhone сдвинул видимую область, её высота — 360
+        vv.height = 360;
+        vv.dispatchEvent(new Event('scroll'));
+      };
       (window as unknown as { __kb: (h: number) => void }).__kb = (h) => {
-        vv.height = 780 - h;
+        vv.height = 780 - h - vv.offsetTop;
         vv.dispatchEvent(new Event('resize'));
       };
     });
@@ -102,6 +107,15 @@ for (const theme of ['light', 'dark'] as const) {
       })
       .toBeLessThanOrEqual(461);
     await shot(page, `sheet-keyboard-${theme}`);
+    // видимая область сдвинута на 100 px вниз: лист целиком внутри неё (100…460)
+    await page.evaluate(() => (window as unknown as { __top: (t: number) => void }).__top(100));
+    await expect
+      .poll(async () => {
+        const b = (await sheet.boundingBox())!;
+        return b.y >= 100 && b.y + b.height <= 461;
+      })
+      .toBe(true);
+    await page.evaluate(() => (window as unknown as { __top: (t: number) => void }).__top(0));
     // «строка браузера» (−56 px, без клавиатуры): переменная не выставляется, раскладку ведёт dvh
     await page.evaluate(() => (window as unknown as { __kb: (h: number) => void }).__kb(56));
     await expect

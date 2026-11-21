@@ -1587,7 +1587,7 @@ html.q-own-scroll::-webkit-scrollbar {
 /* модальное окно (Sheet, DS-008): на ПК — в центре, на телефоне — нижний лист */
 .q-sheet-wrap {
   position: fixed;
-  inset: 0;
+  inset: var(--app-vt, 0px) 0 auto;
   height: var(--app-vh, 100dvh);
   z-index: 80;
   display: flex;

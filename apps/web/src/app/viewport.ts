@@ -10,6 +10,7 @@ export function installViewportVars(win = window): () => void {
   let frame: number | undefined;
   let keyboardHeight = 0;
   let visibleHeight: number | undefined;
+  let visibleTop = 0;
   let focus:
     { element: HTMLElement; deadline: number | undefined; stableFrames: number } | undefined;
 
@@ -32,9 +33,18 @@ export function installViewportVars(win = window): () => void {
         visibleHeight = height;
         style.setProperty('--app-vh', `${height}px`);
       }
+      // iPhone двигает видимую область по документу: обёртка листа едет за ней
+      const top = Math.round(offsetTop);
+      if (top !== visibleTop) {
+        visibleTop = top;
+        if (top > 0) style.setProperty('--app-vt', `${top}px`);
+        else style.removeProperty('--app-vt');
+      }
     } else if (visibleHeight !== undefined) {
       visibleHeight = undefined;
+      visibleTop = 0;
       style.removeProperty('--app-vh');
+      style.removeProperty('--app-vt');
     }
 
     if (!focus) return;
@@ -88,5 +98,6 @@ export function installViewportVars(win = window): () => void {
     if (frame !== undefined) win.cancelAnimationFrame(frame);
     style.removeProperty('--app-kb');
     style.removeProperty('--app-vh');
+    style.removeProperty('--app-vt');
   };
 }
