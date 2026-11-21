@@ -9,6 +9,10 @@ import {
   Segmented,
   Sheet,
   Swap,
+  SwipeTabs,
+  WIDE,
+  useMedia,
+  useSwipeTabs,
   useFlow,
   useSpring,
 } from '@qubite/ui';
@@ -49,8 +53,9 @@ export function PlannerScreen() {
 function PlannerHome() {
   const [mode, setMode] = useState<Mode>('week');
   return (
-    <>
+    <SwipeTabs>
       <Segmented<Mode>
+        swipeTabs
         label="Вид"
         value={mode}
         onChange={(m) => setMode(m)}
@@ -62,7 +67,7 @@ function PlannerHome() {
       <Swap view={mode} order={MODES}>
         {mode === 'week' ? <Week /> : <Board />}
       </Swap>
-    </>
+    </SwipeTabs>
   );
 }
 
@@ -71,8 +76,14 @@ function Week() {
   const shell = useShell();
   const [cur, setCur] = useState(() => planner.today);
   const [shownDay, setShownDay] = useState(cur);
-  const { node: flowNode, to: flowTo } = useFlow(70, 0, { className: 'q-chip-flow' });
+  const {
+    node: flowNode,
+    to: flowTo,
+    hold: flowHold,
+  } = useFlow(70, 0, { className: 'q-chip-flow' });
   const btns = useRef<(HTMLButtonElement | null)[]>([]);
+  const dayTabs = useRef<HTMLDivElement>(null);
+  const mobile = !useMedia(WIDE);
   const first = useRef(true);
   const list = useRef<HTMLDivElement>(null);
   const ls = useSpring(0, MASS.pill, (v) => {
@@ -105,53 +116,77 @@ function Week() {
     );
   }
 
+  useSwipeTabs(dayTabs, {
+    enabled: mobile,
+    current: cur,
+    count: planner.week.length,
+    measure: (i) => {
+            const b = btns.current[i];
+      if (b) return { left: b.offsetLeft + 3, right: b.offsetLeft + b.offsetWidth - 3, top: 0 };
+    },
+    preview: ({ left, right }) => flowHold(left, right),
+    restore: () => {
+      const b = btns.current[cur];
+      if (b) flowTo(b.offsetLeft + 3, b.offsetLeft + b.offsetWidth - 3);
+    },
+    select: pick,
+  });
+
   const day = planner.week[shownDay]!;
   return (
     <>
-      <div className="week" role="tablist" aria-label="Дни недели">
-        {flowNode}
-        {planner.week.map((d, i) => (
-          <button
-            key={d.d}
-            type="button"
-            role="tab"
-            aria-selected={i === cur}
-            aria-label={`${d.d}, ${d.n}`}
-            ref={(el) => void (btns.current[i] = el)}
-            className={
-              [i === cur && 'on', d.today && 'today'].filter(Boolean).join(' ') || undefined
-            }
-            onClick={() => pick(i)}
-          >
-            {d.d}
-            <b>{d.n}</b>
-            <span className="pips">
-              {d.tasks.map((t) => (
-                <i key={t.id} style={{ background: `var(--q-${t.done ? 'faint' : t.color})` }} />
-              ))}
-            </span>
-          </button>
-        ))}
-      </div>
-      <div ref={list}>
-        {planner.loaded && day.tasks.length === 0 && (
-          <p className="later">{day.today ? 'На сегодня дел нет.' : 'В этот день дел нет.'}</p>
-        )}
-        <TaskList
-          tasks={day.tasks}
-          meta={(t) => (
-            <div className="meta">
-              <span className="q-dot" style={{ background: `var(--q-${t.color})` }} />
-              {day.today ? 'сегодня' : `${day.d}, ${day.n}`}
-            </div>
+      <SwipeTabs>
+        <div
+          ref={dayTabs}
+          className="week"
+          role="tablist"
+          aria-label="Дни недели"
+          data-swipe-tab-list={mobile ? '' : undefined}
+        >
+          {flowNode}
+          {planner.week.map((d, i) => (
+            <button
+              key={d.d}
+              type="button"
+              role="tab"
+              aria-selected={i === cur}
+              aria-label={`${d.d}, ${d.n}`}
+              ref={(el) => void (btns.current[i] = el)}
+              className={
+                [i === cur && 'on', d.today && 'today'].filter(Boolean).join(' ') || undefined
+              }
+              onClick={() => pick(i)}
+            >
+              {d.d}
+              <b>{d.n}</b>
+              <span className="pips">
+                {d.tasks.map((t) => (
+                  <i key={t.id} style={{ background: `var(--q-${t.done ? 'faint' : t.color})` }} />
+                ))}
+              </span>
+            </button>
+          ))}
+        </div>
+        <div ref={list}>
+          {planner.loaded && day.tasks.length === 0 && (
+            <p className="later">{day.today ? 'На сегодня дел нет.' : 'В этот день дел нет.'}</p>
           )}
-          detail={(t) => <AgentTimeline trail={{ object: t.id }} compact />}
-          onToggle={(t, d) => {
-            void planner.toggle(t.id, d);
-            if (d) shell.cheer('proto');
-          }}
-        />
-      </div>
+          <TaskList
+            tasks={day.tasks}
+            meta={(t) => (
+              <div className="meta">
+                <span className="q-dot" style={{ background: `var(--q-${t.color})` }} />
+                {day.today ? 'сегодня' : `${day.d}, ${day.n}`}
+              </div>
+            )}
+            detail={(t) => <AgentTimeline trail={{ object: t.id }} compact />}
+            onToggle={(t, d) => {
+              void planner.toggle(t.id, d);
+              if (d) shell.cheer('proto');
+            }}
+          />
+        </div>
+      </SwipeTabs>
       <Projects />
     </>
   );
@@ -339,7 +374,7 @@ function Board() {
   }
 
   return (
-    <div className="board" ref={boardEl}>
+    <div className="board" ref={boardEl} data-swipe-tabs-ignore="">
       {board.map((c) => (
         <div
           className={over === c.status ? 'col over' : 'col'}

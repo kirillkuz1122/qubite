@@ -25,8 +25,8 @@ export interface FlowHandle {
    * row — положение поперёк (другой ряд), если пункты стоят в несколько рядов
    */
   to(a: number, b: number, jump?: boolean, row?: number): void;
-  /** вести подсветку пальцем: края ставятся сразу, скорость v (px/с) — для броска */
-  hold(a: number, b: number, v?: number): void;
+  /** вести подсветку пальцем: края и ряд ставятся сразу, скорость v (px/с) — для броска */
+  hold(a: number, b: number, v?: number, row?: number): void;
 }
 
 export interface FlowOptions {
@@ -112,10 +112,11 @@ export function useFlow(cross: number, offset = 0, opts: FlowOptions = {}) {
   );
 
   const hold = useCallback<FlowHandle['hold']>(
-    (a, b, v = 0) => {
+    (a, b, v = 0, row) => {
       const L = loop();
       L.hold(springs.A, a, v);
       L.hold(springs.B, b, v);
+      if (row !== undefined) L.hold(springs.C, row);
     },
     [springs],
   );

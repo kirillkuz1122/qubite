@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 // Свой порт — если параллельно идут браузерные тесты из другой копии репозитория.
 const port = Number(process.env.E2E_PORT ?? 4173);
-const boardTouch = /@board-touch/;
+const chromiumTouch = /@board-touch|@gestures-touch/;
 
 // Браузерные тесты: Firefox и Chromium обязательно (D-134).
 // Сервер Rust здесь не нужен: ответы /api перехватываются в самих тестах.
@@ -18,19 +18,19 @@ export default defineConfig({
       name: 'firefox',
       use: { ...devices['Desktop Firefox'] },
       testIgnore: /frames\.spec/,
-      grepInvert: boardTouch,
+      grepInvert: chromiumTouch,
     },
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
       testIgnore: /frames\.spec/,
-      grepInvert: boardTouch,
+      grepInvert: chromiumTouch,
     },
     {
       name: 'firefox-mobile',
       use: { ...devices['Desktop Firefox'], viewport: { width: 360, height: 780 } },
       testIgnore: /frames\.spec/,
-      grepInvert: boardTouch,
+      grepInvert: chromiumTouch,
     },
     {
       name: 'chromium-touch',
@@ -40,8 +40,8 @@ export default defineConfig({
         hasTouch: true,
         reducedMotion: 'reduce',
       },
-      testMatch: /planner\.spec\.ts/,
-      grep: boardTouch,
+      testMatch: /(?:planner|gestures-[12])\.spec\.ts/,
+      grep: chromiumTouch,
     },
     // замер кадров — после всех остальных и в одиночку (DS-002)
     {

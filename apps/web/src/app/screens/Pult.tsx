@@ -62,7 +62,7 @@ export function PultScreen() {
   };
 
   return (
-    <div className="pult">
+    <div className="pult" data-swipe-tabs={tab === 'agents' || tab === 'map' ? '' : undefined}>
       {wide ? (
         <Segmented<Tab>
           label="Разделы Пульта"
@@ -89,6 +89,7 @@ export function PultScreen() {
             </Button>
             {(tab === 'agents' || tab === 'map') && (
               <Segmented<'agents' | 'map'>
+                swipeTabs
                 label="Агенты или карта"
                 value={tab}
                 onChange={setTab}

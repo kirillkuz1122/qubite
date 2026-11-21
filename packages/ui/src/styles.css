@@ -273,6 +273,12 @@ button.q-lrow {
 .q-seg button.q-on {
   color: var(--q-ink);
 }
+.q-swipe-tabs {
+  display: contents;
+}
+.q-flow i.q-tab-flow {
+  background: var(--q-orange);
+}
 /* чуть не помещается по ширине — пункты плотнее (Segmented, DS-008) */
 .q-seg.q-tight button {
   /* на 4 px с каждой стороны меньше обычного (12 px) — ровно столько, сколько учитывает TIGHT */
@@ -781,7 +787,8 @@ kbd {
 .q-chips::-webkit-scrollbar {
   display: none;
 }
-.q-chips.q-wrap {
+.q-chips.q-wrap,
+.q-chips[data-swipe-tab-list] {
   flex-wrap: wrap;
   overflow: visible;
 }
@@ -971,6 +978,10 @@ kbd {
   align-content: center;
   gap: 4px;
 }
+.q-dock:has(.q-dock-picker) .q-navb {
+  user-select: none;
+  -webkit-touch-callout: none;
+}
 /* подпись раздела — 10 px, единственное место шкалы с этим размером (D-907) */
 .q-navb-label {
   max-width: 100%;
@@ -1035,6 +1046,45 @@ kbd {
 }
 .q-dock.q-open .q-dock-field {
   pointer-events: auto;
+}
+.q-dock-picker {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  max-width: 100%;
+}
+.q-dock-picker-panel {
+  border: 1px solid var(--q-line);
+  border-radius: calc(var(--q-round) * 12px);
+  background: var(--q-panel-2);
+  padding: 4px;
+  user-select: none;
+}
+.q-dock-picker-list {
+  position: relative;
+  display: grid;
+  min-width: 144px;
+}
+.q-dock-picker-list:not(:has([data-highlight])) > .q-flow {
+  opacity: 0;
+}
+.q-flow i.q-dock-pick-flow {
+  background: var(--q-orange);
+}
+.q-dock-picker-list .q-dock-pick {
+  position: relative;
+  justify-content: flex-start;
+  border-radius: calc(var(--q-round) * 8px);
+  color: var(--q-ink);
+  transition: none;
+}
+.q-dock-picker-list .q-dock-pick[data-highlight] {
+  color: var(--q-on-accent);
+}
+@media (max-height: 560px) {
+  .q-dock-picker-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 /* поле внутри строки Command (телефон и ПК) */
@@ -1598,6 +1648,12 @@ html.q-own-scroll::-webkit-scrollbar {
   align-items: center;
   padding: 24px;
 }
+.q-sheet-wrap:not(.q-wide) {
+  overflow: clip;
+}
+.q-sheet-wrap.q-sheet-top {
+  align-items: flex-start;
+}
 .q-sheet-veil {
   position: absolute;
   inset: 0;
@@ -1624,6 +1680,12 @@ html.q-own-scroll::-webkit-scrollbar {
   border-bottom: 1px solid var(--q-line);
   border-radius: calc(var(--q-round) * 24px);
 }
+.q-sheet-top .q-sheet {
+  padding-top: max(8px, env(safe-area-inset-top));
+  border-top: 0;
+  border-bottom: 1px solid var(--q-line);
+  border-radius: 0 0 calc(var(--q-round) * 24px) calc(var(--q-round) * 24px);
+}
 .q-sheet-head {
   position: sticky;
   top: -8px;
@@ -1635,6 +1697,23 @@ html.q-own-scroll::-webkit-scrollbar {
   margin: 0 -4px 8px;
   padding: 10px 4px 8px;
   background: var(--q-panel);
+}
+.q-sheet-wrap:not(.q-wide) .q-sheet-head {
+  touch-action: pan-x pinch-zoom;
+}
+:where(.q-sheet-wrap:not(.q-wide, .q-sheet-top)) .q-sheet-head {
+  padding-top: 16px;
+}
+.q-sheet-wrap:not(.q-wide, .q-sheet-top) .q-sheet-head::before {
+  content: '';
+  position: absolute;
+  inset: 4px 0 auto;
+  width: 60px;
+  height: 4px;
+  margin-inline: auto;
+  border-radius: calc(var(--q-round) * 4px);
+  background: var(--q-dim);
+  pointer-events: none;
 }
 /* своё наложение внутри тела окна (подложка Segmented и т. п.) не выходит поверх липкой шапки */
 .q-sheet-body {

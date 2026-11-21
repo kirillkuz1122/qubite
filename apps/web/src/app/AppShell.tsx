@@ -18,6 +18,7 @@ import {
   Presence,
   EdgeScroll,
   SideNav,
+  SwipeTabsBack,
   WIDE,
   caretPoint,
   flyDot,
@@ -35,6 +36,8 @@ import { Link, useNavigate, useRouterState } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { commandView, loadHistory, remember, saveHistory, type CommandEntry } from './command';
 import { Bell } from './Bell';
+import { EdgeBack } from './EdgeBack';
+import { canGoBackInApp } from './app-history';
 import { CommandChat } from './CommandChat';
 import { useCommandChat } from './use-command-chat';
 import { CommandField } from './CommandField';
@@ -137,6 +140,11 @@ function sectionOf(path: string): ShellSectionId {
   return SECTIONS.find((s) => path.startsWith(s.path))?.id ?? 'home';
 }
 
+function sectionTitle(path: string): string {
+  if (path === '/console' || path.startsWith('/console/')) return 'Управление Qubite';
+  return SECTIONS.find((section) => section.id === sectionOf(path))!.name;
+}
+
 function left(p: PlannerApi) {
   return p.week[p.today]?.tasks.filter((t) => !t.done).length ?? 0;
 }
@@ -207,6 +215,7 @@ function subtitle(
 export function AppShell() {
   const wide = useMedia(WIDE);
   const path = useRouterState({ select: (s) => s.location.pathname });
+  const entryKey = useRouterState({ select: (s) => s.location.state.__TSR_key });
   const navigate = useNavigate();
   const { state } = useStore();
   const inbox = useInbox();
@@ -247,7 +256,19 @@ export function AppShell() {
 
   /* ---------- переход между экранами: старый уезжает, новый въезжает с той стороны ---------- */
   const [view, setView] = useState(id);
+  const [backFrom, setBackFrom] = useState<string | null>(null);
+  const returning = backFrom !== null && entryKey !== backFrom;
+  const visibleView = returning ? id : view;
+  const main = useRef<HTMLDivElement>(null);
   const screen = useRef<HTMLDivElement>(null);
+  const swipeBack = useCallback((key: string) => {
+    if (!canGoBackInApp(key)) return;
+    setBackFrom(key);
+    window.history.back();
+  }, []);
+  const backFromTabs = useCallback(() => {
+    if (entryKey) swipeBack(entryKey);
+  }, [entryKey, swipeBack]);
   const sp = useSpring(0, MASS.pill, (v) => {
     const el = screen.current;
     if (!el) return;
@@ -255,6 +276,14 @@ export function AppShell() {
     el.style.transform = v === 0 ? '' : `translateX(${(v * 28).toFixed(2)}px)`;
   });
   useEffect(() => {
+    if (returning) {
+      loop().set(sp, 0);
+      const t = setTimeout(() => {
+        setView(id);
+        setBackFrom(null);
+      }, 0);
+      return () => clearTimeout(t);
+    }
     if (id === view) return;
     const L = loop();
     const ids = SECTIONS.map((s) => s.id);
@@ -270,7 +299,7 @@ export function AppShell() {
       L.reduced ? 0 : 110,
     );
     return () => clearTimeout(t);
-  }, [id, view, sp]);
+  }, [id, view, sp, returning]);
 
   useEffect(() => {
     document.title = `${sec.name} · Qubite`;
@@ -636,7 +665,8 @@ export function AppShell() {
         </aside>
       )}
 
-      <div className="main">
+      {!wide && <EdgeBack main={main} screen={screen} titleFor={sectionTitle} onBack={swipeBack} />}
+      <div className="main" ref={main}>
         <div className="main-in">
           <header className="head" style={{ height: headH }}>
             <h1 className="q-sr">{sec.name}</h1>
@@ -659,8 +689,8 @@ export function AppShell() {
               {subtitle(id, state, planner, wide, inbox.items.length)}
             </div>
           </header>
-          <div className="screen" ref={screen} data-screen={view}>
-            {SCREENS[view]()}
+          <div className="screen" ref={screen} data-screen={visibleView}>
+            <SwipeTabsBack value={backFromTabs}>{SCREENS[visibleView]()}</SwipeTabsBack>
           </div>
         </div>
       </div>
@@ -736,6 +766,7 @@ export function AppShell() {
         <Dock
           items={dockItems}
           current={dockCurrent}
+          picker={chat.open || moreOpen ? undefined : { items: all, onPick: go }}
           onGo={(to) => {
             if (to !== 'more') return go(to);
             setMoreOpen(true);

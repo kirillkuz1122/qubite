@@ -8,7 +8,9 @@ import {
   redirect,
   stringifySearchWith,
 } from '@tanstack/react-router';
+import { SwipeTabsBack } from '@qubite/ui';
 import { AppShell } from './app/AppShell';
+import { backToPreviousApp, trackAppBack } from './app/app-history';
 import { SECTIONS } from './app/data';
 import { InboxProvider } from './app/inbox';
 import { PlannerProvider } from './app/planner';
@@ -32,7 +34,9 @@ const rootRoute = createRootRoute({
   // техработы (ACC-004): всем, кроме owner, — экран вместо сайта
   component: () => (
     <MaintenanceGate>
-      <Outlet />
+      <SwipeTabsBack value={backToPreviousApp}>
+        <Outlet />
+      </SwipeTabsBack>
     </MaintenanceGate>
   ),
   notFoundComponent: NotFound,
@@ -234,6 +238,15 @@ export const router = createRouter({
   parseSearch: parseSearchWith((v) => v),
   stringifySearch: stringifySearchWith(JSON.stringify),
 });
+
+trackAppBack(router.history, (path) =>
+  router
+    .matchRoutes(path)
+    .some(
+      ({ routeId }) =>
+        routeId === appRoute.id || routeId === consoleRoute.id || routeId === consoleTabRoute.id,
+    ),
+);
 
 declare module '@tanstack/react-router' {
   interface Register {

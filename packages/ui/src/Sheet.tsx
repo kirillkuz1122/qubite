@@ -1,7 +1,8 @@
-import { MASS } from '@qubite/motion';
+import { MASS, project } from '@qubite/motion';
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { WIDE, useMedia } from './media';
+import { settleSwipe, swipe } from './swipe';
 import { loop, useSpring } from './useSpring';
 
 export interface SheetProps {
@@ -15,6 +16,8 @@ export interface SheetProps {
   children: ReactNode;
   /** Закреплённая нижняя панель; содержимое окна прокручивается над ней. */
   footer?: ReactNode;
+  /** Откуда на телефоне выезжает окно. */
+  mobileFrom?: 'bottom' | 'top';
 }
 
 const FOCUSABLE =
@@ -55,8 +58,17 @@ function isBehind(box: HTMLElement, el: Element | null): boolean {
  * нижний лист. Фон затемняется, Escape и нажатие мимо закрывают, фокус возвращается туда,
  * откуда открыли. Двигаются только opacity и transform.
  */
-export function Sheet({ open, onClose, title, className, children, footer }: SheetProps) {
+export function Sheet({
+  open,
+  onClose,
+  title,
+  className,
+  children,
+  footer,
+  mobileFrom = 'bottom',
+}: SheetProps) {
   const wide = useMedia(WIDE);
+  const top = mobileFrom === 'top';
   const id = useId();
   const veil = useRef<HTMLDivElement>(null);
   const box = useRef<HTMLDivElement>(null);
@@ -70,6 +82,8 @@ export function Sheet({ open, onClose, title, className, children, footer }: She
   const returnTo = useRef<Element | null>(null);
   const [alive, setAlive] = useState(open);
   const live = useRef(open);
+  const shown = useRef(open);
+  shown.current = open;
   const kept = useRef({ children, footer });
   if (open) kept.current = { children, footer };
   const hasFooter = kept.current.footer != null;
@@ -83,15 +97,15 @@ export function Sheet({ open, onClose, title, className, children, footer }: She
     if (veil.current) veil.current.style.opacity = k === 1 ? '' : k.toFixed(3);
     const b = box.current;
     if (b) {
-      b.style.opacity = k === 1 ? '' : k.toFixed(3);
+      b.style.opacity = b.dataset.wide && k !== 1 ? k.toFixed(3) : '';
       b.style.transform =
         v === 1
           ? ''
           : b.dataset.wide
             ? `translateY(${((1 - v) * 16).toFixed(2)}px) scale(${(0.95 + 0.05 * v).toFixed(4)})`
-            : `translateY(${((1 - v) * 100).toFixed(2)}%)`;
+            : `translateY(${((1 - k) * (b.dataset.top ? -100 : 100)).toFixed(2)}%)`;
     }
-    if (s.goal === 0 && v < 0.02 && live.current) {
+    if (!shown.current && s.goal === 0 && v < 0.02 && live.current) {
       live.current = false;
       setAlive(false);
     }
@@ -102,8 +116,40 @@ export function Sheet({ open, onClose, title, className, children, footer }: She
     setAlive(true);
   }
   useEffect(() => {
-    if (alive) loop().to(s, open ? 1 : 0);
-  }, [open, alive, s]);
+    if (!alive) return;
+    if (wide) loop().to(s, open ? 1 : 0);
+    else settleSwipe(s, open ? 1 : 0);
+  }, [open, alive, s, wide]);
+
+  useEffect(() => {
+    const b = box.current;
+    if (!b || wide || !alive || !open) return;
+    let height = 1;
+    const restore = () => settleSwipe(s, 1);
+    const wipe = (distance: number) => {
+      loop().hold(s, 1 - Math.min(1, Math.max(0, distance / height)), 0);
+    };
+    return swipe(b, {
+      axis: 'y',
+      direction: top ? -1 : 1,
+      scrollBoundary: (target) => target.closest('.q-sheet-head') ?? b,
+      filter: (_event, target) =>
+        isTop(b) && target.closest('.q-sheet-head, .q-sheet-body') !== null,
+      onStart: () => {
+        height = Math.max(1, b.offsetHeight);
+      },
+      onMove: wipe,
+      onEnd: (distance, velocity) => {
+        wipe(distance);
+        const threshold = height * 0.3;
+        if (distance >= threshold || (distance >= 10 && project(distance, velocity) >= threshold)) {
+          close.current();
+        }
+        restore();
+      },
+      onCancel: restore,
+    });
+  }, [open, alive, s, top, wide]);
 
   /* фокус внутрь окна и обратно; Escape и Tab по кругу */
   useLayoutEffect(() => {
@@ -177,7 +223,9 @@ export function Sheet({ open, onClose, title, className, children, footer }: She
 
   if (!alive || typeof document === 'undefined') return null;
   return createPortal(
-    <div className={wide ? 'q-sheet-wrap q-wide' : 'q-sheet-wrap'}>
+    <div
+      className={wide ? 'q-sheet-wrap q-wide' : top ? 'q-sheet-wrap q-sheet-top' : 'q-sheet-wrap'}
+    >
       <div
         ref={veil}
         className="q-sheet-veil"
@@ -194,6 +242,7 @@ export function Sheet({ open, onClose, title, className, children, footer }: She
         aria-labelledby={id}
         tabIndex={-1}
         data-wide={wide ? '1' : undefined}
+        data-top={!wide && top ? '1' : undefined}
         style={{ opacity: 0 }}
       >
         <div className="q-sheet-head">

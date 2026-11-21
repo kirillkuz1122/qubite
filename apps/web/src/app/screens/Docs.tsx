@@ -473,8 +473,14 @@ export function DocsScreen() {
     <div
       className={`docs-workspace${id ? ' docs-open' : ''}${id && maps.has(id) ? ' docs-mindmap' : ''}`}
     >
-      <aside ref={index} className="docs-index" aria-label="Список документов">
+      <aside
+        ref={index}
+        className="docs-index"
+        aria-label="Список документов"
+        data-swipe-tabs=""
+      >
         <Segmented<'docs' | 'trash'>
+          swipeTabs
           label="Раздел документов"
           value={section}
           options={[

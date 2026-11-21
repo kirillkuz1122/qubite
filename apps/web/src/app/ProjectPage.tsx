@@ -4,7 +4,7 @@
  * Дела и сам проект — синхронизацией (без сети тоже), файлы и документы — запросами к серверу.
  */
 import { PROJECT_COLORS, type PlannerProject, type ProjectColor } from '@qubite/sync-client';
-import { Button, DotIcon, Field, Note, Presence, Segmented, Sheet, Swap } from '@qubite/ui';
+import { Button, DotIcon, Field, Note, Presence, Segmented, Sheet, Swap, SwipeTabs } from '@qubite/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent } from 'react';
@@ -162,31 +162,34 @@ export function ProjectPage({ id }: { id: string }) {
         </p>
       </section>
 
-      <Segmented<ProjectTab>
-        label="Разделы проекта"
-        value={tab}
-        onChange={(t) => setTab(t)}
-        options={[
-          { value: 'tasks', label: 'Задачи' },
-          { value: 'events', label: 'События' },
-          { value: 'files', label: 'Файлы' },
-          { value: 'memory', label: 'Память' },
-          { value: 'feed', label: 'Лента' },
-        ]}
-      />
-      <Swap view={tab} order={PROJECT_TABS}>
-        {tab === 'tasks' ? (
-          <ProjectTasks id={id} />
-        ) : tab === 'events' ? (
-          <EventsTab id={id} page={data} />
-        ) : tab === 'files' ? (
-          <FilesTab id={id} page={data} />
-        ) : tab === 'memory' ? (
-          <MemoryTab id={id} page={data} />
-        ) : (
-          <FeedTab id={id} page={data} />
-        )}
-      </Swap>
+      <SwipeTabs>
+        <Segmented<ProjectTab>
+          swipeTabs
+          label="Разделы проекта"
+          value={tab}
+          onChange={(t) => setTab(t)}
+          options={[
+            { value: 'tasks', label: 'Задачи' },
+            { value: 'events', label: 'События' },
+            { value: 'files', label: 'Файлы' },
+            { value: 'memory', label: 'Память' },
+            { value: 'feed', label: 'Лента' },
+          ]}
+        />
+        <Swap view={tab} order={PROJECT_TABS}>
+          {tab === 'tasks' ? (
+            <ProjectTasks id={id} />
+          ) : tab === 'events' ? (
+            <EventsTab id={id} page={data} />
+          ) : tab === 'files' ? (
+            <FilesTab id={id} page={data} />
+          ) : tab === 'memory' ? (
+            <MemoryTab id={id} page={data} />
+          ) : (
+            <FeedTab id={id} page={data} />
+          )}
+        </Swap>
+      </SwipeTabs>
       <Backlinks key={id} id={id} kind="planner.project" />
 
       {local && (
