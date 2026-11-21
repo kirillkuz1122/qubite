@@ -1,3 +1,4 @@
+import { LookProvider } from '@qubite/ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   createMemoryHistory,
@@ -76,9 +77,11 @@ function show(wide = false) {
     history: createMemoryHistory({ initialEntries: ['/pult'] }),
   });
   render(
-    <QueryClientProvider client={client}>
-      <RouterProvider router={router} />
-    </QueryClientProvider>,
+    <LookProvider>
+      <QueryClientProvider client={client}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
+    </LookProvider>,
   );
 }
 
