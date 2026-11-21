@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { mockSync } from './sync-mock';
 import { goSection } from './nav';
 
@@ -22,6 +22,25 @@ async function openCommand(page: Page) {
   const input = page.getByRole('combobox', { name: 'Строка Command' });
   await expect(input).toBeFocused();
   return input;
+}
+
+const boardColumn = (page: Page, name: string) =>
+  page.getByRole('group', { name: new RegExp(`^${name}:`) });
+
+async function openBoard(page: Page) {
+  await page.goto('/planner');
+  await page.getByRole('radio', { name: 'Доска' }).click();
+}
+
+async function center(locator: Locator) {
+  const box = (await locator.boundingBox())!;
+  return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+}
+
+async function touchInput(page: Page) {
+  const cdp = await page.context().newCDPSession(page);
+  return (type: 'touchStart' | 'touchMove' | 'touchEnd', point?: { x: number; y: number }) =>
+    cdp.send('Input.dispatchTouchEvent', { type, touchPoints: point ? [{ ...point, id: 0 }] : [] });
 }
 
 test('дела и проекты с сервера: «Сегодня», неделя, доска, полоски проектов', async ({ page }) => {
@@ -101,12 +120,11 @@ test('доска: перенести дело меню, клавишами и м
 }) => {
   const server = await mockSync(page);
   server.addTask('Эссе по литературе', { due_date: day() });
-  await page.goto('/planner');
-  await page.getByRole('radio', { name: 'Доска' }).click();
-  const col = (name: string) => page.getByRole('group', { name: new RegExp(`^${name}:`) });
+  await openBoard(page);
+  const col = (name: string) => boardColumn(page, name);
   const card = page.locator('[data-card]').filter({ hasText: 'Эссе по литературе' });
 
-  await card.getByRole('button', { name: 'Переместить в…' }).click();
+  await card.getByRole('button', { name: 'Перенести в…' }).click();
   await card.getByRole('menuitem', { name: 'В работе' }).click();
   await expect(col('В работе')).toContainText('Эссе по литературе');
   await expect
@@ -155,6 +173,102 @@ test('доска: перенести дело меню, клавишами и м
         .map((op) => op.title),
     )
     .toEqual(['Физика', 'Олимпиада']);
+});
+
+test.describe('доска с касаниями', { tag: '@board-touch' }, () => {
+  const title = 'Разобрать задачи';
+  const taskCard = (page: Page) => page.locator('[data-card]').filter({ hasText: title });
+
+  test('долгое нажатие переносит дело из «Надо» в «В работе» и сохраняет статус', async ({
+    page,
+  }) => {
+    const server = await mockSync(page);
+    const id = server.addTask(title);
+    await openBoard(page);
+    const card = taskCard(page);
+    const target = boardColumn(page, 'В работе');
+    await expect(card).toBeInViewport();
+    const touch = await touchInput(page);
+    await touch('touchStart', await center(card.locator('.card-title')));
+    await expect(card).toHaveClass(/\bdragging\b/);
+    await touch('touchMove', await center(target));
+    await expect(target).toHaveClass(/\bover\b/);
+    await touch('touchEnd');
+
+    await expect(target).toContainText(title);
+    await expect
+      .poll(() => server.ops.find((op) => op.kind === 'patch' && op.object_id === id)?.fields)
+      .toMatchObject({ status: 'doing' });
+  });
+
+  test('короткое касание со сдвигом прокручивает доску без переноса', async ({ page }) => {
+    const server = await mockSync(page);
+    server.addTask(title);
+    for (let i = 1; i <= 12; i++) server.addTask(`Дело ${i}`, { status: 'doing' });
+    await openBoard(page);
+    const card = taskCard(page);
+    await expect(card).toBeInViewport();
+    const start = await center(card.locator('.card-title'));
+    const scrollBefore = await page.evaluate(() => window.scrollY);
+    const touch = await touchInput(page);
+    await touch('touchStart', start);
+    await touch('touchMove', { ...start, y: start.y - 32 });
+    await touch('touchMove', { ...start, y: start.y - 120 });
+    await touch('touchEnd');
+
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(scrollBefore);
+    await expect(boardColumn(page, 'Надо')).toContainText(title);
+    await expect(card).not.toHaveClass(/\bdragging\b/);
+    expect(server.ops).toHaveLength(0);
+  });
+
+  test('у нижнего края доска докручивается до «Готово» и карточка остаётся под пальцем', async ({
+    page,
+  }) => {
+    const server = await mockSync(page);
+    const id = server.addTask(title);
+    for (let i = 1; i <= 12; i++) server.addTask(`Дело ${i}`, { status: 'doing' });
+    await openBoard(page);
+    const card = taskCard(page);
+    const cardTitle = card.locator('.card-title');
+    const target = boardColumn(page, 'Готово');
+    await expect(card).toBeInViewport();
+    await expect(target).not.toBeInViewport();
+    const edge = (await page.locator('.q-dock').boundingBox())!.y - 8;
+    const start = await center(cardTitle);
+    const touch = await touchInput(page);
+    await touch('touchStart', start);
+    await expect(card).toHaveClass(/\bdragging\b/);
+    await touch('touchMove', { ...start, y: edge });
+    await expect
+      .poll(async () => {
+        const box = (await target.boundingBox())!;
+        return box.y + box.height;
+      })
+      .toBeLessThan(edge);
+    await expect.poll(async () => Math.abs((await center(cardTitle)).y - edge)).toBeLessThan(2);
+    await touch('touchMove', await center(target));
+    await expect(target).toHaveClass(/\bover\b/);
+    await touch('touchEnd');
+
+    await expect(target).toContainText(title);
+    await expect(card).not.toHaveClass(/\bdragging\b/);
+    await expect
+      .poll(() => server.ops.find((op) => op.kind === 'patch' && op.object_id === id)?.fields)
+      .toMatchObject({ status: 'done' });
+  });
+
+  test('меню «Перенести в…» работает от касания', async ({ page }) => {
+    const server = await mockSync(page);
+    server.addTask(title);
+    await openBoard(page);
+    const card = taskCard(page);
+    await card.getByRole('button', { name: 'Перенести в…' }).tap();
+    const menu = card.getByRole('menu', { name: 'Перенести в…' });
+    await expect(menu).toBeVisible();
+    await menu.getByRole('menuitem', { name: 'В работе' }).tap();
+    await expect(boardColumn(page, 'В работе')).toContainText(title);
+  });
 });
 
 test('строка без сути («#учёба завтра в 15:00 !») — не дело с меткой в названии, а во «Входящие»', async ({
