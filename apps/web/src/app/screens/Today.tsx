@@ -89,12 +89,7 @@ export function TodayScreen() {
   return (
     <div className="flow" ref={box}>
       <Strip tasks={tasks} />
-      <Presence
-        className="tip panel"
-        show={tipShown}
-        swap={first?.id}
-        onLayout={relayout}
-      >
+      <Presence className="tip panel" show={tipShown} swap={first?.id} onLayout={relayout}>
         {first && (
           <>
             <span className="q-dot av" style={{ background: 'var(--q-ink)' }} />

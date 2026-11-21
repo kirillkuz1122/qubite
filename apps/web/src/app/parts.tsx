@@ -1,5 +1,14 @@
 /** Общие части разделов: заголовок секции из точек и список дел с перетекающим выделением. */
-import { Button, DotIcon, DotText, Presence, RingCheck, WIDE, useMedia, useSlide } from '@qubite/ui';
+import {
+  Button,
+  DotIcon,
+  DotText,
+  Presence,
+  RingCheck,
+  WIDE,
+  useMedia,
+  useSlide,
+} from '@qubite/ui';
 import { Fragment, useId, useRef, useState, type ReactNode } from 'react';
 import type { Task } from './data';
 import { usePlanner } from './planner-context';
