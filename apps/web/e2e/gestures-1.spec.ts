@@ -110,6 +110,14 @@ test.describe('MOB-002, часть 1', { tag: '@gestures-touch' }, () => {
         await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(0);
         await expect(main).toHaveCSS('transform', 'none');
         await expect(page).toHaveURL(/\/today$/);
+        // Инерция прокрутки должна закончиться, иначе она утащит страницу вниз после scrollTo.
+        await expect
+          .poll(async () => {
+            const before = await page.evaluate(() => scrollY);
+            await page.waitForTimeout(150);
+            return before === (await page.evaluate(() => scrollY));
+          })
+          .toBe(true);
         await page.evaluate(() => scrollTo(0, 0));
 
         await touch.start(edge);

@@ -5,6 +5,8 @@
 html,
 body {
   margin: 0;
+  /* Свой жест «назад» (MOB-002, D-1141): браузер не ведёт историю горизонтальным протягиванием сам. */
+  overscroll-behavior-x: none;
 }
 body {
   background: var(--q-bg);
