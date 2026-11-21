@@ -22,7 +22,7 @@ export function EdgeBack({
   const previous = entry.qubitePreviousApp;
   const underlay = useRef<HTMLDivElement>(null);
   const contentsHost = useRef<HTMLDivElement>(null);
-  const preview = useRef<{ key: string; contents: HTMLElement } | null>(null);
+  const previews = useRef(new Map<string, HTMLElement>());
 
   useLayoutEffect(
     () =>
@@ -43,7 +43,9 @@ export function EdgeBack({
           element.removeAttribute('id');
           element.removeAttribute('autofocus');
         }
-        preview.current = { key, contents };
+        previews.current.set(key, contents);
+        if (previews.current.size > 8)
+          previews.current.delete(previews.current.keys().next().value!);
       }),
     [entry.__TSR_key, router, screen],
   );
@@ -83,8 +85,8 @@ export function EdgeBack({
         !document.querySelector('.q-sheet-wrap'),
       onStart: () => {
         width = Math.max(1, page.clientWidth);
-        const cached = preview.current;
-        host.replaceChildren(...(cached?.key === previous.key ? [cached.contents] : []));
+        const cached = previews.current.get(previous.key);
+        host.replaceChildren(...(cached ? [cached.cloneNode(true) as HTMLElement] : []));
         page.classList.add('edge-back-moving');
       },
       onMove: (distance) => L.hold(spring, Math.min(1, Math.max(0, distance / width)), 0),
