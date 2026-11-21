@@ -5,6 +5,7 @@ import {
   Range,
   Segmented,
   Swap,
+  SwipeTabs,
   Switch,
   useLook,
   type MotionChoice,
@@ -67,8 +68,9 @@ export function SettingsScreen() {
   const navigate = useNavigate();
   const page = path === '/account' ? 'account' : path.startsWith('/settings/ai') ? 'ai' : 'list';
   return (
-    <>
+    <SwipeTabs>
       <Segmented
+        swipeTabs
         label="Раздел настроек"
         value={page === 'account' ? 'account' : 'list'}
         onChange={(tab) => void navigate({ to: tab === 'account' ? '/account' : '/settings' })}
@@ -86,7 +88,7 @@ export function SettingsScreen() {
           <SettingsHome />
         )}
       </Swap>
-    </>
+    </SwipeTabs>
   );
 }
 

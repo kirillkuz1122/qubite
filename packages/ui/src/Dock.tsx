@@ -6,7 +6,8 @@ import {
   type CSSProperties,
   type ReactNode,
 } from 'react';
-import { drag, project, rubber } from '@qubite/motion';
+import { drag, project, rubber, type DragHandle } from '@qubite/motion';
+import { DockPicker, useDockPicker } from './DockPicker';
 import { feelOf, scaled } from './feel';
 import { useFlow } from './Flow';
 import { DotIcon, type IconName } from './icons';
@@ -23,11 +24,13 @@ export interface NavItem<T extends string = string> {
   badge?: boolean;
 }
 
-export interface DockProps<T extends string> {
+export interface DockProps<T extends string, M extends string = T> {
   items: NavItem<T>[];
   current: T;
   /** перейти в раздел; `false` — перехода не было (например, «Ещё» открыл окно) */
   onGo: (id: T) => void | boolean;
+  /** Все доступные модули для долгого нажатия по панели разделов. */
+  picker?: { items: NavItem<M>[]; onPick: (id: M) => void } | undefined;
   /** раскрыта ли строка Command */
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -48,14 +51,15 @@ const HALF = 30;
  * Подсветку раздела можно тащить пальцем и смахивать: отпустил — открылся раздел под ней,
  * быстрый свайп — соседний раздел. Escape или прокрутка посреди жеста возвращают её на место.
  */
-export function Dock<T extends string>({
+export function Dock<T extends string, M extends string = T>({
   items,
   current,
   onGo,
+  picker,
   open,
   onOpenChange,
   children,
-}: DockProps<T>) {
+}: DockProps<T, M>) {
   const host = useRef<HTMLElement>(null);
   const field = useRef<HTMLDivElement>(null);
   const cmdBtn = useRef<HTMLButtonElement>(null);
@@ -181,6 +185,20 @@ export function Dock<T extends string>({
 
   /* подсветку раздела тащат пальцем или смахивают */
   const dragged = useRef(false);
+  const dockDrag = useRef<DragHandle | null>(null);
+  const pickerState = useDockPicker(
+    host,
+    !open && !!picker,
+    () => {
+      if (dockDrag.current?.active) return false;
+      dockDrag.current?.cancel();
+      return true;
+    },
+    (id) => {
+      const item = picker?.items.find((it) => it.id === id);
+      if (item) picker?.onPick(item.id);
+    },
+  );
   const live = useRef({ items, current, onGo, open, W });
   live.current = { items, current, onGo, open, W };
   useEffect(() => {
@@ -198,6 +216,7 @@ export function Dock<T extends string>({
       // только по разделам и только когда строка Command закрыта
       filter: (e) =>
         !live.current.open &&
+        !(e.target instanceof Element && e.target.closest('.q-dock-picker')) &&
         e.clientX - el.getBoundingClientRect().left < live.current.W - H - GAP,
       onDown: () => (dragged.current = false),
       onStart: () => {
@@ -226,7 +245,11 @@ export function Dock<T extends string>({
       },
       onCancel: back,
     });
-    return () => h.destroy();
+    dockDrag.current = h;
+    return () => {
+      dockDrag.current = null;
+      h.destroy();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -279,6 +302,7 @@ export function Dock<T extends string>({
       >
         {children}
       </div>
+      {picker && <DockPicker items={picker.items} {...pickerState} />}
     </nav>
   );
 }

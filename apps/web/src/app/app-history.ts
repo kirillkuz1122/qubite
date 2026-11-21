@@ -13,6 +13,16 @@ declare module '@tanstack/react-router' {
   }
 }
 
+export function canGoBackInApp(key: string | undefined): key is string {
+  const entry = window.history.state as BrowserHistory['location']['state'] | null;
+  return !!key && entry?.__TSR_key === key && !!entry.qubitePreviousApp;
+}
+
+export function backToPreviousApp() {
+  const entry = window.history.state as BrowserHistory['location']['state'] | null;
+  if (canGoBackInApp(entry?.__TSR_key)) window.history.back();
+}
+
 /** Храним метку соседней записи в самом history.state браузера. */
 export function trackAppBack(history: BrowserHistory, isApp: (pathname: string) => boolean) {
   const { push, replace } = history;

@@ -1,6 +1,8 @@
 import { drag, project, rubber } from '@qubite/motion';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useFlow } from './Flow';
+import { useSwipeTabs } from './SwipeTabs';
+import { WIDE, useMedia } from './media';
 
 export interface SegmentedProps<T extends string> {
   options: { value: T; label: string; count?: number }[];
@@ -14,6 +16,8 @@ export interface SegmentedProps<T extends string> {
    * Без него рамка сама переходит в ряды, если пункты не помещаются по ширине (DS-008).
    */
   wrap?: boolean;
+  /** Вкладки: свайп на переключателе и в ближайшей области data-swipe-tabs. */
+  swipeTabs?: boolean;
 }
 
 /**
@@ -28,11 +32,18 @@ export function Segmented<T extends string>({
   label,
   variant = 'panel',
   wrap: wrapAsked = false,
+  swipeTabs,
 }: SegmentedProps<T>) {
   const chips = variant === 'chips';
   const over = useOverflow(chips || wrapAsked, options.length);
   const wrap = wrapAsked || over.mode === 'wrap';
-  const { node, to, hold } = useFlow(44, chips ? 0 : 4, chips ? { className: 'q-chip-flow' } : {});
+  const wide = useMedia(WIDE);
+  const mobileTabs = !!swipeTabs && !wide;
+  const { node, to, hold } = useFlow(
+    mobileTabs ? 2 : 44,
+    chips ? 0 : 4,
+    mobileTabs ? { className: 'q-tab-flow' } : chips ? { className: 'q-chip-flow' } : {},
+  );
   const box = over.box;
   const btns = useRef(new Map<T, HTMLButtonElement>());
   const first = useRef(true);
@@ -42,7 +53,27 @@ export function Segmented<T extends string>({
   });
   const dragged = useRef(false);
 
+  const measure = (v: T) => {
+    const b = btns.current.get(v);
+    if (!b) return;
+    return {
+      left: b.offsetLeft + 8,
+      right: b.offsetLeft + b.offsetWidth - 8,
+      top: b.offsetTop + b.offsetHeight - 4,
+    };
+  };
+
+  const choose = (v: T) => {
+    const r = btns.current.get(v)?.getBoundingClientRect();
+    if (r) onChange(v, { x: r.left + r.width / 2, y: r.top + r.height / 2 });
+  };
+
   const place = (v: T, jump: boolean) => {
+    if (mobileTabs) {
+      const position = measure(v);
+      if (position) to(position.left, position.right, jump, position.top);
+      return;
+    }
     const b = btns.current.get(v);
     if (!b) return;
     to(b.offsetLeft, b.offsetLeft + b.offsetWidth, jump, wrap ? b.offsetTop : undefined);
@@ -52,11 +83,22 @@ export function Segmented<T extends string>({
     place(value, first.current);
     first.current = false;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value, to, wrap, over.mode]);
+  }, [value, to, wrap, over.mode, mobileTabs]);
+
+  const currentIndex = options.findIndex((o) => o.value === value);
+  useSwipeTabs(box, {
+    enabled: mobileTabs,
+    current: currentIndex,
+    count: options.length,
+    measure: (i) => measure(options[i]!.value),
+    preview: ({ left, right, top }) => hold(left, right, 0, top),
+    restore: () => place(value, false),
+    select: (i) => choose(options[i]!.value),
+  });
 
   useEffect(() => {
     const el = box.current;
-    if (!el || chips || wrap) return;
+    if (!el || chips || wrap || mobileTabs) return;
     const row = () => latest.current.options.map((o) => btns.current.get(o.value)!);
     let grab = 0;
     let center = 0;
@@ -111,11 +153,12 @@ export function Segmented<T extends string>({
     });
     return () => h.destroy();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chips, wrap]);
+  }, [chips, wrap, mobileTabs]);
 
   return (
     <div
       ref={box}
+      data-swipe-tab-list={mobileTabs ? '' : undefined}
       className={[chips ? 'q-chips' : 'q-seg', wrap && 'q-wrap', over.mode === 'tight' && 'q-tight']
         .filter(Boolean)
         .join(' ')}
@@ -133,11 +176,11 @@ export function Segmented<T extends string>({
           className={o.value === value ? 'q-on' : undefined}
           ref={(el) => {
             if (el) btns.current.set(o.value, el);
+            else btns.current.delete(o.value);
           }}
-          onClick={(e) => {
+          onClick={() => {
             if (dragged.current) return; // подложку протащили — выбор уже сделан жестом
-            const r = e.currentTarget.getBoundingClientRect();
-            onChange(o.value, { x: r.left + r.width / 2, y: r.top + r.height / 2 });
+            choose(o.value);
           }}
         >
           {o.label}

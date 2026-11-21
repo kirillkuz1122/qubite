@@ -81,7 +81,9 @@ export function EdgeBack({
         history.state?.__TSR_key === key &&
         event.clientX >= EDGE_MIN &&
         event.clientX <= EDGE_MAX &&
-        !target.closest('.board [data-card], .mm-canvas') &&
+        !target.closest(
+          '.board [data-card], .mm-canvas, [data-swipe-tabs], [data-swipe-tab-list]',
+        ) &&
         !document.querySelector('.q-sheet-wrap'),
       onStart: () => {
         width = Math.max(1, page.clientWidth);
