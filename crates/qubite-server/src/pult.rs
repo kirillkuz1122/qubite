@@ -54,7 +54,8 @@ const ISSUE_RUNNING_HOURS: i64 = 12;
 const ISSUE_DONE_HOURS: i64 = 48;
 /// Вопрос без ответа держим дольше: он ждёт именно владельца.
 const ISSUE_WAITING_DAYS: i64 = 7;
-/// Сколько агентов отдаём в списке.
+/// Сколько агентов каждого статуса отдаём в списке: фильтр «Работает» не должен
+/// оказаться пустым из-за 40 ждущих выше по списку.
 const AGENTS_MAX: usize = 40;
 /// Лимит — LOW, если осталось меньше (D-953).
 const LOW_PERCENT: f64 = 15.0;
@@ -468,7 +469,7 @@ pub struct PultPr {
     ci: Option<Ci>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum AgentStatus {
     Running,
@@ -1212,11 +1213,24 @@ fn sources(g: &Gathered, configured: bool, now: OffsetDateTime) -> Vec<PultSourc
     out
 }
 
+/// Первые `AGENTS_MAX` агентов каждого статуса; порядок списка сохраняется.
+fn shown_agents(all: &[PultAgent]) -> Vec<PultAgent> {
+    let mut taken: HashMap<AgentStatus, usize> = HashMap::new();
+    all.iter()
+        .filter(|a| {
+            let n = taken.entry(a.status).or_default();
+            *n += 1;
+            *n <= AGENTS_MAX
+        })
+        .cloned()
+        .collect()
+}
+
 /// Светофор и полный список агентов (в ответе — первые 40, история — по всем).
 fn board(state: &AppState, g: &Gathered, now: OffsetDateTime) -> (PultBoard, Vec<PultAgent>) {
     let limits = limits(&g.reports, now);
     let (all, waiting, counts) = agents(g, now);
-    let agents: Vec<PultAgent> = all.iter().take(AGENTS_MAX).cloned().collect();
+    let agents = shown_agents(&all);
     let mut skills: Vec<String> = g
         .reports
         .iter()
@@ -2007,6 +2021,34 @@ mod tests {
         fixed.pr.as_mut().unwrap().ci = Some(Ci::Green);
         let next = diff(&fixed, Some(&now), &green, &[]);
         assert_eq!(next, [("ci_green", "CI зелёный".to_owned())]);
+    }
+
+    #[test]
+    fn list_keeps_forty_of_each_status() {
+        let agent = |i: usize, status: AgentStatus| PultAgent {
+            key: format!("a{i}"),
+            title: String::new(),
+            status,
+            place: AgentPlace::Pc,
+            model: None,
+            effort: None,
+            minutes: None,
+            context: None,
+            tokens: None,
+            usd: None,
+            cache: None,
+            pr: None,
+            url: None,
+            session_url: None,
+            task: None,
+            source: String::new(),
+            updated_at: OffsetDateTime::UNIX_EPOCH,
+        };
+        let mut all: Vec<PultAgent> = (0..45).map(|i| agent(i, AgentStatus::Waiting)).collect();
+        all.push(agent(100, AgentStatus::Running));
+        let shown = shown_agents(&all);
+        assert_eq!(shown.len(), 41);
+        assert_eq!(shown.last().unwrap().status, AgentStatus::Running);
     }
 
     #[test]
