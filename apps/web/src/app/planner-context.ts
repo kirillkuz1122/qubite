@@ -1,6 +1,6 @@
 /** Дела и проекты для экранов «Сегодня» и Planner (данные — в `planner.tsx`). */
 import { createContext, useContext } from 'react';
-import type { Day } from './data';
+import type { Day, Task } from './data';
 import type { PlannerProject, PlannerTask, ProjectPatch, TaskStatus } from '@qubite/sync-client';
 import type { BoardColumn, ProjectBar } from './planner-view';
 
@@ -9,6 +9,8 @@ export interface PlannerApi {
   week: Day[];
   /** номер сегодняшнего дня в `week` */
   today: number;
+  /** незавершённые дела без срока */
+  undated: Task[];
   board: BoardColumn[];
   projects: ProjectBar[];
   /** все живые проекты и дела на устройстве (страница проекта, PROJ-001) */

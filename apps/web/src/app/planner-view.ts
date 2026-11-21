@@ -128,6 +128,18 @@ export function buildWeek(tasks: PlannerTask[], projects: PlannerProject[], now:
   });
 }
 
+export function buildUndated(
+  tasks: PlannerTask[],
+  projects: PlannerProject[],
+  today: string,
+): Task[] {
+  const byId = new Map(projects.map((p) => [p.id, p]));
+  return tasks
+    .filter((t) => t.status !== 'done' && t.due_date === null)
+    .sort((a, b) => a.title.localeCompare(b.title, 'ru'))
+    .map((t) => toRow(t, byId, today));
+}
+
 export interface BoardCard {
   id: string;
   title: string;

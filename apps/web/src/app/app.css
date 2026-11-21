@@ -327,6 +327,14 @@ a {
   margin-top: 10px;
 }
 
+/* Входящие двигаются относительно блока дел, а тот — относительно подсказки. */
+.today-rest {
+  position: relative;
+}
+.undated {
+  margin-top: 8px;
+}
+
 /* список дел: кольцо из точек и перетекающее выделение */
 .list {
   position: relative;

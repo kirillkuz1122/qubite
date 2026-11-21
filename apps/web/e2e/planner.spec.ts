@@ -62,6 +62,40 @@ test('дела и проекты с сервера: «Сегодня», неде
   await expect(col('Готово')).toContainText('Конспект по физике');
 });
 
+test('Сегодня: дело без даты скрыто, исчезает после отметки и возвращается', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 780 });
+  const server = await mockSync(page);
+  const title = 'ДлинноеНазваниеДелаБезДаты'.repeat(4);
+  const taskId = server.addTask(title, { due_date: null });
+  await page.goto('/today');
+
+  const block = page.getByRole('button', { name: 'Без даты · 1' });
+  const ring = page.getByRole('checkbox', { name: `Готово: ${title}` });
+  await expect(block).toHaveAttribute('aria-expanded', 'false');
+  await expect(ring).toHaveCount(0);
+  await expect(page.getByText('0 из 0', { exact: true })).toBeVisible();
+  await expect(page.getByText('На сегодня дел нет.', { exact: false })).toBeVisible();
+
+  await block.click();
+  await expect(block).toHaveAttribute('aria-expanded', 'true');
+  await expect(ring).toBeVisible();
+  const task = page.getByRole('button', { name: `Открыть дело: ${title}` });
+  expect(await task.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+
+  await ring.click();
+  await expect(block).toHaveCount(0);
+  await expect(ring).toHaveCount(0);
+  await expect
+    .poll(() => server.ops.find((op) => op.kind === 'patch' && op.object_id === taskId)?.fields)
+    .toEqual({ status: 'done' });
+
+  server.patch(taskId, { status: 'todo' });
+  server.ping();
+  await expect(block).toBeVisible();
+  await expect(ring).toBeVisible();
+});
+
 test('доска: перенести дело меню, клавишами и мышью; проект — кнопкой и из Command (D-289)', async ({
   page,
 }) => {

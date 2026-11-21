@@ -131,6 +131,7 @@ function mount(board: ProjectBoard | null = TWO_COLUMNS, settings = false) {
     const planner: PlannerApi = {
       week: [],
       today: 0,
+      undated: [],
       board: [],
       projects: [],
       data: { projects: [project], tasks },
