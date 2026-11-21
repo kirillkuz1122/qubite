@@ -208,7 +208,9 @@ export function Counters({
               {label}
             </span>
             <b
-              className={status === 'waiting' && count > 0 ? 'pult-num pult-ink-orange' : 'pult-num'}
+              className={
+                status === 'waiting' && count > 0 ? 'pult-num pult-ink-orange' : 'pult-num'
+              }
             >
               {count}
             </b>
