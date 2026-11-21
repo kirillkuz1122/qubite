@@ -57,7 +57,10 @@ describe('swipe', () => {
     }
     expect(onStart).toHaveBeenCalledTimes(2);
     expect(onMove.mock.calls).toEqual([[45], [4], [45], [4]]);
-    expect(onEnd.mock.calls).toEqual([[3, -200], [3, -200]]);
+    expect(onEnd.mock.calls).toEqual([
+      [3, -200],
+      [3, -200],
+    ]);
   });
 
   it('отдаёт движение прокручиваемому предку до его верхней границы', () => {

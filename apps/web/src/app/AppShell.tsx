@@ -260,7 +260,7 @@ export function AppShell() {
   const screen = useRef<HTMLDivElement>(null);
   const swipeBack = useCallback((key: string) => {
     setBackFrom(key);
-    history.back();
+    window.history.back();
   }, []);
   const sp = useSpring(0, MASS.pill, (v) => {
     const el = screen.current;

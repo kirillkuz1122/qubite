@@ -223,7 +223,9 @@ export function Sheet({
 
   if (!alive || typeof document === 'undefined') return null;
   return createPortal(
-    <div className={wide ? 'q-sheet-wrap q-wide' : top ? 'q-sheet-wrap q-sheet-top' : 'q-sheet-wrap'}>
+    <div
+      className={wide ? 'q-sheet-wrap q-wide' : top ? 'q-sheet-wrap q-sheet-top' : 'q-sheet-wrap'}
+    >
       <div
         ref={veil}
         className="q-sheet-veil"

@@ -25,6 +25,10 @@ export function trackAppBack(history: BrowserHistory, isApp: (pathname: string) 
     push(href, { ...state, qubitePreviousApp }, options);
   };
   history.replace = (href, state, options) => {
-    replace(href, { ...state, qubitePreviousApp: history.location.state.qubitePreviousApp }, options);
+    replace(
+      href,
+      { ...state, qubitePreviousApp: history.location.state.qubitePreviousApp },
+      options,
+    );
   };
 }

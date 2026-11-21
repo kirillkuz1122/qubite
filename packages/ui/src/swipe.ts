@@ -42,7 +42,8 @@ export function canScroll(
       (page && overflow !== 'hidden' && overflow !== 'clip') ||
       /^(auto|scroll|overlay)$/.test(overflow)
     ) {
-      const max = axis === 'x' ? el.scrollWidth - el.clientWidth : el.scrollHeight - el.clientHeight;
+      const max =
+        axis === 'x' ? el.scrollWidth - el.clientWidth : el.scrollHeight - el.clientHeight;
       const pos = axis === 'x' ? el.scrollLeft : el.scrollTop;
       const rtl = axis === 'x' && style.direction === 'rtl';
       const room = delta > 0 ? pos - (rtl ? -max : 0) : (rtl ? 0 : max) - pos;
