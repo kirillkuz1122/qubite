@@ -78,15 +78,27 @@ export function PultScreen() {
         />
       ) : (
         tab !== 'light' && (
-          <Button
-            className="pult-back"
-            variant="quiet"
-            size="sm"
-            onClick={() => (tab === 'agents' && agent ? setAgent(null) : setTab('light'))}
-          >
-            <DotIcon name="back" size={14} />
-            {tab === 'agents' && agent ? 'Агенты' : 'Пульт'}
-          </Button>
+          <div className="pult-nav">
+            <Button
+              variant="quiet"
+              size="sm"
+              onClick={() => (tab === 'agents' && agent ? setAgent(null) : setTab('light'))}
+            >
+              <DotIcon name="back" size={14} />
+              {tab === 'agents' && agent ? 'Агенты' : 'Пульт'}
+            </Button>
+            {(tab === 'agents' || tab === 'map') && (
+              <Segmented<'agents' | 'map'>
+                label="Агенты или карта"
+                value={tab}
+                onChange={setTab}
+                options={[
+                  { value: 'agents', label: 'Агенты' },
+                  { value: 'map', label: 'Карта' },
+                ]}
+              />
+            )}
+          </div>
         )
       )}
       <Swap view={tab} order={TABS}>
@@ -157,10 +169,11 @@ function Light({
         <Limits board={b} wide={wide} onConnect={onConnect} />
       </div>
       <div className="pult-a-counts">
-        <Counters board={b} />
+        <Counters board={b} onList={onList} />
       </div>
-      <div className="pult-a-spend">
-        <Spend board={b} />
+      <div className="pult-shortcuts" role="group" aria-label="Разделы Светофора">
+        <Button onClick={() => onList('all')}>Агенты {b.agents.length}</Button>
+        <Button onClick={() => onTab('map')}>Карта</Button>
       </div>
       <section className="pult-a-wait" aria-label="Ждёт тебя">
         <SecHead text="ЖДЁТ ТЕБЯ" label="Ждёт тебя">
@@ -190,6 +203,9 @@ function Light({
           </div>
         )}
       </section>
+      <div className="pult-a-spend">
+        <Spend board={b} />
+      </div>
       {wide && (
         <section className="pult-a-agents" aria-label="Агенты сейчас">
           <SecHead text="АГЕНТЫ СЕЙЧАС" label="Агенты сейчас">
@@ -216,12 +232,6 @@ function Light({
         <section className="pult-a-more" aria-label="Ещё в Пульте">
           <SecHead text="ЕЩЁ В ПУЛЬТЕ" label="Ещё в Пульте" />
           <div className="pult-acts">
-            <Button size="sm" onClick={() => onList('all')}>
-              Агенты {b.agents.length}
-            </Button>
-            <Button size="sm" onClick={() => onTab('map')}>
-              Карта
-            </Button>
             <Button size="sm" onClick={() => onTab('recos')}>
               Recos
             </Button>
@@ -267,14 +277,12 @@ function Agents({
   const list =
     shown.length === 0 ? (
       <div className="panel pult-box">
-        {filter === 'waiting' ? (
-          <NothingWaits />
-        ) : (
+        {filter === 'all' ? (
           <p className="pult-small">
-            {b.agents.length === 0
-              ? 'Агентов не видно: нет задач с метками в GitHub и сводок с сессиями.'
-              : 'Здесь пусто.'}
+            Агентов не видно: нет задач с метками в GitHub и сводок с сессиями.
           </p>
+        ) : (
+          <EmptyState kind="proto" title="Здесь пусто" />
         )}
       </div>
     ) : (
