@@ -4,6 +4,11 @@ import type { Day, Task } from './data';
 import type { PlannerProject, PlannerTask, ProjectPatch, TaskStatus } from '@qubite/sync-client';
 import type { BoardColumn, ProjectBar } from './planner-view';
 
+export interface TaskDestination {
+  status: TaskStatus;
+  title: string;
+}
+
 export interface PlannerApi {
   /** пн…вс вокруг сегодняшнего дня, дела по дням срока */
   week: Day[];
@@ -36,6 +41,8 @@ export interface PlannerApi {
   editProject(id: string, patch: ProjectPatch): Promise<void>;
   /** Открыть карточку дела с местом и дорогой. */
   openTask(id: string): void;
+  placeTask(id: string, columns?: readonly TaskDestination[]): void;
+  swipeTask(id: string, action: 'done' | 'delete'): Promise<void>;
 }
 
 export const PlannerCtx = createContext<PlannerApi | null>(null);

@@ -140,6 +140,8 @@ function mount(board: ProjectBoard | null = TWO_COLUMNS, settings = false) {
       toggle: vi.fn(),
       newProject: vi.fn(),
       openTask: calls.openTask,
+      placeTask: vi.fn(),
+      swipeTask: vi.fn(),
       move: async (id, status) => {
         await calls.move(id, status);
         setTasks((current) => current.map((task) => (task.id === id ? { ...task, status } : task)));

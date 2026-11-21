@@ -25,6 +25,7 @@ import { say } from '../auth/client';
 import { AgentTimeline } from './AgentTimeline';
 import { useShell } from './context';
 import { usePlanner } from './planner-context';
+import { TaskSwipeRow } from './TaskSwipeRow';
 import { iso, toRow } from './planner-view';
 import { buildProjectColumns, dueLabel, projectBoard } from './project-view';
 
@@ -278,80 +279,87 @@ function ProjectTaskGroups({
             {column.tasks.map((task) => {
               const row = toRow(task, NO_PROJECTS, today);
               return (
-                <div
+                <TaskSwipeRow
                   key={task.id}
-                  className={
-                    task.status === 'done'
-                      ? 'card panel pp-task-card done'
-                      : 'card panel pp-task-card'
-                  }
-                  data-card={task.id}
-                  data-obj={task.id}
-                  tabIndex={0}
-                  aria-label={`${task.title}. Перенести: стрелки влево и вправо`}
-                  onPointerDown={(e) => onPointerDown(e, task.id)}
-                  onKeyDown={(e) => onKey(e, task.id, column.status)}
+                  id={task.id}
+                  done={task.status === 'done'}
+                  columns={columns}
                 >
-                  <div className="pp-task-card-top">
-                    <RingCheck
-                      done={task.status === 'done'}
-                      label={`Готово: ${task.title}`}
-                      onToggle={(done) => void moveTo(task.id, done ? 'done' : 'todo')}
-                    />
-                    <Button
-                      className="task-open pp-task-title"
-                      dot={false}
-                      aria-label={`Открыть дело: ${task.title}`}
-                      onClick={() => planner.openTask(task.id)}
-                    >
-                      {task.title}
-                    </Button>
-                    <Button
-                      size="sm"
-                      dot={false}
-                      aria-label={`Действия дела: ${task.title}`}
-                      aria-expanded={menu === task.id}
-                      onClick={() => setMenu(menu === task.id ? null : task.id)}
-                    >
-                      <DotIcon name="more" size={16} />
-                    </Button>
-                  </div>
-                  <div className="meta pp-task-meta">
-                    <span className="q-dot" style={{ background: `var(--q-${color})` }} />
-                    {[dueLabel(task.due_date, today), task.due_time, row.tag]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </div>
-                  <Presence show={task.travel_minutes != null} className="task-travel">
-                    в пути {task.travel_minutes} мин
-                  </Presence>
-                  <Presence show={menu === task.id}>
-                    <div className="pp-task-actions" role="group" aria-label="Переместить в…">
-                      <p>Переместить в…</p>
-                      {columns.map((target) => (
-                        <Button
-                          key={target.status}
-                          size="sm"
-                          variant="quiet"
-                          disabled={target.status === task.status}
-                          onClick={() => void moveTo(task.id, target.status)}
-                        >
-                          {target.title}
-                        </Button>
-                      ))}
+                  <div
+                    className={
+                      task.status === 'done'
+                        ? 'card panel pp-task-card done'
+                        : 'card panel pp-task-card'
+                    }
+                    data-card={task.id}
+                    data-obj={task.id}
+                    tabIndex={0}
+                    aria-label={`${task.title}. Перенести: стрелки влево и вправо`}
+                    onPointerDown={(e) => onPointerDown(e, task.id)}
+                    onKeyDown={(e) => onKey(e, task.id, column.status)}
+                  >
+                    <div className="pp-task-card-top">
+                      <RingCheck
+                        done={task.status === 'done'}
+                        label={`Готово: ${task.title}`}
+                        onToggle={(done) => void moveTo(task.id, done ? 'done' : 'todo')}
+                      />
+                      <Button
+                        className="task-open pp-task-title"
+                        data-swipe-handle=""
+                        dot={false}
+                        aria-label={`Открыть дело: ${task.title}`}
+                        onClick={() => planner.openTask(task.id)}
+                      >
+                        {task.title}
+                      </Button>
                       <Button
                         size="sm"
-                        variant="quiet"
-                        onClick={() => setTrail(trail === task.id ? null : task.id)}
+                        dot={false}
+                        aria-label={`Действия дела: ${task.title}`}
+                        aria-expanded={menu === task.id}
+                        onClick={() => setMenu(menu === task.id ? null : task.id)}
                       >
-                        Лента дела
+                        <DotIcon name="more" size={16} />
                       </Button>
                     </div>
-                  </Presence>
-                  <Presence show={trail === task.id}>
-                    <AgentTimeline trail={{ object: task.id }} compact />
-                  </Presence>
-                </div>
+                    <div className="meta pp-task-meta">
+                      <span className="q-dot" style={{ background: `var(--q-${color})` }} />
+                      {[dueLabel(task.due_date, today), task.due_time, row.tag]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </div>
+                    <Presence show={task.travel_minutes != null} className="task-travel">
+                      в пути {task.travel_minutes} мин
+                    </Presence>
+                    <Presence show={menu === task.id}>
+                      <div className="pp-task-actions" role="group" aria-label="Переместить в…">
+                        <p>Переместить в…</p>
+                        {columns.map((target) => (
+                          <Button
+                            key={target.status}
+                            size="sm"
+                            variant="quiet"
+                            disabled={target.status === task.status}
+                            onClick={() => void moveTo(task.id, target.status)}
+                          >
+                            {target.title}
+                          </Button>
+                        ))}
+                        <Button
+                          size="sm"
+                          variant="quiet"
+                          onClick={() => setTrail(trail === task.id ? null : task.id)}
+                        >
+                          Лента дела
+                        </Button>
+                      </div>
+                    </Presence>
+                    <Presence show={trail === task.id}>
+                      <AgentTimeline trail={{ object: task.id }} compact />
+                    </Presence>
+                  </div>
+                </TaskSwipeRow>
               );
             })}
           </Presence>

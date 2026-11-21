@@ -685,6 +685,68 @@ button.q-lrow {
   }
 }
 
+/* Действия свайпа лежат под строкой. В покое не обрезаем карточку при переносе долгим нажатием. */
+.q-swipe-row {
+  position: relative;
+  min-width: 0;
+}
+.q-swipe-front {
+  position: relative;
+  touch-action: pan-y pinch-zoom;
+}
+.q-swipe-row[data-swipe-direction] {
+  overflow: clip;
+  border-radius: calc(var(--q-round) * 20px);
+}
+.q-swipe-row[data-swipe-direction] .q-swipe-front {
+  background: var(--q-panel);
+  border-radius: inherit;
+}
+.q-swipe-actions,
+.q-swipe-done {
+  position: absolute;
+  inset-block: 0;
+  display: flex;
+  visibility: hidden;
+}
+.q-swipe-actions {
+  right: 0;
+  max-width: 100%;
+  background: var(--q-panel-2);
+}
+.q-swipe-row[data-swipe-direction='left'] .q-swipe-actions,
+.q-swipe-row[data-swipe-direction='right'] .q-swipe-done {
+  visibility: visible;
+}
+.q-swipe-actions .q-btn.q-quiet {
+  justify-content: center;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 0;
+  color: var(--q-ink);
+}
+.q-swipe-actions .q-btn.q-swipe-delete {
+  background: var(--q-red);
+  color: var(--q-bg);
+}
+:root[data-theme='light'] .q-swipe-actions .q-btn.q-swipe-delete {
+  color: var(--q-panel);
+}
+.q-swipe-actions .q-btn:focus-visible {
+  outline-offset: -3px;
+}
+.q-swipe-done {
+  inset-inline: 0;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  background: var(--q-green);
+  color: var(--q-on-accent);
+  font-size: 14px;
+  font-weight: 500;
+  pointer-events: none;
+}
+
 /* Строка списка v2 (DS-013): точка, название, подпись. Текст человека переносится по символам;
    на телефоне подпись — под названием, на ПК — справа. */
 .q-lrow {
