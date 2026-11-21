@@ -2,7 +2,6 @@ import { loop, MASS } from '@qubite/motion';
 import type { TaskStatus } from '@qubite/sync-client';
 import {
   Button,
-  DotIcon,
   EmptyState,
   Field,
   IconButton,

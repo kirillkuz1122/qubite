@@ -31,7 +31,9 @@ function visibleBounds(scroller: HTMLElement | null, header: Element | null, doc
     viewportTop = Number.parseFloat(style.getPropertyValue('--app-vt')) || 0;
     height = Number.parseFloat(style.getPropertyValue('--app-vh')) || height;
   }
-  const scrollTop = scroller ? scroller.getBoundingClientRect().top + scroller.clientTop : -Infinity;
+  const scrollTop = scroller
+    ? scroller.getBoundingClientRect().top + scroller.clientTop
+    : -Infinity;
   return {
     top: Math.max(viewportTop, scrollTop, header?.getBoundingClientRect().bottom ?? -Infinity),
     bottom: Math.min(
