@@ -282,7 +282,13 @@ function Agents({
   const picked = agent ?? (wide ? (shown[0]?.key ?? null) : null);
   const now = new Date(b.now);
   const loneCards = lone.map((w) => (
-    <WaitCard key={w.key} w={w} now={now} main={false} onOpen={() => onSchedule(w.key)} />
+    <WaitCard
+      key={w.key}
+      w={w}
+      now={now}
+      main={false}
+      onOpen={() => (w.number == null ? onSchedule(w.key) : onAgent(w.key))}
+    />
   ));
   const list =
     shown.length === 0 && lone.length > 0 ? (

@@ -310,11 +310,15 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
-.pult-count.q-btn {
+.pult-count {
   padding: 12px;
   display: grid;
   gap: 8px;
   min-width: 0;
+}
+/* кнопка Светофора: тот же вид, что у панели расхода на «Задачах», но слева и выше .q-btn */
+.pult-count.q-btn {
+  padding: 12px;
   text-align: left;
 }
 .pult-count .pult-small {
@@ -322,6 +326,7 @@
 }
 /* 360 px: три подписи целиком в строку, без многоточий (D-953) */
 @media (max-width: 420px) {
+  .pult-count,
   .pult-count.q-btn {
     padding: 12px 8px;
   }
