@@ -1,6 +1,13 @@
 import { QueryClient, QueryObserver } from '@tanstack/react-query';
 import { describe, expect, it } from 'vitest';
-import { ACCOUNT_CHANNEL, currentAccount, LAST_ACCOUNT, ME, watchAccount } from './account';
+import {
+  ACCOUNT_CHANNEL,
+  currentAccount,
+  LAST_ACCOUNT,
+  ME,
+  ownerHint,
+  watchAccount,
+} from './account';
 
 function me(id: string) {
   return { id, email: `${id}@x.ru`, display_name: id, is_owner: false };
@@ -130,5 +137,20 @@ describe('смена аккаунта (SYNC-008, замечание 11)', () => 
     qc.setQueryData(ME, me('b'));
     expect(qc.getQueryData(['sessions'])).toEqual(['сессии A']);
     expect(ACCOUNT_CHANNEL).toBe('qubite.account');
+  });
+});
+
+describe('подсказка «владелец» для нижнего меню (MOB-001, D-1110)', () => {
+  it('следует за любым изменением «кто вошёл»: вход, выход, другой человек', () => {
+    localStorage.removeItem('qubite.owner');
+    const { qc } = setup();
+    expect(ownerHint()).toBe(false);
+    qc.setQueryData(ME, { ...me('o'), is_owner: true }); // вошёл владелец (setQueryData, не ответ сервера)
+    expect(ownerHint()).toBe(true);
+    qc.setQueryData(ME, null); // вышел
+    expect(ownerHint()).toBe(false);
+    qc.setQueryData(ME, { ...me('o'), is_owner: true });
+    qc.setQueryData(ME, me('u')); // вошёл не владелец
+    expect(ownerHint()).toBe(false);
   });
 });

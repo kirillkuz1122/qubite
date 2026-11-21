@@ -67,8 +67,9 @@ import { reveal } from './reveal';
 import { useStore, type State } from './state';
 import { useInbox } from './inbox-context';
 import { usePlanner, type PlannerApi } from './planner-context';
-import { useMe } from '../auth/client';
+import { ownerHint, useMe } from '../auth/client';
 import { useSync } from './sync-context';
+import { installViewportVars } from './viewport';
 import './app.css';
 
 // CAL-001b ограничен подключением раздела в оболочке: общий Command пока не меняем.
@@ -217,6 +218,7 @@ export function AppShell() {
   const pult = usePult(owner);
   const waiting = pult.data?.counts.waiting ?? 0;
   const [documents, setDocuments] = useState<State['docs']>([]);
+  useEffect(() => installViewportVars(), []);
   useEffect(() => {
     let alive = true;
     if (!sync.client) return;
@@ -566,7 +568,9 @@ export function AppShell() {
   );
 
   /* ---------- навигация ---------- */
-  const all: NavItem<ShellSectionId>[] = SECTIONS.filter((s) => owner || s.id !== 'pult').map(
+  /* пока «кто вошёл» неизвестно — раскладка по подсказке прошлого входа, без скачка (D-1110) */
+  const ownerDock = me === undefined ? ownerHint() : owner;
+  const all: NavItem<ShellSectionId>[] = SECTIONS.filter((s) => ownerDock || s.id !== 'pult').map(
     (s) => ({
       id: s.id,
       label: s.name,
@@ -589,7 +593,7 @@ export function AppShell() {
   const modules = all.filter((i) => MODULES.includes(i.id));
   /* телефон: Главная, Сегодня, Planner и «Ещё» (D-866, «Входящие» — в «Ещё» по D-945);
      у владельца между Сегодня и Planner — Пульт с точкой «ждёт тебя» (D-945, D-952, D-961) */
-  const dockMain = owner ? DOCK_OWNER : DOCK_MAIN;
+  const dockMain = ownerDock ? DOCK_OWNER : DOCK_MAIN;
   const inDock = (i: NavItem<ShellSectionId>) => dockMain.includes(i.id);
   const rest = all.filter((i) => !inDock(i));
   const dockItems: NavItem<DockId>[] = [

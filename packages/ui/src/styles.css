@@ -1587,7 +1587,8 @@ html.q-own-scroll::-webkit-scrollbar {
 /* модальное окно (Sheet, DS-008): на ПК — в центре, на телефоне — нижний лист */
 .q-sheet-wrap {
   position: fixed;
-  inset: 0;
+  inset: var(--app-vt, 0px) 0 auto;
+  height: var(--app-vh, 100dvh);
   z-index: 80;
   display: flex;
   align-items: flex-end;
@@ -1605,7 +1606,7 @@ html.q-own-scroll::-webkit-scrollbar {
 .q-sheet {
   position: relative;
   width: 100%;
-  max-height: 86vh;
+  max-height: min(86dvh, var(--app-vh, 100dvh));
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 8px 16px 24px;
@@ -1618,7 +1619,7 @@ html.q-own-scroll::-webkit-scrollbar {
 }
 .q-wide .q-sheet {
   width: min(480px, 100%);
-  max-height: min(80vh, 720px);
+  max-height: min(80dvh, 720px, var(--app-vh, 100dvh));
   padding: 8px 24px 24px;
   border-bottom: 1px solid var(--q-line);
   border-radius: calc(var(--q-round) * 24px);
@@ -1643,7 +1644,6 @@ html.q-own-scroll::-webkit-scrollbar {
 .q-sheet.q-sheet-with-footer {
   display: flex;
   flex-direction: column;
-  max-height: 86dvh;
   overflow: hidden;
   padding: 0;
 }
@@ -1664,9 +1664,6 @@ html.q-own-scroll::-webkit-scrollbar {
   padding: 12px 16px max(24px, env(safe-area-inset-bottom));
   border-top: 1px solid var(--q-line);
   background: var(--q-panel);
-}
-.q-wide .q-sheet-with-footer {
-  max-height: min(80dvh, 720px);
 }
 .q-wide .q-sheet-with-footer .q-sheet-head {
   padding-inline: 24px;

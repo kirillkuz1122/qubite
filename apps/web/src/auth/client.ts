@@ -55,6 +55,7 @@ export function say(e: unknown): string {
 }
 
 export { ME };
+export { ownerHint } from '../account';
 
 /** Кто вошёл: `null` — никто (или сервер недоступен — тогда тоже как гость). */
 export function useMe() {

@@ -18,6 +18,31 @@ export const queryClient = new QueryClient();
 /** Ключ запроса «кто вошёл». */
 export const ME = ['me'] as const;
 
+const OWNER_HINT = 'qubite.owner';
+
+/**
+ * Подсказка «в прошлый раз вошёл владелец» (MOB-001, D-1110): по ней нижнее меню на телефоне
+ * рисуется в итоговом виде с первого кадра, пока ответ `/api/auth/me` ещё в пути.
+ * Только для раскладки; права проверяет сервер. Пишется на любое изменение кэша «кто вошёл»
+ * (ответ сервера, вход, выход, другая вкладка) — см. `watchAccount`.
+ */
+export function ownerHint(): boolean {
+  try {
+    return globalThis.localStorage?.getItem(OWNER_HINT) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function rememberOwner(me: Me | null | undefined) {
+  try {
+    if (me?.is_owner) globalThis.localStorage?.setItem(OWNER_HINT, '1');
+    else globalThis.localStorage?.removeItem(OWNER_HINT);
+  } catch {
+    /* хранилище недоступно — меню просто дорисуется после ответа */
+  }
+}
+
 /** Запросы без личных данных: их при смене аккаунта не трогаем. */
 const SHARED_KEYS = new Set<unknown>(['me', 'platform', 'oauth-providers']);
 
@@ -92,6 +117,7 @@ export function watchAccount(
   const unsubscribe = client.getQueryCache().subscribe((event) => {
     if (event.type !== 'updated' || event.action.type !== 'success') return;
     if (event.query.queryKey.length !== 1 || event.query.queryKey[0] !== ME[0]) return;
+    rememberOwner(event.query.state.data as Me | null | undefined);
     const next = (event.query.state.data as Me | null | undefined)?.id ?? null;
     const previous = known;
     known = next;
