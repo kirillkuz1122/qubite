@@ -168,7 +168,10 @@ def session_usage(result: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def build_report(
-    pairs: list[tuple[Path, Path]], host: str, now: dt.datetime
+    pairs: list[tuple[Path, Path]],
+    host: str,
+    now: dt.datetime,
+    stats: dict[str, int] | None = None,
 ) -> dict[str, Any]:
     sessions = []
     limits = None
@@ -176,6 +179,9 @@ def build_report(
     for session_path, events_path in pairs:
         session_payload = read_payload(session_path)
         session = report_session(session_payload)
+        if session is None and archived(session_payload):
+            if stats is not None:
+                stats["archived"] = stats.get("archived", 0) + 1
         if session_payload is not None and session is None and not archived(session_payload):
             print(f"{session_path}: нет идентификатора или времени сессии", file=sys.stderr)
         events_payload = read_payload(events_path)
@@ -236,12 +242,15 @@ def main(argv: list[str] | None = None) -> int:
     except (OSError, UnicodeError):
         print("Не удалось прочитать настройки сборщика Пульта", file=sys.stderr)
         return 2
+    stats: dict[str, int] = {}
     report = build_report(
         list(zip(args.session, args.events)),
         env.get("QUBITE_PULT_HOST") or "облако",
         dt.datetime.now(dt.timezone.utc),
+        stats,
     )
-    if not report["sessions"] and report["limits"] is None:
+    # пустая сводка нужна, если сессии ушли в архив: она заменяет прежнюю на сервере
+    if not report["sessions"] and report["limits"] is None and not stats.get("archived"):
         print("нет данных")
         return 0
     if args.dry_run:

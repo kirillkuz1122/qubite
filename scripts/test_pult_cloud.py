@@ -87,6 +87,21 @@ class CloudTest(unittest.TestCase):
         self.assertEqual([x["id"] for x in report["sessions"]], ["session_done"])
         self.assertTrue(report["sessions"][0]["waiting"])
 
+    def test_empty_report_is_sent_when_last_session_was_archived(self):
+        archived = json.loads(SESSION)
+        archived.update(status_bucket="SESSION_STATUS_BUCKET_ARCHIVED")
+        session = self.write("a", json.dumps(archived))
+        events = self.write("events", '{"events":[]}')
+        sent = []
+        with (
+            patch.object(pult_cloud.pult_collect, "load_env", return_value={"QUBITE_PULT_TOKEN": "t"}),
+            patch.object(pult_cloud.pult_collect, "send", lambda url, token, report: sent.append(report)),
+            redirect_stdout(io.StringIO()),
+        ):
+            code = pult_cloud.main(["--session", str(session), "--events", str(events)])
+        self.assertEqual(code, 0)
+        self.assertEqual(sent[0]["sessions"], [])
+
     def test_wrapped_session_latest_results_and_known_limits(self):
         wrapped = json.dumps(
             [
