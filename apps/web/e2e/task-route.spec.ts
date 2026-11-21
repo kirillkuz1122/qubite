@@ -187,7 +187,7 @@ test('на доске карточка открывается из меню, р�
   await page.getByRole('radio', { name: 'Доска' }).click();
   const card = page.locator('[data-card]').filter({ hasText: title });
   await expect(card).toContainText('в пути 12 мин');
-  await card.getByRole('button', { name: 'Переместить в…' }).click();
+  await card.getByRole('button', { name: 'Перенести в…' }).click();
   await card.getByRole('menuitem', { name: 'Место и дорога' }).click();
   await expect(page.getByRole('dialog').getByLabel('Место', { exact: true })).toHaveValue(place);
 });

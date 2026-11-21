@@ -584,7 +584,6 @@ a {
   min-height: 80px;
   padding: 6px;
   border-radius: calc(var(--q-round) * 20px);
-  transition: background-color 0.15s ease;
 }
 .col.over {
   background: var(--q-panel);
@@ -609,6 +608,13 @@ a {
   margin-bottom: 8px;
   font-size: 14px;
   cursor: grab;
+  touch-action: pan-y;
+  -webkit-touch-callout: none;
+}
+@media (pointer: coarse) {
+  .card {
+    user-select: none;
+  }
 }
 .card:active:not(:disabled, [aria-disabled='true']),
 .card.dragging {
@@ -624,6 +630,7 @@ a {
   opacity: 0.92;
   box-shadow: 0 12px 30px var(--q-shadow);
   pointer-events: none;
+  touch-action: none;
 }
 .card:focus-visible {
   outline: 2px solid var(--q-orange);
@@ -640,17 +647,10 @@ a {
   overflow-wrap: anywhere;
 }
 .card-more {
-  flex: none;
-  width: 44px;
-  height: 44px;
-  margin: -3px -6px 0 0;
-  border: 0;
+  margin: -4px -8px 0 0;
   border-radius: calc(var(--q-round) * 11px);
-  background: none;
   color: var(--q-dim);
-  font-size: 15px;
-  line-height: 1;
-  cursor: pointer;
+  transition: none;
 }
 .card-more:hover:not(:disabled, [aria-disabled='true']),
 .card-more[aria-expanded='true'] {
@@ -664,22 +664,20 @@ a {
   padding-top: 8px;
   border-top: 1px solid var(--q-line);
 }
-.card-menu button {
-  display: flex;
-  align-items: center;
+.card-menu .q-btn.q-quiet {
+  justify-content: flex-start;
   gap: 8px;
-  padding: 7px 8px;
-  border: 0;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 4px 8px;
   border-radius: calc(var(--q-round) * 12px);
-  background: none;
   color: var(--q-ink);
-  font: inherit;
   font-size: 13px;
   text-align: left;
-  cursor: pointer;
+  transition: none;
 }
-.card-menu button:hover:not(:disabled, [aria-disabled='true']),
-.card-menu button:focus-visible:not(:disabled, [aria-disabled='true']) {
+.card-menu .q-btn.q-quiet:hover:not(:disabled, [aria-disabled='true']),
+.card-menu .q-btn.q-quiet:focus-visible:not(:disabled, [aria-disabled='true']) {
   background: var(--q-panel-2);
 }
 .card .meta {

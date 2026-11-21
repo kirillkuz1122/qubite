@@ -5,6 +5,7 @@ import {
   DotIcon,
   EmptyState,
   Field,
+  IconButton,
   Presence,
   Segmented,
   Sheet,
@@ -24,6 +25,7 @@ import {
 import { useNavigate, useRouterState } from '@tanstack/react-router';
 import { useShell } from '../context';
 import { AgentTimeline } from '../AgentTimeline';
+import { startBoardDrag } from '../board-drag';
 import { ProjectPage } from '../ProjectPage';
 import { projectFromPath, projectPath } from '../project-view';
 import { SecHead, TaskList } from '../parts';
@@ -280,63 +282,37 @@ function Projects() {
 
 const ORDER: TaskStatus[] = ['todo', 'doing', 'done'];
 
-/**
- * Доска (D-289): карточку можно перетащить в другую колонку мышью, перенести клавишами ← →
- * (карточка в фокусе) или через меню «Переместить в…» — без долгого таскания.
- * Перетаскивание — на событиях указателя: карточка едет за мышью через `transform`, колонка
- * под курсором подсвечивается. Пальцем на телефоне — меню «⋯» (прокрутку не перехватываем).
- */
+/** Доска: перенос мышью, долгим нажатием, стрелками ← → или через меню (D-1121…D-1123). */
 function Board() {
   const { board, move, openTask } = usePlanner();
   const shell = useShell();
   const [over, setOver] = useState<TaskStatus | null>(null);
   const [menu, setMenu] = useState<string | null>(null);
+  const boardEl = useRef<HTMLDivElement>(null);
+  const cancelDrag = useRef<(() => void) | null>(null);
   const refocus = useRef<{ id: string; status: TaskStatus } | null>(null);
 
-  function columnAt(x: number, y: number): TaskStatus | null {
-    const hit = document.elementsFromPoint(x, y).find((el) => el.matches('.board .col'));
-    return (hit?.getAttribute('data-status') as TaskStatus | null) ?? null;
-  }
+  useLayoutEffect(() => () => cancelDrag.current?.(), []);
 
-  /** Нажали мышью на карточку: слушаем движение до отпускания (только на время переноса). */
   function onPointerDown(e: PointerEvent<HTMLDivElement>, id: string, from: TaskStatus) {
-    if (e.pointerType === 'touch' || e.button !== 0) return;
-    if ((e.target as HTMLElement).closest('button')) return;
-    const d = { x: e.clientX, y: e.clientY, el: e.currentTarget, moving: false };
-    const moveCard = (ev: globalThis.PointerEvent) => {
-      const dx = ev.clientX - d.x;
-      const dy = ev.clientY - d.y;
-      if (!d.moving) {
-        if (Math.hypot(dx, dy) < 6) return;
-        d.moving = true;
-        d.el.classList.add('dragging');
-        // пока несём карточку, текст вокруг не выделяется
-        getSelection()?.removeAllRanges();
-        document.documentElement.classList.add('q-dragging');
-      }
-      d.el.style.transform = `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px)`;
-      setOver(columnAt(ev.clientX, ev.clientY));
-    };
-    const drop = (ev: globalThis.PointerEvent) => {
-      removeEventListener('pointermove', moveCard);
-      removeEventListener('pointerup', drop);
-      removeEventListener('pointercancel', drop);
-      d.el.style.transform = '';
-      d.el.classList.remove('dragging');
-      document.documentElement.classList.remove('q-dragging');
-      setOver(null);
-      if (!d.moving || ev.type === 'pointercancel') return;
-      const to = columnAt(ev.clientX, ev.clientY);
-      if (to && to !== from) moveTo(id, to);
-    };
-    addEventListener('pointermove', moveCard);
-    addEventListener('pointerup', drop);
-    addEventListener('pointercancel', drop);
+    const root = boardEl.current;
+    if (!root || cancelDrag.current || !e.isPrimary || e.button !== 0) return;
+    if (e.target instanceof Element && e.target.closest('button')) return;
+    cancelDrag.current = startBoardDrag(e.nativeEvent, e.currentTarget, root, {
+      onOver: setOver,
+      onDrop: (to) => {
+        if (to !== from) moveTo(id, to);
+      },
+      onEnd: () => {
+        cancelDrag.current = null;
+        setOver(null);
+      },
+    });
   }
 
   function moveTo(id: string, status: TaskStatus) {
+    cancelDrag.current?.();
     setMenu(null);
-    setOver(null);
     // фокус остаётся на перенесённой карточке — можно сразу нести дальше (после перерисовки)
     refocus.current = document.activeElement?.closest('[data-card]') ? { id, status } : null;
     void move(id, status);
@@ -346,8 +322,8 @@ function Board() {
   useEffect(() => {
     const want = refocus.current;
     if (!want) return;
-    const el = document.querySelector<HTMLElement>(
-      `.board .col[data-status="${want.status}"] [data-card="${CSS.escape(want.id)}"]`,
+    const el = boardEl.current?.querySelector<HTMLElement>(
+      `.col[data-status="${want.status}"] [data-card="${CSS.escape(want.id)}"]`,
     );
     if (!el) return;
     el.focus();
@@ -364,7 +340,7 @@ function Board() {
   }
 
   return (
-    <div className="board">
+    <div className="board" ref={boardEl}>
       {board.map((c) => (
         <div
           className={over === c.status ? 'col over' : 'col'}
@@ -391,15 +367,14 @@ function Board() {
             >
               <div className="card-top">
                 <span className="card-title">{card.title}</span>
-                <button
-                  type="button"
+                <IconButton
+                  icon="more"
+                  label="Перенести в…"
                   className="card-more"
-                  aria-label="Переместить в…"
+                  aria-haspopup="menu"
                   aria-expanded={menu === card.id}
                   onClick={() => setMenu(menu === card.id ? null : card.id)}
-                >
-                  <DotIcon name="more" size={16} />
-                </button>
+                />
               </div>
               <div className="meta">
                 <span className="q-dot" style={{ background: `var(--q-${card.color})` }} />
@@ -409,9 +384,10 @@ function Board() {
                 в пути {card.travelMinutes} мин
               </Presence>
               {menu === card.id && (
-                <div className="card-menu" role="menu" aria-label="Переместить в">
+                <div className="card-menu" role="menu" aria-label="Перенести в…">
                   <Button
                     role="menuitem"
+                    variant="quiet"
                     dot={false}
                     onClick={() => {
                       setMenu(null);
@@ -423,15 +399,16 @@ function Board() {
                   {board
                     .filter((to) => to.status !== c.status)
                     .map((to) => (
-                      <button
+                      <Button
                         key={to.status}
-                        type="button"
                         role="menuitem"
+                        variant="quiet"
+                        dot={false}
                         onClick={() => moveTo(card.id, to.status)}
                       >
                         <span className="q-dot" style={{ background: `var(--q-${to.color})` }} />
                         {to.name}
-                      </button>
+                      </Button>
                     ))}
                 </div>
               )}
