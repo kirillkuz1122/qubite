@@ -137,12 +137,13 @@ function Connect({
             ? 'деньги owner по твоему лимиту'
             : 'ничего — AI не подключён';
   return (
-    <div className="panel ai-pad" aria-label="Подключить AI">
+    <div className="panel ai-pad" aria-label="Подключить AI" data-swipe-tabs="">
       <h3 className="ai-h3">Подключить AI</h3>
       <p className="ai-small">
         Сейчас AI для текста идёт через: <b>{current}</b>. Голос — всегда через платформу.
       </p>
       <Segmented<Source>
+        swipeTabs
         label="Откуда AI"
         variant="chips"
         wrap

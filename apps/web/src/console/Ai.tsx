@@ -67,8 +67,9 @@ const ORDER = VIEWS.map((v) => v.value);
 export function AiTab() {
   const [view, setView] = useState<View>('budget');
   return (
-    <div className="cs-stack">
+    <div className="cs-stack" data-swipe-tabs="">
       <Segmented<View>
+        swipeTabs
         label="Что настроить в AI"
         variant="chips"
         wrap
@@ -881,8 +882,9 @@ const PAGE = 50;
 function Calls() {
   const [what, setWhat] = useState<'calls' | 'changes'>('calls');
   return (
-    <div className="cs-panel" aria-label="Журнал AI">
+    <div className="cs-panel" aria-label="Журнал AI" data-swipe-tabs="">
       <Segmented<'calls' | 'changes'>
+        swipeTabs
         label="Что в журнале"
         variant="chips"
         value={what}

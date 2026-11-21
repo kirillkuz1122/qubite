@@ -18,6 +18,7 @@ import {
   Presence,
   EdgeScroll,
   SideNav,
+  SwipeTabsBack,
   WIDE,
   caretPoint,
   flyDot,
@@ -36,6 +37,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { commandView, loadHistory, remember, saveHistory, type CommandEntry } from './command';
 import { Bell } from './Bell';
 import { EdgeBack } from './EdgeBack';
+import { canGoBackInApp } from './app-history';
 import { CommandChat } from './CommandChat';
 import { useCommandChat } from './use-command-chat';
 import { CommandField } from './CommandField';
@@ -139,6 +141,7 @@ function sectionOf(path: string): ShellSectionId {
 }
 
 function sectionTitle(path: string): string {
+  if (path === '/console' || path.startsWith('/console/')) return 'Управление Qubite';
   return SECTIONS.find((section) => section.id === sectionOf(path))!.name;
 }
 
@@ -259,9 +262,13 @@ export function AppShell() {
   const main = useRef<HTMLDivElement>(null);
   const screen = useRef<HTMLDivElement>(null);
   const swipeBack = useCallback((key: string) => {
+    if (!canGoBackInApp(key)) return;
     setBackFrom(key);
     window.history.back();
   }, []);
+  const backFromTabs = useCallback(() => {
+    if (entryKey) swipeBack(entryKey);
+  }, [entryKey, swipeBack]);
   const sp = useSpring(0, MASS.pill, (v) => {
     const el = screen.current;
     if (!el) return;
@@ -683,7 +690,7 @@ export function AppShell() {
             </div>
           </header>
           <div className="screen" ref={screen} data-screen={visibleView}>
-            {SCREENS[visibleView]()}
+            <SwipeTabsBack value={backFromTabs}>{SCREENS[visibleView]()}</SwipeTabsBack>
           </div>
         </div>
       </div>
@@ -759,6 +766,7 @@ export function AppShell() {
         <Dock
           items={dockItems}
           current={dockCurrent}
+          picker={chat.open || moreOpen ? undefined : { items: all, onPick: go }}
           onGo={(to) => {
             if (to !== 'more') return go(to);
             setMoreOpen(true);

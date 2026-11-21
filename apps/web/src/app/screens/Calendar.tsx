@@ -471,7 +471,7 @@ function Calendar({ timeZone, linkedEvent }: { timeZone: string; linkedEvent: st
   }
 
   return (
-    <section className="calendar" aria-label="Календарь">
+    <section className="calendar" aria-label="Календарь" data-swipe-tabs="">
       <div className="calendar-toolbar">
         {/* D-802: на ПК слева, как «Создать» в Google; на телефоне — «+» в конце 2-й строки */}
         <Button
@@ -528,6 +528,7 @@ function Calendar({ timeZone, linkedEvent }: { timeZone: string; linkedEvent: st
         </p>
         <div className="calendar-mode">
           <Segmented<CalendarMode>
+            swipeTabs
             label="Вид календаря"
             value={mode}
             onChange={setMode}
@@ -1177,6 +1178,7 @@ function EventBlock({
       ref={ref}
       className="calendar-block"
       data-calendar-key={block.key}
+      data-swipe-tabs-ignore=""
       style={
         {
           '--calendar-color': `var(--q-${KIND_COLOR[block.item.kind]})`,

@@ -1,4 +1,4 @@
-import { Segmented, Swap } from '@qubite/ui';
+import { Segmented, Swap, SwipeTabs } from '@qubite/ui';
 import { useState } from 'react';
 import { AgentChat } from '../AgentChat';
 import { AgentPaceView } from '../AgentPace';
@@ -31,8 +31,9 @@ const LEAD: Record<Tab, string> = {
 export function AgentScreen() {
   const [tab, setTab] = useState<Tab>(firstTab);
   return (
-    <>
+    <SwipeTabs>
       <Segmented<Tab>
+        swipeTabs
         label="Агент"
         value={tab}
         onChange={(v) => setTab(v)}
@@ -50,6 +51,6 @@ export function AgentScreen() {
         {tab === 'talk' && <AgentChat />}
         {tab === 'pace' && <AgentPaceView />}
       </Swap>
-    </>
+    </SwipeTabs>
   );
 }
