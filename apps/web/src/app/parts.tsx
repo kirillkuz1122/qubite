@@ -12,6 +12,7 @@ import {
 import { Fragment, useId, useRef, useState, type ReactNode } from 'react';
 import type { Task } from './data';
 import { usePlanner } from './planner-context';
+import { TaskSwipeRow } from './TaskSwipeRow';
 
 export function SecHead({
   text,
@@ -91,57 +92,60 @@ export function TaskList({
       {sel.node}
       {tasks.map((t) => (
         <Fragment key={t.id}>
-          <div
-            data-obj={t.id}
-            className={t.done ? 'row done' : 'row'}
-            aria-expanded={detail ? open === t.id : undefined}
-            onClick={(e) => {
-              if ((e.target as HTMLElement).closest('.q-ring')) return;
-              const row = e.currentTarget;
-              if (at.current === t.id) {
-                sel.hide();
-                at.current = null;
-                setOpen(null);
-                return;
-              }
-              sel.to(row.offsetTop, row.offsetHeight);
-              at.current = t.id;
-              setOpen(t.id);
-            }}
-          >
-            <RingCheck
-              done={t.done}
-              onToggle={(d) => onToggle(t, d)}
-              label={`Готово: ${t.title}`}
-            />
-            <div className="t">
-              <div className="title">
-                <Button
-                  className="task-open"
-                  dot={false}
-                  aria-label={`Открыть дело: ${t.title}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    planner.openTask(t.id);
-                  }}
-                >
-                  {t.title}
-                </Button>
-              </div>
-              {wide ? (
-                (meta ?? defaultMeta)(t)
-              ) : (
-                <div className="row-sub">
-                  {t.time && <span className="time">{t.time}</span>}
-                  {(meta ?? defaultMeta)(t)}
+          <TaskSwipeRow id={t.id} done={t.done}>
+            <div
+              data-obj={t.id}
+              className={t.done ? 'row done' : 'row'}
+              aria-expanded={detail ? open === t.id : undefined}
+              onClick={(e) => {
+                if ((e.target as HTMLElement).closest('.q-ring')) return;
+                const row = e.currentTarget.closest<HTMLElement>('.q-swipe-row') ?? e.currentTarget;
+                if (at.current === t.id) {
+                  sel.hide();
+                  at.current = null;
+                  setOpen(null);
+                  return;
+                }
+                sel.to(row.offsetTop, row.offsetHeight);
+                at.current = t.id;
+                setOpen(t.id);
+              }}
+            >
+              <RingCheck
+                done={t.done}
+                onToggle={(d) => onToggle(t, d)}
+                label={`Готово: ${t.title}`}
+              />
+              <div className="t">
+                <div className="title">
+                  <Button
+                    className="task-open"
+                    data-swipe-handle=""
+                    dot={false}
+                    aria-label={`Открыть дело: ${t.title}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      planner.openTask(t.id);
+                    }}
+                  >
+                    {t.title}
+                  </Button>
                 </div>
-              )}
-              <Presence show={t.travelMinutes != null} className="task-travel">
-                в пути {t.travelMinutes} мин
-              </Presence>
+                {wide ? (
+                  (meta ?? defaultMeta)(t)
+                ) : (
+                  <div className="row-sub">
+                    {t.time && <span className="time">{t.time}</span>}
+                    {(meta ?? defaultMeta)(t)}
+                  </div>
+                )}
+                <Presence show={t.travelMinutes != null} className="task-travel">
+                  в пути {t.travelMinutes} мин
+                </Presence>
+              </div>
+              {wide && <span className="time">{t.time}</span>}
             </div>
-            {wide && <span className="time">{t.time}</span>}
-          </div>
+          </TaskSwipeRow>
           {detail && (
             <Presence show={open === t.id} className="trail">
               {detail(t)}

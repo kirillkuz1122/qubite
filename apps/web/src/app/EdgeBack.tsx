@@ -3,8 +3,8 @@ import { settleSwipe, swipe } from '@qubite/ui';
 import { useRouter, useRouterState } from '@tanstack/react-router';
 import { useLayoutEffect, useRef, type RefObject } from 'react';
 
-const EDGE_MIN = 24;
-const EDGE_MAX = 48;
+export const EDGE_BACK_MIN = 24;
+export const EDGE_BACK_MAX = 48;
 
 export function EdgeBack({
   main,
@@ -79,8 +79,8 @@ export function EdgeBack({
       filter: (event, target) =>
         !leaving &&
         history.state?.__TSR_key === key &&
-        event.clientX >= EDGE_MIN &&
-        event.clientX <= EDGE_MAX &&
+        event.clientX >= EDGE_BACK_MIN &&
+        event.clientX <= EDGE_BACK_MAX &&
         !target.closest(
           '.board [data-card], .mm-canvas, [data-swipe-tabs], [data-swipe-tab-list]',
         ) &&

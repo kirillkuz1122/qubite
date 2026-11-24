@@ -1,6 +1,6 @@
 import type { TaskStatus } from '@qubite/sync-client';
+import { SWIPE_ROW_HOLD_MS } from '@qubite/ui';
 
-const HOLD_MS = 350;
 const HOLD_SLOP = 8;
 const MOUSE_THRESHOLD = 6;
 const EDGE_ZONE = 72;
@@ -208,7 +208,7 @@ export function startBoardDrag(
       { ...listeners, passive: false },
     );
     window.addEventListener('contextmenu', (e) => e.preventDefault(), listeners);
-    timer = window.setTimeout(activate, HOLD_MS);
+    timer = window.setTimeout(activate, SWIPE_ROW_HOLD_MS);
   }
   return end;
 }

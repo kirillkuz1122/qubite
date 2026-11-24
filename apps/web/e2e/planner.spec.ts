@@ -75,10 +75,9 @@ test('дела и проекты с сервера: «Сегодня», неде
   await expect(project).toContainText('1/2');
 
   await page.getByRole('radio', { name: 'Доска' }).click();
-  const col = (name: string) => page.locator('.col').filter({ hasText: name });
-  await expect(col('Надо')).toContainText('Эссе по литературе');
-  await expect(col('В работе')).toContainText('Бот: напоминания');
-  await expect(col('Готово')).toContainText('Конспект по физике');
+  await expect(boardColumn(page, 'Надо')).toContainText('Эссе по литературе');
+  await expect(boardColumn(page, 'В работе')).toContainText('Бот: напоминания');
+  await expect(boardColumn(page, 'Готово')).toContainText('Конспект по физике');
 });
 
 test('Сегодня: дело без даты скрыто, исчезает после отметки и возвращается', async ({ page }) => {

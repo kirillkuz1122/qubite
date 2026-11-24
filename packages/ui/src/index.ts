@@ -40,6 +40,7 @@ export { useFlip } from './flip';
 export { Presence, type PresenceProps } from './Presence';
 export { Sheet, tabbable, type SheetProps } from './Sheet';
 export { settleSwipe, swipe, type SwipeOptions } from './swipe';
+export { SwipeRow, SWIPE_ROW_HOLD_MS, type SwipeRowProps } from './SwipeRow';
 export { Swap, type SwapProps } from './Swap';
 export { useLeaving, type Leaving } from './leaving';
 export { EdgeScroll, type EdgeScrollProps } from './EdgeScroll';

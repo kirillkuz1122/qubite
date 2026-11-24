@@ -7,18 +7,20 @@ import {
   createProject,
   createTask,
   findProject,
+  PLANNER_TASK,
   plannerData,
   setTaskDone,
   setTaskStatus,
   tagFrom,
+  toTask,
   updateProject,
   type PlannerProject,
   type PlannerTask,
   type ProjectPatch,
 } from '@qubite/sync-client';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { PlannerCtx, type PlannerApi } from './planner-context';
-import { localNow, parse } from '@qubite/ui';
+import { PlannerCtx, type PlannerApi, type TaskDestination } from './planner-context';
+import { localNow, parse, useToast } from '@qubite/ui';
 import {
   buildBoard,
   buildProjects,
@@ -59,7 +61,18 @@ export function PlannerProvider({ children }: { children: ReactNode }) {
     new URLSearchParams(globalThis.location?.search ?? '').get('task'),
   );
   const [taskOpening, setTaskOpening] = useState(0);
+  const [placement, setPlacement] = useState<{
+    id: string;
+    columns?: readonly TaskDestination[];
+  } | null>(null);
+  const toast = useToast();
   const openTask = useCallback((id: string) => {
+    setPlacement(null);
+    setEditingTask(id);
+    setTaskOpening((n) => n + 1);
+  }, []);
+  const placeTask = useCallback((id: string, columns?: readonly TaskDestination[]) => {
+    setPlacement({ id, ...(columns && { columns }) });
     setEditingTask(id);
     setTaskOpening((n) => n + 1);
   }, []);
@@ -122,6 +135,44 @@ export function PlannerProvider({ children }: { children: ReactNode }) {
     [ready],
   );
 
+  const swipeTask = useCallback(
+    async (id: string, action: 'done' | 'delete') => {
+      const deleting = action === 'delete';
+      try {
+        const c = await ready();
+        const object = await c.get(id);
+        if (!object || object.deleted || object.object_type !== PLANNER_TASK) return;
+        const previous = toTask(object).status;
+        if (!deleting && previous === 'done') return;
+
+        if (deleting) await c.remove(id);
+        else await setTaskDone(c, id, true);
+
+        async function undo() {
+          try {
+            const current = await c.get(id);
+            if (deleting && current?.deleted) await c.restore(id);
+            if (!deleting && current && !current.deleted && toTask(current).status === 'done')
+              await setTaskStatus(c, id, previous);
+            void c.sync();
+          } catch {
+            toast.show('Не удалось отменить действие с задачей.', { tone: 'bad' });
+          }
+        }
+
+        toast.show(deleting ? 'Задача удалена' : 'Задача закрыта', {
+          ms: 5000,
+          undo: () => void undo(),
+          undoLabel: 'Отменить',
+        });
+        void c.sync();
+      } catch {
+        toast.show('Не удалось изменить задачу на устройстве.', { tone: 'bad' });
+      }
+    },
+    [ready, toast],
+  );
+
   const newProject = useCallback(
     async (name: string) => {
       const c = await ready();
@@ -165,15 +216,47 @@ export function PlannerProvider({ children }: { children: ReactNode }) {
       newProject,
       editProject,
       openTask,
+      placeTask,
+      swipeTask,
     };
-  }, [data, now, loaded, toggle, add, move, newProject, editProject, openTask]);
+  }, [
+    data,
+    now,
+    loaded,
+    toggle,
+    add,
+    move,
+    newProject,
+    editProject,
+    openTask,
+    placeTask,
+    swipeTask,
+  ]);
+  const closeTask = () => {
+    setEditingTask(null);
+    setPlacement(null);
+  };
   return (
     <PlannerCtx.Provider value={value}>
       {children}
       <TaskPlaceSheet
         session={taskOpening}
         task={data.tasks.find((t) => t.id === editingTask)}
-        onClose={() => setEditingTask(null)}
+        onClose={closeTask}
+        placement={
+          placement && {
+            columns:
+              placement.columns ??
+              value.board.map((col) => ({ status: col.status, title: col.name })),
+            onEdit: () => openTask(placement.id),
+            onMove: (status) => {
+              closeTask();
+              void move(placement.id, status).catch(() =>
+                toast.show('Не удалось перенести задачу.', { tone: 'bad' }),
+              );
+            },
+          }
+        }
       />
     </PlannerCtx.Provider>
   );
