@@ -204,21 +204,26 @@ function useOverflow(off: boolean, count: number) {
   const [mode, setMode] = useState<'line' | 'tight' | 'wrap'>('line');
   useLayoutEffect(() => {
     const el = box.current;
-    const parent = el?.parentElement;
-    if (off || !el || !parent) return;
+    if (off || !el) return;
+    let parent = el.parentElement;
+    while (parent && getComputedStyle(parent).display === 'contents') {
+      parent = parent.parentElement;
+    }
+    if (!parent) return;
+    const container = parent;
     const check = () => {
       const bs = el.querySelectorAll<HTMLElement>(':scope > button');
       let need = 10; // рамка и отступы
       for (const b of bs) need += b.offsetWidth;
       if (el.classList.contains('q-tight')) need += TIGHT * bs.length;
-      const room = parent.clientWidth + 1;
+      const room = container.clientWidth + 1;
       if (room <= 1 || need <= room) setMode('line');
       else setMode(need - TIGHT * bs.length <= room ? 'tight' : 'wrap');
     };
     check();
     if (typeof ResizeObserver !== 'function') return;
     const ro = new ResizeObserver(check);
-    ro.observe(parent);
+    ro.observe(container);
     return () => ro.disconnect();
   }, [off, count]);
   return { box, mode };
