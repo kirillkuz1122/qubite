@@ -99,8 +99,7 @@ export function TaskList({
               aria-expanded={detail ? open === t.id : undefined}
               onClick={(e) => {
                 if ((e.target as HTMLElement).closest('.q-ring')) return;
-                const row =
-                  e.currentTarget.closest<HTMLElement>('.q-swipe-row') ?? e.currentTarget;
+                const row = e.currentTarget.closest<HTMLElement>('.q-swipe-row') ?? e.currentTarget;
                 if (at.current === t.id) {
                   sel.hide();
                   at.current = null;

@@ -76,7 +76,9 @@ test.describe('MOB-002, свайп задачи', { tag: '@gestures-touch' }, ()
                 const panel = front.parentElement!;
                 const buttons = panel.querySelector<HTMLElement>('.q-swipe-actions')!;
                 const transform = getComputedStyle(front).transform;
-                return transform !== 'none' && new DOMMatrix(transform).m41 === -buttons.offsetWidth;
+                return (
+                  transform !== 'none' && new DOMMatrix(transform).m41 === -buttons.offsetWidth
+                );
               }),
             )
             .toBe(true);
@@ -127,7 +129,9 @@ test.describe('MOB-002, свайп задачи', { tag: '@gestures-touch' }, ()
         await expect
           .poll(() =>
             server.ops
-              .filter((op) => op.object_id === id && ['delete', 'restore'].includes(op.kind))
+              .filter(
+                (op) => op.object_id === id && (op.kind === 'delete' || op.kind === 'restore'),
+              )
               .map((op) => op.kind),
           )
           .toEqual(['delete', 'restore']);
@@ -136,7 +140,7 @@ test.describe('MOB-002, свайп задачи', { tag: '@gestures-touch' }, ()
       test('свайп вправо, возврат пальца и прокрутка', async ({ page }, info) => {
         const server = await mockSync(page);
         const id = server.addTask(title, { status: 'doing', due_date: today(), due_time: '08:00' });
-        for (let i = 0; i < 20; i++) server.addTask(`Дело ${i}`, { due_date: today() });
+        for (let i = 0; i < 12; i++) server.addTask(`Дело ${i}`, { due_date: today() });
         await page.goto('/today');
         const row = rowFor(page, id);
         const front = frontFor(page, row);
@@ -219,8 +223,22 @@ test.describe('MOB-002, свайп задачи', { tag: '@gestures-touch' }, ()
 
       test('Главная: свайп дела без даты; проект: свайп карточки', async ({ page }) => {
         const server = await mockSync(page);
-        const project = server.addProject('Поездка');
+        const projectTitle = 'Поездка';
+        const project = server.addProject(projectTitle);
         const id = server.addTask(title, { project_id: project, due_date: null });
+        await page.route(`**/api/v1/projects/${project}`, (route) =>
+          route.fulfill({
+            json: {
+              project: { id: project, title: projectTitle, color: 'orange', status: 'active' },
+              tasks: [],
+              files: [],
+              docs: [],
+              feed: [],
+              events: [],
+              agent: false,
+            },
+          }),
+        );
         await page.goto('/home');
         await page.getByRole('button', { name: 'Без даты · 1' }).tap();
         const row = rowFor(page, id);
@@ -231,7 +249,7 @@ test.describe('MOB-002, свайп задачи', { tag: '@gestures-touch' }, ()
 
         await page.goto(`/planner/project/${project}`);
         const card = page.locator(`[data-card="${id}"]`);
-        await card.scrollIntoViewIfNeeded();
+        await card.evaluate((el) => el.scrollIntoView({ block: 'center', behavior: 'instant' }));
         await waitForScrollEnd(page);
         await swipeBy(page, card, -150);
         await expect(actions(page)).toBeVisible();
@@ -240,7 +258,7 @@ test.describe('MOB-002, свайп задачи', { tag: '@gestures-touch' }, ()
   }
 
   test.describe('ПК', () => {
-    test.use({ viewport: { width: 1280, height: 900 }, isMobile: false, hasTouch: true });
+    test.use({ viewport: { width: 1440, height: 900 }, isMobile: false, hasTouch: true });
 
     test('касания и мышь не включают свайп дела', async ({ page }, info) => {
       const server = await mockSync(page);

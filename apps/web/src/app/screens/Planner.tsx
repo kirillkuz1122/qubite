@@ -411,11 +411,11 @@ function Board() {
                           <span className="q-dot" style={{ background: `var(--q-${to.color})` }} />
                           {to.name}
                         </Button>
-                      </TaskSwipeRow>
-          ))}
-                </div>
-              )}
-            </div>
+                      ))}
+                  </div>
+                )}
+              </div>
+            </TaskSwipeRow>
           ))}
         </div>
       ))}
