@@ -9,12 +9,12 @@ type Axis = 'x' | 'y';
 
 export interface SwipeOptions {
   axis: Axis;
-  direction: 1 | -1;
+  direction: 1 | -1 | 'both';
   /** Последний предок, прокрутку которого учитываем. Шапка может исключить сам лист. */
   scrollBoundary?: (target: Element) => Element | null;
   filter?: (event: PointerEvent, target: Element) => boolean;
   onStart: () => void;
-  /** Смещение в сторону жеста в px. */
+  /** Смещение в сторону жеста в px. Для 'both' — смещение по оси со знаком. */
   onMove: (distance: number) => void;
   /** Скорость отпускания в px/с, со знаком относительно направления жеста. */
   onEnd: (distance: number, velocity: number) => void;
@@ -28,6 +28,7 @@ export function swipeAxis(dx: number, dy: number): Axis | 'pending' | 'diagonal'
   return 'diagonal';
 }
 
+/** delta = 0 проверяет, что предок прокручивается в любую сторону по оси. */
 export function canScroll(
   target: Element,
   axis: Axis,
@@ -47,7 +48,7 @@ export function canScroll(
       const pos = axis === 'x' ? el.scrollLeft : el.scrollTop;
       const rtl = axis === 'x' && style.direction === 'rtl';
       const room = delta > 0 ? pos - (rtl ? -max : 0) : (rtl ? 0 : max) - pos;
-      if (max > 1 && room > 1) return true;
+      if (max > 1 && (delta === 0 || room > 1)) return true;
     }
     if (el === boundary) break;
   }
@@ -63,6 +64,7 @@ export function settleSwipe(spring: Spring, goal: number): void {
 /** Pointer Events ведут жест. Touchmove отдаёт браузеру прокрутку или удерживает касание. */
 export function swipe(el: HTMLElement, options: SwipeOptions): () => void {
   const { axis, direction } = options;
+  const sign = direction === 'both' ? 1 : direction;
   const track = new Tracker();
   let press: {
     id: number;
@@ -102,6 +104,10 @@ export function swipe(el: HTMLElement, options: SwipeOptions): () => void {
     return window.getSelection()?.isCollapsed === false || canScroll(target, axis, delta, boundary);
   }
 
+  function accepts(delta: number) {
+    return direction === 'both' ? delta !== 0 : delta * sign > 0;
+  }
+
   function move(event: PointerEvent) {
     const current = press;
     if (!current || event.pointerId !== current.id) return;
@@ -115,7 +121,7 @@ export function swipe(el: HTMLElement, options: SwipeOptions): () => void {
       if (intent === 'pending') return;
       if (
         intent !== axis ||
-        point.delta * direction <= 0 ||
+        !accepts(point.delta) ||
         blocked(current.target, point.delta, current.boundary)
       ) {
         stop();
@@ -131,7 +137,7 @@ export function swipe(el: HTMLElement, options: SwipeOptions): () => void {
       options.onStart();
     }
     if (event.cancelable) event.preventDefault();
-    options.onMove(point.delta * direction);
+    options.onMove(point.delta * sign);
   }
 
   function touchMove(event: TouchEvent) {
@@ -151,7 +157,7 @@ export function swipe(el: HTMLElement, options: SwipeOptions): () => void {
     const cross = axis === 'x' ? point.dy : point.dx;
     if (
       event.cancelable &&
-      point.delta * direction > 0 &&
+      accepts(point.delta) &&
       Math.abs(cross) <= Math.abs(point.delta) * MAX_SLOPE &&
       !blocked(press.target, point.delta, press.boundary)
     ) {
@@ -168,7 +174,7 @@ export function swipe(el: HTMLElement, options: SwipeOptions): () => void {
     track.add(event.clientX, event.clientY, event.timeStamp);
     const { vx, vy } = track.velocity();
     const velocity = event.timeStamp - current.last > 100 ? 0 : axis === 'x' ? vx : vy;
-    options.onEnd(point.delta * direction, velocity * direction);
+    options.onEnd(point.delta * sign, velocity * sign);
   }
 
   function down(event: PointerEvent) {

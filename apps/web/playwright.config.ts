@@ -40,7 +40,7 @@ export default defineConfig({
         hasTouch: true,
         reducedMotion: 'reduce',
       },
-      testMatch: /(?:planner|gestures-1)\.spec\.ts/,
+      testMatch: /(?:planner|gestures-[12])\.spec\.ts/,
       grep: chromiumTouch,
     },
     // замер кадров — после всех остальных и в одиночку (DS-002)

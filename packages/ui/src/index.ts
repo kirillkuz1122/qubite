@@ -73,6 +73,7 @@ export { ExpandPage, type ExpandPageProps, type Rect } from './ExpandPage';
 export { Crew, type CrewHandle, type CrewProps } from './Crew';
 export { Button, type ButtonProps } from './Button';
 export { Segmented, type SegmentedProps } from './Segmented';
+export { SwipeTabs, SwipeTabsBack, useSwipeTabs } from './SwipeTabs';
 export { Switch, type SwitchProps } from './Switch';
 export { RingCheck, type RingCheckProps } from './RingCheck';
 export { Command, type CommandProps } from './Command';

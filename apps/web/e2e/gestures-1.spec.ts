@@ -1,42 +1,7 @@
-import { fileURLToPath } from 'node:url';
-import { expect, test, type Locator, type Page, type TestInfo } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
+import { shot, touchInput } from './gesture-input';
 import { goSection } from './nav';
 import { mockSync } from './sync-mock';
-
-type Point = { x: number; y: number };
-
-async function touchInput(page: Page) {
-  const cdp = await page.context().newCDPSession(page);
-  let at: Point;
-  return {
-    async start(point: Point) {
-      at = point;
-      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [point] });
-    },
-    async move(to: Point) {
-      const from = at;
-      for (const progress of [1 / 3, 2 / 3, 1]) {
-        const point = {
-          x: from.x + (to.x - from.x) * progress,
-          y: from.y + (to.y - from.y) * progress,
-        };
-        await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [point] });
-      }
-      at = to;
-    },
-    async end() {
-      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-    },
-  };
-}
-
-async function shot(page: Page, info: TestInfo, name: string) {
-  const path = fileURLToPath(
-    new URL(`../../../docs/design/screens/MOB-002/${name}.png`, import.meta.url),
-  );
-  await page.screenshot({ path });
-  await info.attach(name, { path, contentType: 'image/png' });
-}
 
 async function openBell(page: Page) {
   await page.getByRole('button', { name: /^Уведомления/ }).click();
@@ -167,7 +132,16 @@ test.describe('MOB-002, часть 1', { tag: '@gestures-touch' }, () => {
 
         // Возвращаем компактный лист: с его содержимого в самом верху можно закрыть.
         await body.evaluate((el) => (el as HTMLElement).style.removeProperty('min-height'));
-        await sheet.evaluate((el) => (el.scrollTop = 0));
+        // Инерция прошлой прокрутки и пересчёт высоты должны закончиться до нового жеста.
+        await expect
+          .poll(async () => {
+            await sheet.evaluate((el) => (el.scrollTop = 0));
+            const before = await sheet.boundingBox();
+            await page.waitForTimeout(150);
+            const after = await sheet.boundingBox();
+            return before?.y === after?.y && before?.height === after?.height;
+          })
+          .toBe(true);
         const compact = (await sheet.boundingBox())!;
         const from = { x: 125, y: compact.y + compact.height * 0.45 };
         await touch.start(from);
