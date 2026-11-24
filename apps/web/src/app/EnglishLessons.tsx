@@ -154,8 +154,9 @@ export function EnglishModule() {
   });
   const [open, setOpen] = useState<{ lesson: string; kind: Run['kind'] } | null>(linked);
   return (
-    <div className="eng">
+    <div className="eng" data-swipe-tabs="">
       <Segmented<Tab>
+        swipeTabs
         label="Английский"
         value={tab}
         variant="chips"

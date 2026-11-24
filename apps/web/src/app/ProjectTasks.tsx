@@ -91,7 +91,7 @@ export function ProjectTasks({ id }: { id: string }) {
   }
 
   return (
-    <div className="pp-tab">
+    <div className="pp-tab" data-swipe-tabs="">
       <form className="pp-add" onSubmit={(e) => void add(e)} aria-label="Новое дело в проекте">
         <Field label="Новое дело" value={text} onChange={(e) => setText(e.target.value)} />
         <Button type="submit" variant="fill" size="sm" disabled={!text.trim()}>
@@ -100,6 +100,7 @@ export function ProjectTasks({ id }: { id: string }) {
       </form>
       <p className="pp-add-hint">Можно со сроком: «сделать календарь в пятницу в 16:00».</p>
       <Segmented<BoardView>
+        swipeTabs
         label="Вид дел проекта"
         value={board.view}
         onChange={(view) => void pickView(view)}
@@ -292,6 +293,7 @@ function ProjectTaskGroups({
                         : 'card panel pp-task-card'
                     }
                     data-card={task.id}
+                    data-swipe-tabs-ignore=""
                     data-obj={task.id}
                     tabIndex={0}
                     aria-label={`${task.title}. Перенести: стрелки влево и вправо`}

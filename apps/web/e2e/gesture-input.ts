@@ -1,4 +1,5 @@
-import type { Page } from '@playwright/test';
+import { fileURLToPath } from 'node:url';
+import type { Page, TestInfo } from '@playwright/test';
 
 type Point = { x: number; y: number };
 
@@ -25,4 +26,12 @@ export async function touchInput(page: Page) {
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     },
   };
+}
+
+export async function shot(page: Page, info: TestInfo, name: string) {
+  const path = fileURLToPath(
+    new URL(`../../../docs/design/screens/MOB-002/${name}.png`, import.meta.url),
+  );
+  await page.screenshot({ path });
+  await info.attach(name, { path, contentType: 'image/png' });
 }

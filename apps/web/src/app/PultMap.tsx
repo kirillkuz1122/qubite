@@ -127,9 +127,10 @@ export function PultMap({
   const branch = all.find((b) => b.id === picked);
   const leaf = all.flatMap((b) => b.leaves).find((l) => l.id === picked);
   return (
-    <div className="pult-map-wrap">
+    <div className="pult-map-wrap" data-swipe-tabs="">
       <div className="pult-map-bar">
         <Segmented<Mode>
+          swipeTabs
           label="Вид карты"
           value={mode}
           onChange={(v) => setMode(v)}

@@ -34,7 +34,7 @@ export function TaskSwipeRow({
         !history.state?.qubitePreviousApp ||
         event.clientX < EDGE_BACK_MIN ||
         event.clientX > EDGE_BACK_MAX ||
-        !!target.closest('.board [data-card]')
+        !!target.closest('.board [data-card], [data-swipe-tabs], [data-swipe-tab-list]')
       }
     >
       {children}

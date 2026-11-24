@@ -60,7 +60,7 @@ export function ConsolePage() {
             В Qubite →
           </Link>
         </header>
-        <main className="cs-main">
+        <main className="cs-main" data-swipe-tabs="">
           <h1 className="q-sr">{head.label}</h1>
           <div className="cs-title" aria-hidden="true">
             <DotText
@@ -74,6 +74,7 @@ export function ConsolePage() {
           </div>
           <nav className="cs-tabs" aria-label="Разделы Console">
             <Segmented<TabId>
+              swipeTabs
               label="Раздел Console"
               variant="chips"
               wrap

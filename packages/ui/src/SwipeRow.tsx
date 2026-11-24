@@ -75,7 +75,7 @@ function PhoneSwipeRow({ children, onEdit, onPlace, onDelete, onDone, filter }: 
       );
     const unlisten = swipe(el, {
       axis: 'x',
-      direction: 0,
+      direction: 'both',
       startWithinMs: SWIPE_ROW_HOLD_MS,
       filter: (event, target) =>
         !target.closest('button:not([data-swipe-handle]), a') &&
@@ -133,7 +133,12 @@ function PhoneSwipeRow({ children, onEdit, onPlace, onDelete, onDone, filter }: 
   }
 
   return (
-    <div className="q-swipe-row" ref={root} data-swipe-open={open || undefined}>
+    <div
+      className="q-swipe-row"
+      ref={root}
+      data-swipe-tabs-ignore=""
+      data-swipe-open={open || undefined}
+    >
       <div
         className="q-swipe-actions"
         ref={actions}

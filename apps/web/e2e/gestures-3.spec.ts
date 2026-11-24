@@ -1,6 +1,5 @@
-import { fileURLToPath } from 'node:url';
-import { expect, test, type Locator, type Page, type TestInfo } from '@playwright/test';
-import { touchInput } from './gesture-input';
+import { expect, test, type Locator, type Page } from '@playwright/test';
+import { shot, touchInput } from './gesture-input';
 import { mockSync } from './sync-mock';
 
 const title = 'Купить билеты';
@@ -31,14 +30,6 @@ async function waitForScrollEnd(page: Page) {
       return before === (await page.evaluate(() => window.scrollY));
     })
     .toBe(true);
-}
-
-async function shot(page: Page, info: TestInfo, name: string) {
-  const path = fileURLToPath(
-    new URL(`../../../docs/design/screens/MOB-002/task-swipe-${name}.png`, import.meta.url),
-  );
-  await page.screenshot({ path });
-  await info.attach(`task-swipe-${name}`, { path, contentType: 'image/png' });
 }
 
 test.describe('MOB-002, свайп задачи', { tag: '@gestures-touch' }, () => {
@@ -89,7 +80,7 @@ test.describe('MOB-002, свайп задачи', { tag: '@gestures-touch' }, ()
           const box = (await actions(page).getByRole('button', { name }).boundingBox())!;
           expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(44);
         }
-        await shot(page, info, `actions-${theme}`);
+        await shot(page, info, `task-swipe-actions-${theme}`);
         await page.keyboard.press('Escape');
         await expect(actions(page)).toHaveCount(0);
 
@@ -175,7 +166,7 @@ test.describe('MOB-002, свайп задачи', { tag: '@gestures-touch' }, ()
         await expect(ring).toBeChecked();
         const closed = page.getByRole('status').filter({ hasText: 'Задача закрыта' });
         await expect(closed).toBeVisible();
-        await shot(page, info, `done-${theme}`);
+        await shot(page, info, `task-swipe-done-${theme}`);
         await closed.getByRole('button', { name: 'Отменить' }).tap();
         await expect(ring).not.toBeChecked();
         await expect
@@ -197,6 +188,7 @@ test.describe('MOB-002, свайп задачи', { tag: '@gestures-touch' }, ()
 
         await swipeBy(page, card, -150);
         await expect(actions(page)).toBeVisible();
+        await expect(page.getByRole('radio', { name: 'Доска' })).toBeChecked();
         await expect(card).not.toHaveClass(/\bdragging\b/);
         await page.keyboard.press('Escape');
         await expect(frontFor(page, card)).toHaveCSS('transform', 'none');
@@ -253,6 +245,8 @@ test.describe('MOB-002, свайп задачи', { tag: '@gestures-touch' }, ()
         await waitForScrollEnd(page);
         await swipeBy(page, card, -150);
         await expect(actions(page)).toBeVisible();
+        await expect(page.getByRole('radio', { name: 'Задачи' })).toBeChecked();
+        await expect(page.getByRole('radio', { name: 'Доска' })).toBeChecked();
       });
     });
   }
@@ -278,7 +272,7 @@ test.describe('MOB-002, свайп задачи', { tag: '@gestures-touch' }, ()
       await expect(actions(page)).toHaveCount(0);
       await expect(row.getByRole('checkbox')).not.toBeChecked();
       expect(server.ops).toHaveLength(0);
-      await shot(page, info, 'desktop');
+      await shot(page, info, 'task-swipe-desktop');
     });
   });
 });
