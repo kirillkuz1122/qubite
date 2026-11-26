@@ -4,7 +4,7 @@ const {isOwner}=require('../access');
 function allowed(msg,check){return msg?.chat?.type==='private'&&String(msg.chat.id)===String(msg.from?.id)&&check(msg.from.id);}
 function register(bot,deps={}){
  const r=deps.runtime||runtime,check=deps.isOwner||isOwner,pending=new Map(),busy=new Set();
- async function menu(chat){const items=await r.list();return bot.sendMessage(chat,'Сервисы Raspberry · выбери действие.\nAuth и этот бот работают постоянно. Выключение сохраняет данные.',{reply_markup:{inline_keyboard:[...items.map(i=>[{text:`${i.running?'🟢':'⚫'} ${i.label}${i.state==='missing'?' · не установлен':''}`,callback_data:`power:choose:${i.id}:${i.running?'off':'on'}`}]),[{text:'Обновить',callback_data:'menu:runtime'},{text:'Главное меню',callback_data:'menu:main'}]]}});}
+ async function menu(chat){const items=await r.list();return bot.sendMessage(chat,'Сервисы Qubite. Выбери действие.\nAuth и этот бот работают постоянно. Выключение сохраняет данные.',{reply_markup:{inline_keyboard:[...items.map(i=>[{text:`${i.running?'🟢':'⚫'} ${i.label}${i.state==='missing'?' · не установлен':''}`,callback_data:`power:choose:${i.id}:${i.running?'off':'on'}`}]),[{text:'Обновить',callback_data:'menu:runtime'},{text:'Главное меню',callback_data:'menu:main'}]]}});}
  bot.onText(/^\/power(?:@\w+)?$/i,async msg=>{if(!allowed(msg,check))return;try{await menu(msg.chat.id);}catch{await bot.sendMessage(msg.chat.id,'Менеджер сервисов недоступен.');}});
  bot.on('callback_query',async q=>{
   if(q.data!=='menu:runtime'&&!q.data?.startsWith('power:'))return;
