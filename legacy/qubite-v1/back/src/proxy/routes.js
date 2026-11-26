@@ -71,6 +71,21 @@ const {
 
 const PROXY_NAIVE_SETTING_KEY = "proxy_naive_enabled";
 
+
+// Happ imports this routing profile from the authenticated subscription response.
+const HAPP_ROUTING_HEADER = "happ://routing/onadd/" + Buffer.from(JSON.stringify({
+    Name: "Qubite VPN",
+    GlobalProxy: "true",
+    RemoteDNSType: "DoH",
+    RemoteDNSDomain: "https://1.1.1.1/dns-query",
+    RemoteDNSIP: "1.1.1.1",
+    DirectSites: [],
+    DirectIp: [],
+    ProxyIp: ["1.1.1.1/32"],
+    DomainStrategy: "AsIs",
+    FakeDNS: "false",
+}), "utf8").toString("base64");
+
 function buildProxyRoutingProfile() {
     return {
         version: 1,
@@ -868,6 +883,9 @@ function registerProxyRoutes(app, deps) {
             });
             const body = `${lines.join("\n")}\n`;
             res.setHeader("Cache-Control", "no-store");
+            res.setHeader("profile-title", "Qubite VPN");
+            res.setHeader("profile-update-interval", "12");
+            res.setHeader("routing", HAPP_ROUTING_HEADER);
             if (String(req.query.format || "").toLowerCase() === "base64") {
                 res.type("text/plain").send(Buffer.from(body, "utf8").toString("base64"));
                 return;
