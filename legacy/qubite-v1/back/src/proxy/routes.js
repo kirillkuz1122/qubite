@@ -591,6 +591,25 @@ function deriveVlessUuid(subscriptionSecret) {
     ].join("-");
 }
 
+function deriveHysteria2Password(tokenHash) {
+    return crypto.createHmac("sha256", PROXY_CREDENTIAL_ENCRYPTION_KEY)
+        .update("qubite/hysteria2/")
+        .update(tokenHash)
+        .digest("base64url");
+}
+
+function isHysteria2Port(port) {
+    return Number.isInteger(port) && port > 0 && port <= 65535;
+}
+
+function buildHysteria2Profile(server, tokenHash) {
+    const hysteria2 = parseMetricsJson(server.metadata_json)?.hysteria2;
+    if (!PROXY_CREDENTIAL_ENCRYPTION_KEY || !isHysteria2Port(hysteria2?.port)) return null;
+    const password = deriveHysteria2Password(tokenHash);
+    const label = encodeURIComponent(buildProxyVariantName(server, "hy2"));
+    return `hy2://${password}@${server.public_domain}:${hysteria2.port}/#${label}`;
+}
+
 function buildVlessUri({ host, uuid, label, serverName, publicKey, shortId, port = 443 }) {
     const params = new URLSearchParams({
         encryption: "none",
@@ -750,6 +769,11 @@ async function buildSubscriptionProfiles(subscription, { hashOpaqueToken, genera
                 routeSuffix: `sni:${sniLabel}`,
             });
         }
+    }
+
+    for (const server of servers) {
+        const profile = buildHysteria2Profile(server, subscription.token_hash);
+        if (profile) lines.push(profile);
     }
 
     return lines;
@@ -1744,9 +1768,15 @@ function registerProxyRoutes(app, deps) {
         try {
             const server = await authenticateProxyNode(req, res, { sendError, hashOpaqueToken });
             if (!server) return;
+            const hysteria2 = req.body?.hysteria2;
+            if (hysteria2 != null && !isHysteria2Port(hysteria2.port)) {
+                sendError(res, 400, "Invalid Hysteria 2 port.");
+                return;
+            }
             const updated = await recordProxyServerHeartbeat(server.id, {
                 healthStatus: cleanText(req.body?.health || "online", 32),
                 lastError: cleanText(req.body?.lastError, 240),
+                hysteria2: hysteria2 == null ? hysteria2 : { port: hysteria2.port },
                 reality: {
                     publicKey: cleanText(req.body?.reality?.publicKey, 512),
                     shortId: cleanText(req.body?.reality?.shortId, 32),
@@ -1778,6 +1808,7 @@ function registerProxyRoutes(app, deps) {
             const header = String(req.headers.authorization || "");
             const token = header.startsWith("Bearer ") ? header.slice(7) : "";
             let publicDomain = "";
+            let includeHysteria2 = false;
             if (PROXY_SYNC_TOKEN && token) {
                 const left = Buffer.from(hashOpaqueToken(token), "hex");
                 const right = Buffer.from(hashOpaqueToken(PROXY_SYNC_TOKEN), "hex");
@@ -1793,6 +1824,7 @@ function registerProxyRoutes(app, deps) {
                     return;
                 }
                 publicDomain = server.public_domain;
+                includeHysteria2 = req.query.hysteria2 === "1";
             }
             const naiveEnabled = await isNaiveProxyEnabled();
             const sessions = naiveEnabled ? await listActiveProxySessionsForSync({ publicDomain }) : [];
@@ -1825,6 +1857,11 @@ function registerProxyRoutes(app, deps) {
                     isVip: Boolean(Number(sub.is_vip || 0)),
                     speedLimitMbps: sub.speed_limit_mbps != null ? Number(sub.speed_limit_mbps) : null,
                 })),
+                ...(includeHysteria2 ? {
+                    hysteria2Users: activeSubscriptions.map((sub) => ({
+                        password: deriveHysteria2Password(sub.token_hash),
+                    })),
+                } : {}),
             });
         } catch (error) {
             next(error);

@@ -3087,19 +3087,24 @@ async function recordProxyServerHeartbeat(serverId, payload = {}) {
     const timestamp = nowIso();
     const current = await getProxyServerById(serverId);
     let metadataJson = current?.metadata_json || "{}";
-    if (payload.reality?.publicKey && payload.reality?.shortId) {
+    const hasReality = payload.reality?.publicKey && payload.reality?.shortId;
+    if (hasReality || payload.hysteria2 !== undefined) {
         let metadata = {};
         try {
             metadata = JSON.parse(metadataJson || "{}");
         } catch (error) {
             metadata = {};
         }
-        metadata.reality = {
-            ...(metadata.reality || {}),
-            publicKey: payload.reality.publicKey,
-            shortId: payload.reality.shortId,
-            targetSni: payload.reality.targetSni || metadata.reality?.targetSni || "www.microsoft.com",
-        };
+        if (hasReality) {
+            metadata.reality = {
+                ...(metadata.reality || {}),
+                publicKey: payload.reality.publicKey,
+                shortId: payload.reality.shortId,
+                targetSni: payload.reality.targetSni || metadata.reality?.targetSni || "www.microsoft.com",
+            };
+        }
+        if (payload.hysteria2 === null) delete metadata.hysteria2;
+        else if (payload.hysteria2) metadata.hysteria2 = payload.hysteria2;
         metadataJson = toJsonString(metadata, {});
     }
     await run(
